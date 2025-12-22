@@ -1,5 +1,5 @@
 export type FactionInput = {
-  id: string;
+  id?: string;
   name: string;
   alias?: string[];
   type?: string;

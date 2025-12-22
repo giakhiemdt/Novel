@@ -11,7 +11,7 @@ export const factionRoutes: RouteConfig[] = [
       summary: "Create faction",
       body: {
         type: "object",
-        required: ["id", "name"],
+        required: ["name"],
         properties: {
           id: { type: "string" },
           name: { type: "string" },

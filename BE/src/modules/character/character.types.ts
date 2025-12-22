@@ -4,7 +4,7 @@ export type CharacterGender = "male" | "female" | "other";
 export type CharacterRace = "human" | "elf" | "demon";
 
 export type CharacterInput = {
-  id: string;
+  id?: string;
   name: string;
   alias?: string[];
   soulArt?: string[];

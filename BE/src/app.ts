@@ -1,4 +1,5 @@
 import fastify, { FastifyInstance } from "fastify";
+import cors from "@fastify/cors";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import { appConfig } from "./config/app.config";
@@ -11,6 +12,10 @@ export type App = {
 
 export const createApp = (): App => {
   const server = fastify({ logger: true });
+
+  server.register(cors, {
+    origin: true,
+  });
 
   server.register(swagger, {
     mode: "dynamic",

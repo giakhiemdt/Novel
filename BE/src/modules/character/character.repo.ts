@@ -1,6 +1,7 @@
 import neo4j from "neo4j-driver";
 import { getSession } from "../../database";
 import { nodeLabels } from "../../shared/constants/node-labels";
+import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
 import { CharacterNode } from "./character.types";
 
@@ -40,14 +41,45 @@ CREATE (c:${nodeLabels.character} {
 RETURN c
 `;
 
+const CHARACTER_PARAMS = [
+  "id",
+  "name",
+  "alias",
+  "soulArt",
+  "level",
+  "status",
+  "isMainCharacter",
+  "gender",
+  "age",
+  "race",
+  "appearance",
+  "height",
+  "distinctiveTraits",
+  "personalityTraits",
+  "beliefs",
+  "fears",
+  "desires",
+  "weaknesses",
+  "origin",
+  "background",
+  "trauma",
+  "secret",
+  "currentLocation",
+  "currentGoal",
+  "currentAffiliation",
+  "powerState",
+  "notes",
+  "tags",
+  "createdAt",
+  "updatedAt",
+];
+
 export const createCharacter = async (
   data: CharacterNode
 ): Promise<CharacterNode> => {
   const session = getSession(neo4j.session.WRITE);
   try {
-    const params = Object.fromEntries(
-      Object.entries(data).map(([key, value]) => [key, value ?? null])
-    );
+    const params = buildParams(data, CHARACTER_PARAMS);
     const result = await session.run(CREATE_CHARACTER, params);
     const record = result.records[0];
     const node = record?.get("c");

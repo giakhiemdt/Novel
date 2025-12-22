@@ -11,7 +11,7 @@ export const timelineRoutes: RouteConfig[] = [
       summary: "Create timeline",
       body: {
         type: "object",
-        required: ["id", "name", "startYear", "endYear"],
+        required: ["name", "startYear", "endYear"],
         properties: {
           id: { type: "string" },
           name: { type: "string" },

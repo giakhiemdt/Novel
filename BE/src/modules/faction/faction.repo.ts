@@ -1,6 +1,7 @@
 import neo4j from "neo4j-driver";
 import { getSession } from "../../database";
 import { nodeLabels } from "../../shared/constants/node-labels";
+import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
 import { FactionNode } from "./faction.types";
 
@@ -41,12 +42,44 @@ CREATE (f:${nodeLabels.faction} {
 RETURN f
 `;
 
+const FACTION_PARAMS = [
+  "id",
+  "name",
+  "alias",
+  "type",
+  "alignment",
+  "isPublic",
+  "isCanon",
+  "ideology",
+  "goal",
+  "doctrine",
+  "taboos",
+  "powerLevel",
+  "influenceScope",
+  "militaryPower",
+  "specialAssets",
+  "leadershipType",
+  "leaderTitle",
+  "hierarchyNote",
+  "memberPolicy",
+  "foundingStory",
+  "ageEstimate",
+  "majorConflicts",
+  "reputation",
+  "currentStatus",
+  "currentStrategy",
+  "knownEnemies",
+  "knownAllies",
+  "notes",
+  "tags",
+  "createdAt",
+  "updatedAt",
+];
+
 export const createFaction = async (data: FactionNode): Promise<FactionNode> => {
   const session = getSession(neo4j.session.WRITE);
   try {
-    const params = Object.fromEntries(
-      Object.entries(data).map(([key, value]) => [key, value ?? null])
-    );
+    const params = buildParams(data, FACTION_PARAMS);
     const result = await session.run(CREATE_FACTION, params);
     const record = result.records[0];
     const node = record?.get("f");

@@ -1,4 +1,5 @@
 import { AppError } from "../../shared/errors/app-error";
+import { generateId } from "../../shared/utils/generate-id";
 import { createFaction } from "./faction.repo";
 import { FactionInput, FactionNode } from "./faction.types";
 
@@ -81,10 +82,10 @@ const validateFactionPayload = (payload: unknown): FactionInput => {
 
   const data = payload as Record<string, unknown>;
   const result: Record<string, unknown> = {
-    id: assertRequiredString(data.id, "id"),
     name: assertRequiredString(data.name, "name"),
   };
 
+  addIfDefined(result, "id", assertOptionalString(data.id, "id"));
   addIfDefined(result, "alias", assertOptionalStringArray(data.alias, "alias"));
   addIfDefined(result, "type", assertOptionalString(data.type, "type"));
   addIfDefined(
@@ -192,6 +193,7 @@ const buildFactionNode = (payload: FactionInput): FactionNode => {
   const now = new Date().toISOString();
   return {
     ...payload,
+    id: payload.id ?? generateId(),
     createdAt: now,
     updatedAt: now,
   };

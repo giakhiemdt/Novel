@@ -1,5 +1,5 @@
 export type TimelineInput = {
-  id: string;
+  id?: string;
   name: string;
   code?: string;
   startYear: number;

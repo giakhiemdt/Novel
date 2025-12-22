@@ -2,6 +2,7 @@ import neo4j, { Integer } from "neo4j-driver";
 import { getSession } from "../../database";
 import { nodeLabels } from "../../shared/constants/node-labels";
 import { relationTypes } from "../../shared/constants/relation-types";
+import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
 import { TimelineNode } from "./timeline.types";
 
@@ -29,6 +30,28 @@ CREATE (t:${nodeLabels.timeline} {
 })
 RETURN t
 `;
+
+const TIMELINE_PARAMS = [
+  "id",
+  "name",
+  "code",
+  "startYear",
+  "endYear",
+  "durationYears",
+  "isOngoing",
+  "summary",
+  "description",
+  "characteristics",
+  "dominantForces",
+  "technologyLevel",
+  "powerEnvironment",
+  "worldState",
+  "majorChanges",
+  "notes",
+  "tags",
+  "createdAt",
+  "updatedAt",
+];
 
 const CHECK_NEXT = `
 MATCH (t:${nodeLabels.timeline} {id: $id})
@@ -93,9 +116,7 @@ export const createTimeline = async (
   const session = getSession(neo4j.session.WRITE);
   try {
     const result = await session.executeWrite(async (tx) => {
-      const params = Object.fromEntries(
-        Object.entries(data).map(([key, value]) => [key, value ?? null])
-      );
+      const params = buildParams(data, TIMELINE_PARAMS);
       const created = await tx.run(CREATE_TIMELINE, params);
       const record = created.records[0];
       const node = record?.get("t");

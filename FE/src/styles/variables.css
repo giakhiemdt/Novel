@@ -1,0 +1,28 @@
+:root {
+  --font-sans: "Space Grotesk", "Segoe UI", sans-serif;
+  --font-display: "Fraunces", "Times New Roman", serif;
+
+  --color-ink: #1e1a16;
+  --color-ink-soft: #463c34;
+  --color-paper: #f6f1e8;
+  --color-cream: #fbf7f2;
+  --color-amber: #d3842c;
+  --color-forest: #2f5d50;
+  --color-sky: #98b7c6;
+  --color-stone: #b6a89a;
+  --color-shadow: rgba(24, 18, 12, 0.15);
+
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+
+  --space-1: 6px;
+  --space-2: 10px;
+  --space-3: 14px;
+  --space-4: 20px;
+  --space-5: 28px;
+  --space-6: 36px;
+  --space-7: 48px;
+
+  --shadow-soft: 0 12px 30px var(--color-shadow);
+}

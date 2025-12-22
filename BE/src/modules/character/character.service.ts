@@ -1,4 +1,5 @@
 import { AppError } from "../../shared/errors/app-error";
+import { generateId } from "../../shared/utils/generate-id";
 import { createCharacter } from "./character.repo";
 import {
   CharacterInput,
@@ -122,6 +123,7 @@ const buildCharacterNode = (payload: CharacterInput): CharacterNode => {
   const now = new Date().toISOString();
   return {
     ...payload,
+    id: payload.id ?? generateId(),
     status: payload.status ?? "Alive",
     isMainCharacter: payload.isMainCharacter ?? false,
     createdAt: now,
@@ -146,13 +148,13 @@ const validateCharacterPayload = (payload: unknown): CharacterInput => {
 
   const data = payload as Record<string, unknown>;
   const result: Record<string, unknown> = {
-    id: assertRequiredString(data.id, "id"),
     name: assertRequiredString(data.name, "name"),
     gender: assertRequiredGender(data.gender),
     age: assertRequiredNumber(data.age, "age"),
     race: assertRequiredEnum(data.race, RACES, "race"),
   };
 
+  addIfDefined(result, "id", assertOptionalString(data.id, "id"));
   addIfDefined(result, "alias", assertOptionalStringArray(data.alias, "alias"));
   addIfDefined(
     result,

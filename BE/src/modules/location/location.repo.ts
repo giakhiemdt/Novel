@@ -1,6 +1,7 @@
 import neo4j from "neo4j-driver";
 import { getSession } from "../../database";
 import { nodeLabels } from "../../shared/constants/node-labels";
+import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
 import { LocationNode } from "./location.types";
 
@@ -35,12 +36,38 @@ CREATE (l:${nodeLabels.location} {
 RETURN l
 `;
 
+const LOCATION_PARAMS = [
+  "id",
+  "name",
+  "alias",
+  "type",
+  "category",
+  "isHabitable",
+  "isSecret",
+  "terrain",
+  "climate",
+  "environment",
+  "naturalResources",
+  "powerDensity",
+  "dangerLevel",
+  "anomalies",
+  "restrictions",
+  "historicalSummary",
+  "legend",
+  "ruinsOrigin",
+  "currentStatus",
+  "controlledBy",
+  "populationNote",
+  "notes",
+  "tags",
+  "createdAt",
+  "updatedAt",
+];
+
 export const createLocation = async (data: LocationNode): Promise<LocationNode> => {
   const session = getSession(neo4j.session.WRITE);
   try {
-    const params = Object.fromEntries(
-      Object.entries(data).map(([key, value]) => [key, value ?? null])
-    );
+    const params = buildParams(data, LOCATION_PARAMS);
     const result = await session.run(CREATE_LOCATION, params);
     const record = result.records[0];
     const node = record?.get("l");

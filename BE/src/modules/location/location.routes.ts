@@ -11,7 +11,7 @@ export const locationRoutes: RouteConfig[] = [
       summary: "Create location",
       body: {
         type: "object",
-        required: ["id", "name"],
+        required: ["name"],
         properties: {
           id: { type: "string" },
           name: { type: "string" },

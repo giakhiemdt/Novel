@@ -1,4 +1,5 @@
 import { AppError } from "../../shared/errors/app-error";
+import { generateId } from "../../shared/utils/generate-id";
 import { createTimeline, linkTimeline, unlinkTimeline } from "./timeline.repo";
 import { TimelineInput, TimelineNode } from "./timeline.types";
 
@@ -94,12 +95,12 @@ const validateTimelinePayload = (payload: unknown): TimelineInput => {
   }
 
   const result: Record<string, unknown> = {
-    id: assertRequiredString(data.id, "id"),
     name: assertRequiredString(data.name, "name"),
     startYear,
     endYear,
   };
 
+  addIfDefined(result, "id", assertOptionalString(data.id, "id"));
   addIfDefined(result, "code", assertOptionalString(data.code, "code"));
   addIfDefined(
     result,
@@ -161,6 +162,7 @@ const buildTimelineNode = (
   const { previousId, nextId, ...nodePayload } = payload;
   return {
     ...nodePayload,
+    id: payload.id ?? generateId(),
     durationYears: payload.endYear - payload.startYear,
     isOngoing: payload.isOngoing ?? false,
     createdAt: now,

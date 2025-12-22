@@ -11,7 +11,7 @@ export const characterRoutes: RouteConfig[] = [
       summary: "Create character",
       body: {
         type: "object",
-        required: ["id", "name", "gender", "age", "race"],
+        required: ["name", "gender", "age", "race"],
         properties: {
           id: { type: "string" },
           name: { type: "string" },

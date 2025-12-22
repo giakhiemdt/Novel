@@ -1,4 +1,5 @@
 import { AppError } from "../../shared/errors/app-error";
+import { generateId } from "../../shared/utils/generate-id";
 import { createLocation } from "./location.repo";
 import { LocationInput, LocationNode } from "./location.types";
 
@@ -81,10 +82,10 @@ const validateLocationPayload = (payload: unknown): LocationInput => {
 
   const data = payload as Record<string, unknown>;
   const result: Record<string, unknown> = {
-    id: assertRequiredString(data.id, "id"),
     name: assertRequiredString(data.name, "name"),
   };
 
+  addIfDefined(result, "id", assertOptionalString(data.id, "id"));
   addIfDefined(result, "alias", assertOptionalStringArray(data.alias, "alias"));
   addIfDefined(result, "type", assertOptionalString(data.type, "type"));
   addIfDefined(result, "category", assertOptionalString(data.category, "category"));
@@ -162,6 +163,7 @@ const buildLocationNode = (payload: LocationInput): LocationNode => {
   const now = new Date().toISOString();
   return {
     ...payload,
+    id: payload.id ?? generateId(),
     createdAt: now,
     updatedAt: now,
   };
