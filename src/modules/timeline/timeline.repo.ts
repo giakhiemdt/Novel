@@ -1,1 +1,230 @@
-export const timelineRepo = {};
+import neo4j, { Integer } from "neo4j-driver";
+import { getSession } from "../../database";
+import { nodeLabels } from "../../shared/constants/node-labels";
+import { relationTypes } from "../../shared/constants/relation-types";
+import { mapNode } from "../../shared/utils/map-node";
+import { TimelineNode } from "./timeline.types";
+
+const CREATE_TIMELINE = `
+CREATE (t:${nodeLabels.timeline} {
+  id: $id,
+  name: $name,
+  code: $code,
+  startYear: $startYear,
+  endYear: $endYear,
+  durationYears: $durationYears,
+  isOngoing: $isOngoing,
+  summary: $summary,
+  description: $description,
+  characteristics: $characteristics,
+  dominantForces: $dominantForces,
+  technologyLevel: $technologyLevel,
+  powerEnvironment: $powerEnvironment,
+  worldState: $worldState,
+  majorChanges: $majorChanges,
+  notes: $notes,
+  tags: $tags,
+  createdAt: $createdAt,
+  updatedAt: $updatedAt
+})
+RETURN t
+`;
+
+const CHECK_NEXT = `
+MATCH (t:${nodeLabels.timeline} {id: $id})
+OPTIONAL MATCH (t)-[:${relationTypes.timelineNext}]->(n:${nodeLabels.timeline})
+RETURN t IS NOT NULL AS exists, count(n) AS nextCount
+`;
+
+const CHECK_PREVIOUS = `
+MATCH (t:${nodeLabels.timeline} {id: $id})
+OPTIONAL MATCH (t)-[:${relationTypes.timelinePrevious}]->(p:${nodeLabels.timeline})
+RETURN t IS NOT NULL AS exists, count(p) AS prevCount
+`;
+
+const LINK_PREVIOUS = `
+MATCH (prev:${nodeLabels.timeline} {id: $previousId})
+MATCH (current:${nodeLabels.timeline} {id: $currentId})
+MERGE (prev)-[:${relationTypes.timelineNext}]->(current)
+MERGE (current)-[:${relationTypes.timelinePrevious}]->(prev)
+`;
+
+const LINK_NEXT = `
+MATCH (current:${nodeLabels.timeline} {id: $currentId})
+MATCH (next:${nodeLabels.timeline} {id: $nextId})
+MERGE (current)-[:${relationTypes.timelineNext}]->(next)
+MERGE (next)-[:${relationTypes.timelinePrevious}]->(current)
+`;
+
+const CHECK_EXISTS = `
+MATCH (t:${nodeLabels.timeline} {id: $id})
+RETURN t IS NOT NULL AS exists
+`;
+
+const UNLINK_PREVIOUS_ANY = `
+MATCH (prev:${nodeLabels.timeline})-[r1:${relationTypes.timelineNext}]->(current:${nodeLabels.timeline} {id: $currentId})
+MATCH (current)-[r2:${relationTypes.timelinePrevious}]->(prev)
+DELETE r1, r2
+`;
+
+const UNLINK_PREVIOUS_BY_ID = `
+MATCH (prev:${nodeLabels.timeline} {id: $previousId})-[r1:${relationTypes.timelineNext}]->(current:${nodeLabels.timeline} {id: $currentId})
+MATCH (current)-[r2:${relationTypes.timelinePrevious}]->(prev)
+DELETE r1, r2
+`;
+
+const UNLINK_NEXT_ANY = `
+MATCH (current:${nodeLabels.timeline} {id: $currentId})-[r1:${relationTypes.timelineNext}]->(next:${nodeLabels.timeline})
+MATCH (next)-[r2:${relationTypes.timelinePrevious}]->(current)
+DELETE r1, r2
+`;
+
+const UNLINK_NEXT_BY_ID = `
+MATCH (current:${nodeLabels.timeline} {id: $currentId})-[r1:${relationTypes.timelineNext}]->(next:${nodeLabels.timeline} {id: $nextId})
+MATCH (next)-[r2:${relationTypes.timelinePrevious}]->(current)
+DELETE r1, r2
+`;
+
+export const createTimeline = async (
+  data: Omit<TimelineNode, "previousId" | "nextId">,
+  previousId?: string,
+  nextId?: string
+): Promise<Omit<TimelineNode, "previousId" | "nextId">> => {
+  const session = getSession(neo4j.session.WRITE);
+  try {
+    const result = await session.executeWrite(async (tx) => {
+      const params = Object.fromEntries(
+        Object.entries(data).map(([key, value]) => [key, value ?? null])
+      );
+      const created = await tx.run(CREATE_TIMELINE, params);
+      const record = created.records[0];
+      const node = record?.get("t");
+
+      if (previousId) {
+        const check = await tx.run(CHECK_NEXT, { id: previousId });
+        const exists = check.records[0]?.get("exists") as boolean | undefined;
+        const nextCount = check.records[0]?.get("nextCount") as Integer | undefined;
+        if (!exists) {
+          throw new Error("PREVIOUS timeline not found");
+        }
+        if (nextCount && nextCount.toNumber() > 0) {
+          throw new Error("PREVIOUS timeline already has NEXT");
+        }
+        await tx.run(LINK_PREVIOUS, { previousId, currentId: data.id });
+      }
+
+      if (nextId) {
+        const check = await tx.run(CHECK_PREVIOUS, { id: nextId });
+        const exists = check.records[0]?.get("exists") as boolean | undefined;
+        const prevCount = check.records[0]?.get("prevCount") as Integer | undefined;
+        if (!exists) {
+          throw new Error("NEXT timeline not found");
+        }
+        if (prevCount && prevCount.toNumber() > 0) {
+          throw new Error("NEXT timeline already has PREVIOUS");
+        }
+        await tx.run(LINK_NEXT, { nextId, currentId: data.id });
+      }
+
+      return mapNode(node?.properties ?? data) as TimelineNode;
+    });
+
+    return result;
+  } finally {
+    await session.close();
+  }
+};
+
+export const linkTimeline = async (
+  currentId: string,
+  previousId?: string,
+  nextId?: string
+): Promise<void> => {
+  const session = getSession(neo4j.session.WRITE);
+  try {
+    await session.executeWrite(async (tx) => {
+      const currentCheck = await tx.run(CHECK_EXISTS, { id: currentId });
+      const currentExists = currentCheck.records[0]?.get("exists") as boolean | undefined;
+      if (!currentExists) {
+        throw new Error("CURRENT timeline not found");
+      }
+
+      if (previousId) {
+        const prevCheck = await tx.run(CHECK_NEXT, { id: previousId });
+        const prevExists = prevCheck.records[0]?.get("exists") as boolean | undefined;
+        const prevNextCount = prevCheck.records[0]?.get("nextCount") as Integer | undefined;
+        if (!prevExists) {
+          throw new Error("PREVIOUS timeline not found");
+        }
+        if (prevNextCount && prevNextCount.toNumber() > 0) {
+          throw new Error("PREVIOUS timeline already has NEXT");
+        }
+
+        const currentPrevCheck = await tx.run(CHECK_PREVIOUS, { id: currentId });
+        const currentPrevCount = currentPrevCheck.records[0]?.get("prevCount") as
+          | Integer
+          | undefined;
+        if (currentPrevCount && currentPrevCount.toNumber() > 0) {
+          throw new Error("CURRENT timeline already has PREVIOUS");
+        }
+
+        await tx.run(LINK_PREVIOUS, { previousId, currentId });
+      }
+
+      if (nextId) {
+        const nextCheck = await tx.run(CHECK_PREVIOUS, { id: nextId });
+        const nextExists = nextCheck.records[0]?.get("exists") as boolean | undefined;
+        const nextPrevCount = nextCheck.records[0]?.get("prevCount") as Integer | undefined;
+        if (!nextExists) {
+          throw new Error("NEXT timeline not found");
+        }
+        if (nextPrevCount && nextPrevCount.toNumber() > 0) {
+          throw new Error("NEXT timeline already has PREVIOUS");
+        }
+
+        const currentNextCheck = await tx.run(CHECK_NEXT, { id: currentId });
+        const currentNextCount = currentNextCheck.records[0]?.get("nextCount") as
+          | Integer
+          | undefined;
+        if (currentNextCount && currentNextCount.toNumber() > 0) {
+          throw new Error("CURRENT timeline already has NEXT");
+        }
+
+        await tx.run(LINK_NEXT, { nextId, currentId });
+      }
+    });
+  } finally {
+    await session.close();
+  }
+};
+
+export const unlinkTimeline = async (
+  currentId: string,
+  previousId?: string,
+  nextId?: string
+): Promise<void> => {
+  const session = getSession(neo4j.session.WRITE);
+  try {
+    await session.executeWrite(async (tx) => {
+      const currentCheck = await tx.run(CHECK_EXISTS, { id: currentId });
+      const currentExists = currentCheck.records[0]?.get("exists") as boolean | undefined;
+      if (!currentExists) {
+        throw new Error("CURRENT timeline not found");
+      }
+
+      if (previousId) {
+        await tx.run(UNLINK_PREVIOUS_BY_ID, { currentId, previousId });
+      } else {
+        await tx.run(UNLINK_PREVIOUS_ANY, { currentId });
+      }
+
+      if (nextId) {
+        await tx.run(UNLINK_NEXT_BY_ID, { currentId, nextId });
+      } else {
+        await tx.run(UNLINK_NEXT_ANY, { currentId });
+      }
+    });
+  } finally {
+    await session.close();
+  }
+};

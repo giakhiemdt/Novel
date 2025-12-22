@@ -1,4 +1,6 @@
 import fastify, { FastifyInstance } from "fastify";
+import swagger from "@fastify/swagger";
+import swaggerUi from "@fastify/swagger-ui";
 import { appConfig } from "./config/app.config";
 import { routes } from "./routes";
 
@@ -10,11 +12,30 @@ export type App = {
 export const createApp = (): App => {
   const server = fastify({ logger: true });
 
-  routes.forEach((route) => {
-    server.route({
-      method: route.method,
-      url: route.path,
-      handler: route.handler,
+  server.register(swagger, {
+    mode: "dynamic",
+    swagger: {
+      info: {
+        title: "Novel API",
+        description: "API documentation for Novel",
+        version: "1.0.0",
+      },
+    },
+  });
+
+  server.register(swaggerUi, {
+    routePrefix: "/docs",
+  });
+
+  server.register(async (instance) => {
+    routes.forEach((route) => {
+      const routeOptions = {
+        method: route.method,
+        url: route.path,
+        handler: route.handler,
+        ...(route.schema ? { schema: route.schema } : {}),
+      };
+      instance.route(routeOptions);
     });
   });
 

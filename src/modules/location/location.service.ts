@@ -1,6 +1,6 @@
 import { AppError } from "../../shared/errors/app-error";
-import { createFaction } from "./faction.repo";
-import { FactionInput, FactionNode } from "./faction.types";
+import { createLocation } from "./location.repo";
+import { LocationInput, LocationNode } from "./location.types";
 
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
@@ -74,7 +74,7 @@ const addIfDefined = (
   }
 };
 
-const validateFactionPayload = (payload: unknown): FactionInput => {
+const validateLocationPayload = (payload: unknown): LocationInput => {
   if (!payload || typeof payload !== "object") {
     throw new AppError("payload must be an object", 400);
   }
@@ -87,80 +87,55 @@ const validateFactionPayload = (payload: unknown): FactionInput => {
 
   addIfDefined(result, "alias", assertOptionalStringArray(data.alias, "alias"));
   addIfDefined(result, "type", assertOptionalString(data.type, "type"));
+  addIfDefined(result, "category", assertOptionalString(data.category, "category"));
   addIfDefined(
     result,
-    "alignment",
-    assertOptionalString(data.alignment, "alignment")
+    "isHabitable",
+    assertOptionalBoolean(data.isHabitable, "isHabitable")
+  );
+  addIfDefined(result, "isSecret", assertOptionalBoolean(data.isSecret, "isSecret"));
+  addIfDefined(result, "terrain", assertOptionalString(data.terrain, "terrain"));
+  addIfDefined(result, "climate", assertOptionalString(data.climate, "climate"));
+  addIfDefined(
+    result,
+    "environment",
+    assertOptionalString(data.environment, "environment")
   );
   addIfDefined(
     result,
-    "isPublic",
-    assertOptionalBoolean(data.isPublic, "isPublic")
-  );
-  addIfDefined(result, "isCanon", assertOptionalBoolean(data.isCanon, "isCanon"));
-  addIfDefined(result, "ideology", assertOptionalString(data.ideology, "ideology"));
-  addIfDefined(result, "goal", assertOptionalString(data.goal, "goal"));
-  addIfDefined(result, "doctrine", assertOptionalString(data.doctrine, "doctrine"));
-  addIfDefined(result, "taboos", assertOptionalStringArray(data.taboos, "taboos"));
-  addIfDefined(
-    result,
-    "powerLevel",
-    assertOptionalNumber(data.powerLevel, "powerLevel")
+    "naturalResources",
+    assertOptionalStringArray(data.naturalResources, "naturalResources")
   );
   addIfDefined(
     result,
-    "influenceScope",
-    assertOptionalString(data.influenceScope, "influenceScope")
+    "powerDensity",
+    assertOptionalString(data.powerDensity, "powerDensity")
   );
   addIfDefined(
     result,
-    "militaryPower",
-    assertOptionalString(data.militaryPower, "militaryPower")
+    "dangerLevel",
+    assertOptionalNumber(data.dangerLevel, "dangerLevel")
   );
   addIfDefined(
     result,
-    "specialAssets",
-    assertOptionalStringArray(data.specialAssets, "specialAssets")
+    "anomalies",
+    assertOptionalStringArray(data.anomalies, "anomalies")
   );
   addIfDefined(
     result,
-    "leadershipType",
-    assertOptionalString(data.leadershipType, "leadershipType")
+    "restrictions",
+    assertOptionalStringArray(data.restrictions, "restrictions")
   );
   addIfDefined(
     result,
-    "leaderTitle",
-    assertOptionalString(data.leaderTitle, "leaderTitle")
+    "historicalSummary",
+    assertOptionalString(data.historicalSummary, "historicalSummary")
   );
+  addIfDefined(result, "legend", assertOptionalString(data.legend, "legend"));
   addIfDefined(
     result,
-    "hierarchyNote",
-    assertOptionalString(data.hierarchyNote, "hierarchyNote")
-  );
-  addIfDefined(
-    result,
-    "memberPolicy",
-    assertOptionalString(data.memberPolicy, "memberPolicy")
-  );
-  addIfDefined(
-    result,
-    "foundingStory",
-    assertOptionalString(data.foundingStory, "foundingStory")
-  );
-  addIfDefined(
-    result,
-    "ageEstimate",
-    assertOptionalString(data.ageEstimate, "ageEstimate")
-  );
-  addIfDefined(
-    result,
-    "majorConflicts",
-    assertOptionalStringArray(data.majorConflicts, "majorConflicts")
-  );
-  addIfDefined(
-    result,
-    "reputation",
-    assertOptionalString(data.reputation, "reputation")
+    "ruinsOrigin",
+    assertOptionalString(data.ruinsOrigin, "ruinsOrigin")
   );
   addIfDefined(
     result,
@@ -169,26 +144,21 @@ const validateFactionPayload = (payload: unknown): FactionInput => {
   );
   addIfDefined(
     result,
-    "currentStrategy",
-    assertOptionalString(data.currentStrategy, "currentStrategy")
+    "controlledBy",
+    assertOptionalString(data.controlledBy, "controlledBy")
   );
   addIfDefined(
     result,
-    "knownEnemies",
-    assertOptionalStringArray(data.knownEnemies, "knownEnemies")
-  );
-  addIfDefined(
-    result,
-    "knownAllies",
-    assertOptionalStringArray(data.knownAllies, "knownAllies")
+    "populationNote",
+    assertOptionalString(data.populationNote, "populationNote")
   );
   addIfDefined(result, "notes", assertOptionalString(data.notes, "notes"));
   addIfDefined(result, "tags", assertOptionalStringArray(data.tags, "tags"));
 
-  return result as FactionInput;
+  return result as LocationInput;
 };
 
-const buildFactionNode = (payload: FactionInput): FactionNode => {
+const buildLocationNode = (payload: LocationInput): LocationNode => {
   const now = new Date().toISOString();
   return {
     ...payload,
@@ -197,10 +167,10 @@ const buildFactionNode = (payload: FactionInput): FactionNode => {
   };
 };
 
-export const factionService = {
-  create: async (payload: unknown): Promise<FactionNode> => {
-    const validated = validateFactionPayload(payload);
-    const node = buildFactionNode(validated);
-    return createFaction(node);
+export const locationService = {
+  create: async (payload: unknown): Promise<LocationNode> => {
+    const validated = validateLocationPayload(payload);
+    const node = buildLocationNode(validated);
+    return createLocation(node);
   },
 };

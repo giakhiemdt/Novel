@@ -3,4 +3,5 @@ export const nodeLabels = {
   event: "Event",
   faction: "Faction",
   timeline: "Timeline",
+  location: "Location",
 };
