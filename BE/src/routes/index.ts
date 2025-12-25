@@ -1,5 +1,7 @@
 import { FastifyReply, FastifyRequest, HTTPMethods } from "fastify";
 import { characterRoutes } from "../modules/character/character.routes";
+import { overviewRoutes } from "../modules/overview/overview.routes";
+import { projectRoutes } from "../modules/project/project.routes";
 import { timelineRoutes } from "../modules/timeline/timeline.routes";
 import { locationRoutes } from "../modules/location/location.routes";
 import { factionRoutes } from "../modules/faction/faction.routes";
@@ -20,6 +22,8 @@ export type RouteConfig = {
 
 export const routes: RouteConfig[] = [
   ...healthRoutes,
+  ...overviewRoutes,
+  ...projectRoutes,
   ...characterRoutes,
   ...timelineRoutes,
   ...locationRoutes,

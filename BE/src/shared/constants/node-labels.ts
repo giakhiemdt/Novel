@@ -1,4 +1,6 @@
 export const nodeLabels = {
+  project: "Project",
+  overview: "Overview",
   character: "Character",
   event: "Event",
   faction: "Faction",

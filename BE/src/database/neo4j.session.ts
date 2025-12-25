@@ -10,6 +10,14 @@ export const getSession = (
     defaultAccessMode: accessMode,
   });
 
+export const getSystemSession = (
+  accessMode: SessionMode = neo4j.session.WRITE
+): Session =>
+  getDriver().session({
+    database: "system",
+    defaultAccessMode: accessMode,
+  });
+
 export const verifyConnection = async (): Promise<void> => {
   const session = getSession(neo4j.session.READ);
   try {

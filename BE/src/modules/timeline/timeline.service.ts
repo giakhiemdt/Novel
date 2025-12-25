@@ -1,6 +1,11 @@
 import { AppError } from "../../shared/errors/app-error";
 import { generateId } from "../../shared/utils/generate-id";
-import { createTimeline, linkTimeline, unlinkTimeline } from "./timeline.repo";
+import {
+  createTimeline,
+  getAllTimelines,
+  linkTimeline,
+  unlinkTimeline,
+} from "./timeline.repo";
 import { TimelineInput, TimelineNode } from "./timeline.types";
 
 const isStringArray = (value: unknown): value is string[] =>
@@ -195,6 +200,9 @@ export const timelineService = {
       }
       throw new AppError(message, 500);
     }
+  },
+  getAll: async (): Promise<TimelineNode[]> => {
+    return getAllTimelines();
   },
   link: async (payload: unknown): Promise<void> => {
     if (!payload || typeof payload !== "object") {

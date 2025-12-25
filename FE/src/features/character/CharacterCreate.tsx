@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "../../components/common/Button";
 import { ErrorMessage } from "../../components/common/ErrorMessage";
 import { FormSection } from "../../components/form/FormSection";
@@ -7,7 +7,7 @@ import { Select } from "../../components/form/Select";
 import { TextArea } from "../../components/form/TextArea";
 import { TextInput } from "../../components/form/TextInput";
 import { useForm } from "../../hooks/useForm";
-import { createCharacter } from "./character.api";
+import { createCharacter, getAllCharacters } from "./character.api";
 import { CharacterList } from "./CharacterList";
 import { validateCharacter } from "./character.schema";
 import type { Character, CharacterPayload } from "./character.types";
@@ -47,8 +47,59 @@ type CharacterFormState = typeof initialState;
 export const CharacterCreate = () => {
   const { values, setField, reset } = useForm<CharacterFormState>(initialState);
   const [items, setItems] = useState<Character[]>([]);
+  const [selected, setSelected] = useState<Character | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const loadItems = useCallback(async (selectId?: string) => {
+    setLoading(true);
+    setListError(null);
+    try {
+      const data = await getAllCharacters();
+      setItems(data ?? []);
+      if (!data || data.length === 0) {
+        setSelected(null);
+        return;
+      }
+      if (selectId) {
+        const match = data.find((item) => item.id === selectId);
+        setSelected(match ?? data[0]);
+        return;
+      }
+      setSelected((prev) => {
+        if (!prev) {
+          return data[0];
+        }
+        return data.find((item) => item.id === prev.id) ?? data[0];
+      });
+    } catch (err) {
+      setListError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [getAllCharacters]);
+
+  useEffect(() => {
+    void loadItems();
+  }, [loadItems]);
+
+  const renderPills = (values?: string[]) => {
+    if (!values || values.length === 0) {
+      return <span className="header__subtitle">-</span>;
+    }
+    return (
+      <div className="pill-list">
+        {values.map((value) => (
+          <span className="pill" key={value}>
+            {value}
+          </span>
+        ))}
+      </div>
+    );
+  };
 
   const buildPayload = (): CharacterPayload => ({
     name: values.name,
@@ -92,9 +143,10 @@ export const CharacterCreate = () => {
 
     try {
       const created = await createCharacter(payload);
-      setItems((prev) => [created, ...prev]);
       setStatus("Character created successfully.");
       reset();
+      setShowForm(false);
+      await loadItems(created.id);
     } catch (err) {
       setError((err as Error).message);
     }
@@ -102,10 +154,65 @@ export const CharacterCreate = () => {
 
   return (
     <div>
-      <FormSection
-        title="Core Identity"
-        description="Base profile for the character node."
-      >
+      <div className="page-toolbar">
+        <Button onClick={() => setShowForm((prev) => !prev)} variant="primary">
+          {showForm ? "Close form" : "Create new character"}
+        </Button>
+        <Button onClick={() => loadItems()} variant="ghost" disabled={loading}>
+          {loading ? "Refreshing..." : "Refresh list"}
+        </Button>
+      </div>
+
+      <div className="content-grid">
+        <div className="card">
+          <h3 className="section-title">Character nodes</h3>
+          <p className="header__subtitle">Click a row to inspect details.</p>
+          {listError && <ErrorMessage message={listError} />}
+          {!listError && (
+            <CharacterList
+              items={items}
+              selectedId={selected?.id}
+              onSelect={setSelected}
+            />
+          )}
+        </div>
+        <div className="card">
+          <h3 className="section-title">Details</h3>
+          {selected ? (
+            <dl className="detail-list">
+              <dt>Name</dt>
+              <dd>{selected.name}</dd>
+              <dt>ID</dt>
+              <dd>{selected.id ?? "-"}</dd>
+              <dt>Gender</dt>
+              <dd>{selected.gender ?? "-"}</dd>
+              <dt>Age</dt>
+              <dd>{selected.age ?? "-"}</dd>
+              <dt>Race</dt>
+              <dd>{selected.race ?? "-"}</dd>
+              <dt>Status</dt>
+              <dd>{selected.status ?? "-"}</dd>
+              <dt>Level</dt>
+              <dd>{selected.level ?? "-"}</dd>
+              <dt>Main</dt>
+              <dd>{selected.isMainCharacter ? "Yes" : "No"}</dd>
+              <dt>Alias</dt>
+              <dd>{renderPills(selected.alias)}</dd>
+              <dt>Tags</dt>
+              <dd>{renderPills(selected.tags)}</dd>
+            </dl>
+          ) : (
+            <p className="header__subtitle">Select a character to see details.</p>
+          )}
+        </div>
+      </div>
+
+      {showForm && (
+        <>
+          <FormSection
+            title="Core Identity"
+            description="Base profile for the character node."
+          >
         <TextInput
           label="Name"
           value={values.name}
@@ -250,18 +357,15 @@ export const CharacterCreate = () => {
         <MultiSelect label="Tags" values={values.tags} onChange={(value) => setField("tags", value)} />
       </FormSection>
 
-      <div className="card">
-        <Button onClick={handleSubmit} variant="primary">
-          Create character
-        </Button>
-        {status && <p className="notice">{status}</p>}
-        {error && <ErrorMessage message={error} />}
-      </div>
-
-      <div className="card">
-        <h3 className="section-title">Recently created</h3>
-        <CharacterList items={items} />
-      </div>
+          <div className="card">
+            <Button onClick={handleSubmit} variant="primary">
+              Create character
+            </Button>
+            {status && <p className="notice">{status}</p>}
+            {error && <ErrorMessage message={error} />}
+          </div>
+        </>
+      )}
     </div>
   );
 };

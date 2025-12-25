@@ -15,6 +15,20 @@ const createCharacter = async (
   }
 };
 
+const getAllCharacters = async (
+  _req: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> => {
+  try {
+    const characters = await characterService.getAll();
+    reply.status(200).send({ data: characters });
+  } catch (error) {
+    const handled = handleError(error);
+    reply.status(handled.statusCode).send({ message: handled.message });
+  }
+};
+
 export const characterController = {
   createCharacter,
+  getAllCharacters,
 };

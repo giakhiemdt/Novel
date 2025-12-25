@@ -4,11 +4,15 @@ export type HeaderProps = {
 };
 
 export const Header = ({ title, subtitle }: HeaderProps) => {
+  if (!title && !subtitle) {
+    return null;
+  }
+
   return (
     <header className="header">
       <div>
-        <h1 className="header__title">{title}</h1>
-        <p className="header__subtitle">{subtitle}</p>
+        {title && <h1 className="header__title">{title}</h1>}
+        {subtitle && <p className="header__subtitle">{subtitle}</p>}
       </div>
     </header>
   );

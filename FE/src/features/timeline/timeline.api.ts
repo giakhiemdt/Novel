@@ -2,6 +2,9 @@ import { api } from "../../services/api";
 import { endpoints } from "../../services/endpoints";
 import type { Timeline, TimelineLinkPayload, TimelinePayload } from "./timeline.types";
 
+export const getAllTimelines = () =>
+  api.get<Timeline[]>(endpoints.timelines);
+
 export const createTimeline = (payload: TimelinePayload) =>
   api.post<Timeline>(endpoints.timelines, payload);
 

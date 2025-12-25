@@ -2,15 +2,15 @@
   --font-sans: "Space Grotesk", "Segoe UI", sans-serif;
   --font-display: "Fraunces", "Times New Roman", serif;
 
-  --color-ink: #1e1a16;
-  --color-ink-soft: #463c34;
-  --color-paper: #f6f1e8;
-  --color-cream: #fbf7f2;
-  --color-amber: #d3842c;
-  --color-forest: #2f5d50;
-  --color-sky: #98b7c6;
-  --color-stone: #b6a89a;
-  --color-shadow: rgba(24, 18, 12, 0.15);
+  --color-ink: #e7eef6;
+  --color-ink-soft: #9aa9ba;
+  --color-paper: #080d14;
+  --color-cream: #121b26;
+  --color-amber: #4db8ff;
+  --color-forest: #1f6f8b;
+  --color-sky: #223447;
+  --color-stone: #5f6e7c;
+  --color-shadow: rgba(0, 0, 0, 0.45);
 
   --radius-sm: 10px;
   --radius-md: 16px;

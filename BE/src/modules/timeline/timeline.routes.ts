@@ -3,6 +3,26 @@ import { timelineController } from "./timeline.controller";
 
 export const timelineRoutes: RouteConfig[] = [
   {
+    method: "GET",
+    path: "/timelines",
+    handler: timelineController.getAllTimelines,
+    schema: {
+      tags: ["Timeline"],
+      summary: "Get all timelines",
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            data: {
+              type: "array",
+              items: { type: "object", additionalProperties: true },
+            },
+          },
+        },
+      },
+    },
+  },
+  {
     method: "POST",
     path: "/timelines",
     handler: timelineController.createTimeline,

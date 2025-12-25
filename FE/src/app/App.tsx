@@ -4,8 +4,8 @@ import { AppRouter } from "./router";
 
 const titles: Record<string, { title: string; subtitle: string }> = {
   "/": {
-    title: "Novel World Studio",
-    subtitle: "Build the backbone of your universe, one node at a time.",
+    title: "",
+    subtitle: "",
   },
   "/characters": {
     title: "Characters",

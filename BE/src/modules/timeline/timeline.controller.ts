@@ -15,8 +15,22 @@ const createTimeline = async (
   }
 };
 
+const getAllTimelines = async (
+  _req: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> => {
+  try {
+    const timelines = await timelineService.getAll();
+    reply.status(200).send({ data: timelines });
+  } catch (error) {
+    const handled = handleError(error);
+    reply.status(handled.statusCode).send({ message: handled.message });
+  }
+};
+
 export const timelineController = {
   createTimeline,
+  getAllTimelines,
   linkTimeline: async (
     req: FastifyRequest,
     reply: FastifyReply

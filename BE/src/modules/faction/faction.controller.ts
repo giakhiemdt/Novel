@@ -15,6 +15,20 @@ const createFaction = async (
   }
 };
 
+const getAllFactions = async (
+  _req: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> => {
+  try {
+    const factions = await factionService.getAll();
+    reply.status(200).send({ data: factions });
+  } catch (error) {
+    const handled = handleError(error);
+    reply.status(handled.statusCode).send({ message: handled.message });
+  }
+};
+
 export const factionController = {
   createFaction,
+  getAllFactions,
 };

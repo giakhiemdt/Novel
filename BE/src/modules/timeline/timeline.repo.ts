@@ -31,6 +31,12 @@ CREATE (t:${nodeLabels.timeline} {
 RETURN t
 `;
 
+const GET_ALL_TIMELINES = `
+MATCH (t:${nodeLabels.timeline})
+RETURN t
+ORDER BY t.createdAt DESC
+`;
+
 const TIMELINE_PARAMS = [
   "id",
   "name",
@@ -151,6 +157,19 @@ export const createTimeline = async (
     });
 
     return result;
+  } finally {
+    await session.close();
+  }
+};
+
+export const getAllTimelines = async (): Promise<TimelineNode[]> => {
+  const session = getSession(neo4j.session.READ);
+  try {
+    const result = await session.run(GET_ALL_TIMELINES);
+    return result.records.map((record) => {
+      const node = record.get("t");
+      return mapNode(node?.properties ?? {}) as TimelineNode;
+    });
   } finally {
     await session.close();
   }

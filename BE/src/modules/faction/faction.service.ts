@@ -1,6 +1,6 @@
 import { AppError } from "../../shared/errors/app-error";
 import { generateId } from "../../shared/utils/generate-id";
-import { createFaction } from "./faction.repo";
+import { createFaction, getAllFactions } from "./faction.repo";
 import { FactionInput, FactionNode } from "./faction.types";
 
 const isStringArray = (value: unknown): value is string[] =>
@@ -204,5 +204,8 @@ export const factionService = {
     const validated = validateFactionPayload(payload);
     const node = buildFactionNode(validated);
     return createFaction(node);
+  },
+  getAll: async (): Promise<FactionNode[]> => {
+    return getAllFactions();
   },
 };

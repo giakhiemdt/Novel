@@ -41,6 +41,12 @@ CREATE (c:${nodeLabels.character} {
 RETURN c
 `;
 
+const GET_ALL_CHARACTERS = `
+MATCH (c:${nodeLabels.character})
+RETURN c
+ORDER BY c.createdAt DESC
+`;
+
 const CHARACTER_PARAMS = [
   "id",
   "name",
@@ -84,6 +90,19 @@ export const createCharacter = async (
     const record = result.records[0];
     const node = record?.get("c");
     return mapNode(node?.properties ?? data) as CharacterNode;
+  } finally {
+    await session.close();
+  }
+};
+
+export const getAllCharacters = async (): Promise<CharacterNode[]> => {
+  const session = getSession(neo4j.session.READ);
+  try {
+    const result = await session.run(GET_ALL_CHARACTERS);
+    return result.records.map((record) => {
+      const node = record.get("c");
+      return mapNode(node?.properties ?? {}) as CharacterNode;
+    });
   } finally {
     await session.close();
   }

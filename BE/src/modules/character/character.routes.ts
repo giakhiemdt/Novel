@@ -3,6 +3,26 @@ import { characterController } from "./character.controller";
 
 export const characterRoutes: RouteConfig[] = [
   {
+    method: "GET",
+    path: "/characters",
+    handler: characterController.getAllCharacters,
+    schema: {
+      tags: ["Character"],
+      summary: "Get all characters",
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            data: {
+              type: "array",
+              items: { type: "object", additionalProperties: true },
+            },
+          },
+        },
+      },
+    },
+  },
+  {
     method: "POST",
     path: "/characters",
     handler: characterController.createCharacter,

@@ -36,6 +36,12 @@ CREATE (l:${nodeLabels.location} {
 RETURN l
 `;
 
+const GET_ALL_LOCATIONS = `
+MATCH (l:${nodeLabels.location})
+RETURN l
+ORDER BY l.createdAt DESC
+`;
+
 const LOCATION_PARAMS = [
   "id",
   "name",
@@ -72,6 +78,19 @@ export const createLocation = async (data: LocationNode): Promise<LocationNode> 
     const record = result.records[0];
     const node = record?.get("l");
     return mapNode(node?.properties ?? data) as LocationNode;
+  } finally {
+    await session.close();
+  }
+};
+
+export const getAllLocations = async (): Promise<LocationNode[]> => {
+  const session = getSession(neo4j.session.READ);
+  try {
+    const result = await session.run(GET_ALL_LOCATIONS);
+    return result.records.map((record) => {
+      const node = record.get("l");
+      return mapNode(node?.properties ?? {}) as LocationNode;
+    });
   } finally {
     await session.close();
   }

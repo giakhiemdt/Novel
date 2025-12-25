@@ -3,6 +3,26 @@ import { locationController } from "./location.controller";
 
 export const locationRoutes: RouteConfig[] = [
   {
+    method: "GET",
+    path: "/locations",
+    handler: locationController.getAllLocations,
+    schema: {
+      tags: ["Location"],
+      summary: "Get all locations",
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            data: {
+              type: "array",
+              items: { type: "object", additionalProperties: true },
+            },
+          },
+        },
+      },
+    },
+  },
+  {
     method: "POST",
     path: "/locations",
     handler: locationController.createLocation,

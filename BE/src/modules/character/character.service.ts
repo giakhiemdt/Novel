@@ -1,6 +1,6 @@
 import { AppError } from "../../shared/errors/app-error";
 import { generateId } from "../../shared/utils/generate-id";
-import { createCharacter } from "./character.repo";
+import { createCharacter, getAllCharacters } from "./character.repo";
 import {
   CharacterInput,
   CharacterLevel,
@@ -251,5 +251,8 @@ export const characterService = {
     const validated = validateCharacterPayload(payload);
     const node = buildCharacterNode(validated);
     return createCharacter(node);
+  },
+  getAll: async (): Promise<CharacterNode[]> => {
+    return getAllCharacters();
   },
 };

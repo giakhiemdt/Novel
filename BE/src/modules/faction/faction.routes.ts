@@ -3,6 +3,26 @@ import { factionController } from "./faction.controller";
 
 export const factionRoutes: RouteConfig[] = [
   {
+    method: "GET",
+    path: "/factions",
+    handler: factionController.getAllFactions,
+    schema: {
+      tags: ["Faction"],
+      summary: "Get all factions",
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            data: {
+              type: "array",
+              items: { type: "object", additionalProperties: true },
+            },
+          },
+        },
+      },
+    },
+  },
+  {
     method: "POST",
     path: "/factions",
     handler: factionController.createFaction,

@@ -42,6 +42,12 @@ CREATE (f:${nodeLabels.faction} {
 RETURN f
 `;
 
+const GET_ALL_FACTIONS = `
+MATCH (f:${nodeLabels.faction})
+RETURN f
+ORDER BY f.createdAt DESC
+`;
+
 const FACTION_PARAMS = [
   "id",
   "name",
@@ -84,6 +90,19 @@ export const createFaction = async (data: FactionNode): Promise<FactionNode> => 
     const record = result.records[0];
     const node = record?.get("f");
     return mapNode(node?.properties ?? data) as FactionNode;
+  } finally {
+    await session.close();
+  }
+};
+
+export const getAllFactions = async (): Promise<FactionNode[]> => {
+  const session = getSession(neo4j.session.READ);
+  try {
+    const result = await session.run(GET_ALL_FACTIONS);
+    return result.records.map((record) => {
+      const node = record.get("f");
+      return mapNode(node?.properties ?? {}) as FactionNode;
+    });
   } finally {
     await session.close();
   }

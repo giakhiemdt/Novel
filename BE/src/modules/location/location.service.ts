@@ -1,6 +1,6 @@
 import { AppError } from "../../shared/errors/app-error";
 import { generateId } from "../../shared/utils/generate-id";
-import { createLocation } from "./location.repo";
+import { createLocation, getAllLocations } from "./location.repo";
 import { LocationInput, LocationNode } from "./location.types";
 
 const isStringArray = (value: unknown): value is string[] =>
@@ -174,5 +174,8 @@ export const locationService = {
     const validated = validateLocationPayload(payload);
     const node = buildLocationNode(validated);
     return createLocation(node);
+  },
+  getAll: async (): Promise<LocationNode[]> => {
+    return getAllLocations();
   },
 };
