@@ -8,6 +8,7 @@ import { ArcCreate } from "../features/arc/ArcCreate";
 import { ChapterCreate } from "../features/chapter/ChapterCreate";
 import { SceneCreate } from "../features/scene/SceneCreate";
 import { ItemCreate } from "../features/item/ItemCreate";
+import { RelationshipCreate } from "../features/relationship/RelationshipCreate";
 import { Dashboard } from "./Dashboard";
 
 export const AppRouter = () => {
@@ -23,6 +24,7 @@ export const AppRouter = () => {
       <Route path="/chapters" element={<ChapterCreate />} />
       <Route path="/scenes" element={<SceneCreate />} />
       <Route path="/items" element={<ItemCreate />} />
+      <Route path="/relationships" element={<RelationshipCreate />} />
     </Routes>
   );
 };
