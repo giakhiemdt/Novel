@@ -485,11 +485,6 @@ h3 {
   font-size: 1rem;
 }
 
-.overview-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
 @media (max-width: 1100px) {
   .overview-layout {
     grid-template-columns: 1fr;
@@ -700,13 +695,18 @@ h3 {
   padding: 4px 2px;
 }
 
-.button {
+.button,
+.table__action,
+.timeline-fab {
   border: none;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.button {
   border-radius: 999px;
   padding: 10px 20px;
   font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
 .button--primary {
@@ -721,7 +721,8 @@ h3 {
   color: var(--color-ink);
 }
 
-.button:hover {
+.button:hover,
+.table__action:hover {
   transform: translateY(-1px);
 }
 
@@ -772,38 +773,30 @@ h3 {
   margin-bottom: var(--space-3);
 }
 
-.table__actions {
-  display: flex;
-  gap: var(--space-1);
-  justify-content: flex-end;
-}
-
 .table__action {
-  border: none;
-  background: var(--accent-soft);
-  color: var(--color-ink);
+  --action-bg: var(--accent-soft);
+  --action-hover: var(--accent-soft-strong);
+  --action-text: var(--color-ink);
+  background: var(--action-bg);
+  color: var(--action-text);
   border-radius: 8px;
   padding: 8px 14px;
   font-size: 0.85rem;
-  cursor: pointer;
-  transition: background 0.2s ease;
 }
 
 .table__action:hover {
-  background: var(--accent-soft-strong);
+  background: var(--action-hover);
 }
 
 .table__action--ghost {
-  background: var(--surface-ghost);
+  --action-bg: var(--surface-ghost);
+  --action-hover: var(--surface-ghost);
 }
 
 .table__action--danger {
-  background: var(--danger-soft);
-  color: var(--danger-text);
-}
-
-.table__action--danger:hover {
-  background: var(--danger-strong);
+  --action-bg: var(--danger-soft);
+  --action-hover: var(--danger-strong);
+  --action-text: var(--danger-text);
 }
 
 .toast-viewport {
@@ -1238,8 +1231,18 @@ h3 {
 
 .timeline-card__actions {
   margin-top: var(--space-2);
+}
+
+.overview-actions,
+.table__actions,
+.timeline-card__actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.overview-actions,
+.timeline-card__actions {
+  gap: var(--space-2);
 }
 
 .timeline-empty {
@@ -1268,12 +1271,10 @@ h3 {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  border: none;
   background: var(--fab-bg);
   color: var(--fab-text);
   font-size: 1.8rem;
   line-height: 1;
-  cursor: pointer;
   box-shadow: var(--fab-shadow);
 }
 
