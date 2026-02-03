@@ -384,13 +384,25 @@ const parseEventListQuery = (query: unknown): EventListQuery => {
 
   result.limit = normalizedLimit;
   result.offset = normalizedOffset;
-  result.q = parseOptionalQueryString(data.q, "q");
-  result.timelineId = parseOptionalQueryString(data.timelineId, "timelineId");
-  result.locationId = parseOptionalQueryString(data.locationId, "locationId");
-  result.characterId = parseOptionalQueryString(data.characterId, "characterId");
-  result.tag = parseOptionalQueryString(data.tag, "tag");
-  result.name = parseOptionalQueryString(data.name, "name");
-  result.type = parseOptionalQueryString(data.type, "type");
+  addIfDefined(result, "q", parseOptionalQueryString(data.q, "q"));
+  addIfDefined(
+    result,
+    "timelineId",
+    parseOptionalQueryString(data.timelineId, "timelineId")
+  );
+  addIfDefined(
+    result,
+    "locationId",
+    parseOptionalQueryString(data.locationId, "locationId")
+  );
+  addIfDefined(
+    result,
+    "characterId",
+    parseOptionalQueryString(data.characterId, "characterId")
+  );
+  addIfDefined(result, "tag", parseOptionalQueryString(data.tag, "tag"));
+  addIfDefined(result, "name", parseOptionalQueryString(data.name, "name"));
+  addIfDefined(result, "type", parseOptionalQueryString(data.type, "type"));
 
   return result;
 };

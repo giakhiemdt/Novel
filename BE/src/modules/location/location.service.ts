@@ -292,18 +292,37 @@ const parseLocationListQuery = (query: unknown): LocationListQuery => {
     throw new AppError("offset must be >= 0", 400);
   }
 
-  return {
+  const result: LocationListQuery = {
     limit: normalizedLimit,
     offset: normalizedOffset,
-    q: parseOptionalQueryString(data.q, "q"),
-    name: parseOptionalQueryString(data.name, "name"),
-    tag: parseOptionalQueryString(data.tag, "tag"),
-    type: parseOptionalQueryString(data.type, "type"),
-    category: parseOptionalQueryString(data.category, "category"),
-    isSecret: parseOptionalQueryBoolean(data.isSecret, "isSecret"),
-    isHabitable: parseOptionalQueryBoolean(data.isHabitable, "isHabitable"),
-    parentId: parseOptionalQueryString(data.parentId, "parentId"),
   };
+
+  addIfDefined(result, "q", parseOptionalQueryString(data.q, "q"));
+  addIfDefined(result, "name", parseOptionalQueryString(data.name, "name"));
+  addIfDefined(result, "tag", parseOptionalQueryString(data.tag, "tag"));
+  addIfDefined(result, "type", parseOptionalQueryString(data.type, "type"));
+  addIfDefined(
+    result,
+    "category",
+    parseOptionalQueryString(data.category, "category")
+  );
+  addIfDefined(
+    result,
+    "isSecret",
+    parseOptionalQueryBoolean(data.isSecret, "isSecret")
+  );
+  addIfDefined(
+    result,
+    "isHabitable",
+    parseOptionalQueryBoolean(data.isHabitable, "isHabitable")
+  );
+  addIfDefined(
+    result,
+    "parentId",
+    parseOptionalQueryString(data.parentId, "parentId")
+  );
+
+  return result;
 };
 
 export const locationService = {

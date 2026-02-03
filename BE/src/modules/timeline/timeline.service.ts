@@ -274,15 +274,22 @@ const parseTimelineListQuery = (query: unknown): TimelineListQuery => {
     throw new AppError("offset must be >= 0", 400);
   }
 
-  return {
+  const result: TimelineListQuery = {
     limit: normalizedLimit,
     offset: normalizedOffset,
-    q: parseOptionalQueryString(data.q, "q"),
-    name: parseOptionalQueryString(data.name, "name"),
-    tag: parseOptionalQueryString(data.tag, "tag"),
-    code: parseOptionalQueryString(data.code, "code"),
-    isOngoing: parseOptionalQueryBoolean(data.isOngoing, "isOngoing"),
   };
+
+  addIfDefined(result, "q", parseOptionalQueryString(data.q, "q"));
+  addIfDefined(result, "name", parseOptionalQueryString(data.name, "name"));
+  addIfDefined(result, "tag", parseOptionalQueryString(data.tag, "tag"));
+  addIfDefined(result, "code", parseOptionalQueryString(data.code, "code"));
+  addIfDefined(
+    result,
+    "isOngoing",
+    parseOptionalQueryBoolean(data.isOngoing, "isOngoing")
+  );
+
+  return result;
 };
 
 export const timelineService = {

@@ -304,17 +304,32 @@ const parseFactionListQuery = (query: unknown): FactionListQuery => {
     throw new AppError("offset must be >= 0", 400);
   }
 
-  return {
+  const result: FactionListQuery = {
     limit: normalizedLimit,
     offset: normalizedOffset,
-    q: parseOptionalQueryString(data.q, "q"),
-    name: parseOptionalQueryString(data.name, "name"),
-    tag: parseOptionalQueryString(data.tag, "tag"),
-    type: parseOptionalQueryString(data.type, "type"),
-    alignment: parseOptionalQueryString(data.alignment, "alignment"),
-    isPublic: parseOptionalQueryBoolean(data.isPublic, "isPublic"),
-    isCanon: parseOptionalQueryBoolean(data.isCanon, "isCanon"),
   };
+
+  addIfDefined(result, "q", parseOptionalQueryString(data.q, "q"));
+  addIfDefined(result, "name", parseOptionalQueryString(data.name, "name"));
+  addIfDefined(result, "tag", parseOptionalQueryString(data.tag, "tag"));
+  addIfDefined(result, "type", parseOptionalQueryString(data.type, "type"));
+  addIfDefined(
+    result,
+    "alignment",
+    parseOptionalQueryString(data.alignment, "alignment")
+  );
+  addIfDefined(
+    result,
+    "isPublic",
+    parseOptionalQueryBoolean(data.isPublic, "isPublic")
+  );
+  addIfDefined(
+    result,
+    "isCanon",
+    parseOptionalQueryBoolean(data.isCanon, "isCanon")
+  );
+
+  return result;
 };
 
 export const factionService = {

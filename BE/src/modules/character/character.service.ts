@@ -217,6 +217,16 @@ const buildCharacterNode = (payload: CharacterInput): CharacterNode => {
   };
 };
 
+const addIfDefined = (
+  target: Record<string, unknown>,
+  key: string,
+  value: unknown
+): void => {
+  if (value !== undefined) {
+    target[key] = value;
+  }
+};
+
 const parseCharacterListQuery = (query: unknown): CharacterListQuery => {
   if (!query || typeof query !== "object") {
     return { limit: 50, offset: 0 };
@@ -257,31 +267,25 @@ const parseCharacterListQuery = (query: unknown): CharacterListQuery => {
     throw new AppError(`level must be one of ${LEVELS.join(", ")}`, 400);
   }
 
-  return {
+  const result: CharacterListQuery = {
     limit: normalizedLimit,
     offset: normalizedOffset,
-    q: parseOptionalQueryString(data.q, "q"),
-    name: parseOptionalQueryString(data.name, "name"),
-    tag: parseOptionalQueryString(data.tag, "tag"),
-    race: race as CharacterRace | undefined,
-    gender: gender as CharacterGender | undefined,
-    status: status as CharacterStatus | undefined,
-    level: level as CharacterLevel | undefined,
-    isMainCharacter: parseOptionalQueryBoolean(
-      data.isMainCharacter,
-      "isMainCharacter"
-    ),
   };
-};
 
-const addIfDefined = (
-  target: Record<string, unknown>,
-  key: string,
-  value: unknown
-): void => {
-  if (value !== undefined) {
-    target[key] = value;
-  }
+  addIfDefined(result, "q", parseOptionalQueryString(data.q, "q"));
+  addIfDefined(result, "name", parseOptionalQueryString(data.name, "name"));
+  addIfDefined(result, "tag", parseOptionalQueryString(data.tag, "tag"));
+  addIfDefined(result, "race", race as CharacterRace | undefined);
+  addIfDefined(result, "gender", gender as CharacterGender | undefined);
+  addIfDefined(result, "status", status as CharacterStatus | undefined);
+  addIfDefined(result, "level", level as CharacterLevel | undefined);
+  addIfDefined(
+    result,
+    "isMainCharacter",
+    parseOptionalQueryBoolean(data.isMainCharacter, "isMainCharacter")
+  );
+
+  return result;
 };
 
 const validateCharacterPayload = (payload: unknown): CharacterInput => {
