@@ -35,3 +35,15 @@ export type LocationNode = LocationInput & {
     note?: string | null;
   };
 };
+
+export type LocationListQuery = {
+  limit?: number;
+  offset?: number;
+  name?: string;
+  tag?: string;
+  type?: string;
+  category?: string;
+  isSecret?: boolean;
+  isHabitable?: boolean;
+  parentId?: string;
+};

@@ -4,7 +4,7 @@ import { nodeLabels } from "../../shared/constants/node-labels";
 import { relationTypes } from "../../shared/constants/relation-types";
 import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
-import { LocationNode } from "./location.types";
+import { LocationListQuery, LocationNode } from "./location.types";
 
 const CREATE_LOCATION = `
 CREATE (l:${nodeLabels.location} {
@@ -68,11 +68,21 @@ SET
 RETURN l
 `;
 
-const GET_ALL_LOCATIONS = `
+const GET_LOCATIONS = `
 MATCH (l:${nodeLabels.location})
 OPTIONAL MATCH (parent:${nodeLabels.location})-[r:${relationTypes.contains}]->(l)
+WHERE
+  ($name IS NULL OR toLower(l.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(l.tags, []))
+  AND ($type IS NULL OR l.type = $type)
+  AND ($category IS NULL OR l.category = $category)
+  AND ($isSecret IS NULL OR l.isSecret = $isSecret)
+  AND ($isHabitable IS NULL OR l.isHabitable = $isHabitable)
+  AND ($parentId IS NULL OR parent.id = $parentId)
 RETURN l, parent, r
 ORDER BY l.createdAt DESC
+SKIP $offset
+LIMIT $limit
 `;
 
 const DELETE_LOCATION = `
@@ -182,12 +192,24 @@ export const updateLocation = async (
   }
 };
 
-export const getAllLocations = async (
-  database: string
+export const getLocations = async (
+  database: string,
+  query: LocationListQuery
 ): Promise<LocationNode[]> => {
   const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
-    const result = await session.run(GET_ALL_LOCATIONS);
+    const result = await session.run(GET_LOCATIONS, {
+      name: query.name ?? null,
+      tag: query.tag ?? null,
+      type: query.type ?? null,
+      category: query.category ?? null,
+      isSecret: typeof query.isSecret === "boolean" ? query.isSecret : null,
+      isHabitable:
+        typeof query.isHabitable === "boolean" ? query.isHabitable : null,
+      parentId: query.parentId ?? null,
+      offset: query.offset ?? 0,
+      limit: query.limit ?? 50,
+    });
     return result.records.map((record) => {
       const node = record.get("l");
       const parent = record.get("parent");
@@ -201,6 +223,12 @@ export const getAllLocations = async (
   } finally {
     await session.close();
   }
+};
+
+export const getAllLocations = async (
+  database: string
+): Promise<LocationNode[]> => {
+  return getLocations(database, { limit: 10000, offset: 0 });
 };
 
 export const deleteLocation = async (

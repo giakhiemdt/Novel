@@ -45,8 +45,8 @@ const getAllLocations = async (
 ): Promise<void> => {
   try {
     const dbName = getDatabaseHeader(_req);
-    const locations = await locationService.getAll(dbName);
-    reply.status(200).send({ data: locations });
+    const result = await locationService.getAllWithQuery(dbName, _req.query);
+    reply.status(200).send(result);
   } catch (error) {
     const handled = handleError(error);
     reply.status(handled.statusCode).send({ message: handled.message });

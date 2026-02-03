@@ -6,9 +6,10 @@ import {
   deleteLocation,
   deleteContainsLink,
   getAllLocations,
+  getLocations,
   updateLocation,
 } from "./location.repo";
-import { LocationInput, LocationNode } from "./location.types";
+import { LocationInput, LocationListQuery, LocationNode } from "./location.types";
 
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
@@ -57,6 +58,70 @@ const assertOptionalNumber = (
     throw new AppError(`${field} must be a number`, 400);
   }
   return value;
+};
+
+const parseOptionalQueryString = (
+  value: unknown,
+  field: string
+): string | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "string") {
+    throw new AppError(`${field} must be a string`, 400);
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const parseOptionalQueryNumber = (
+  value: unknown,
+  field: string
+): number | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      throw new AppError(`${field} must be a number`, 400);
+    }
+    return value;
+  }
+  if (typeof value !== "string") {
+    throw new AppError(`${field} must be a number`, 400);
+  }
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return undefined;
+  }
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) {
+    throw new AppError(`${field} must be a number`, 400);
+  }
+  return parsed;
+};
+
+const parseOptionalQueryBoolean = (
+  value: unknown,
+  field: string
+): boolean | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value !== "string") {
+    throw new AppError(`${field} must be a boolean`, 400);
+  }
+  const trimmed = value.trim().toLowerCase();
+  if (trimmed === "true") {
+    return true;
+  }
+  if (trimmed === "false") {
+    return false;
+  }
+  throw new AppError(`${field} must be a boolean`, 400);
 };
 
 const TYPE_LEVELS: Record<string, number> = {
@@ -205,6 +270,41 @@ const buildLocationNode = (payload: LocationInput): LocationNode => {
   };
 };
 
+const parseLocationListQuery = (query: unknown): LocationListQuery => {
+  if (!query || typeof query !== "object") {
+    return { limit: 50, offset: 0 };
+  }
+
+  const data = query as Record<string, unknown>;
+  const limit = parseOptionalQueryNumber(data.limit, "limit");
+  const offset = parseOptionalQueryNumber(data.offset, "offset");
+
+  const normalizedLimit = limit ?? 50;
+  const normalizedOffset = offset ?? 0;
+
+  if (normalizedLimit <= 0) {
+    throw new AppError("limit must be > 0", 400);
+  }
+  if (normalizedLimit > 200) {
+    throw new AppError("limit must be <= 200", 400);
+  }
+  if (normalizedOffset < 0) {
+    throw new AppError("offset must be >= 0", 400);
+  }
+
+  return {
+    limit: normalizedLimit,
+    offset: normalizedOffset,
+    name: parseOptionalQueryString(data.name, "name"),
+    tag: parseOptionalQueryString(data.tag, "tag"),
+    type: parseOptionalQueryString(data.type, "type"),
+    category: parseOptionalQueryString(data.category, "category"),
+    isSecret: parseOptionalQueryBoolean(data.isSecret, "isSecret"),
+    isHabitable: parseOptionalQueryBoolean(data.isHabitable, "isHabitable"),
+    parentId: parseOptionalQueryString(data.parentId, "parentId"),
+  };
+};
+
 export const locationService = {
   create: async (payload: unknown, dbName: unknown): Promise<LocationNode> => {
     const database = assertDatabaseName(dbName);
@@ -235,6 +335,15 @@ export const locationService = {
   getAll: async (dbName: unknown): Promise<LocationNode[]> => {
     const database = assertDatabaseName(dbName);
     return getAllLocations(database);
+  },
+  getAllWithQuery: async (
+    dbName: unknown,
+    query: unknown
+  ): Promise<{ data: LocationNode[]; meta: LocationListQuery }> => {
+    const database = assertDatabaseName(dbName);
+    const parsedQuery = parseLocationListQuery(query);
+    const data = await getLocations(database, parsedQuery);
+    return { data, meta: parsedQuery };
   },
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);

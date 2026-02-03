@@ -40,3 +40,15 @@ export type CharacterNode = CharacterInput & {
   createdAt: string;
   updatedAt: string;
 };
+
+export type CharacterListQuery = {
+  limit?: number;
+  offset?: number;
+  name?: string;
+  tag?: string;
+  race?: CharacterRace;
+  gender?: CharacterGender;
+  status?: CharacterStatus;
+  level?: CharacterLevel;
+  isMainCharacter?: boolean;
+};

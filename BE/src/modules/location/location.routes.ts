@@ -9,6 +9,20 @@ export const locationRoutes: RouteConfig[] = [
     schema: {
       tags: ["Location"],
       summary: "Get all locations",
+      querystring: {
+        type: "object",
+        properties: {
+          limit: { type: "number" },
+          offset: { type: "number" },
+          name: { type: "string" },
+          tag: { type: "string" },
+          type: { type: "string" },
+          category: { type: "string" },
+          isSecret: { type: "boolean" },
+          isHabitable: { type: "boolean" },
+          parentId: { type: "string" },
+        },
+      },
       response: {
         200: {
           type: "object",
@@ -16,6 +30,20 @@ export const locationRoutes: RouteConfig[] = [
             data: {
               type: "array",
               items: { type: "object", additionalProperties: true },
+            },
+            meta: {
+              type: "object",
+              properties: {
+                limit: { type: "number" },
+                offset: { type: "number" },
+                name: { type: "string" },
+                tag: { type: "string" },
+                type: { type: "string" },
+                category: { type: "string" },
+                isSecret: { type: "boolean" },
+                isHabitable: { type: "boolean" },
+                parentId: { type: "string" },
+              },
             },
           },
         },

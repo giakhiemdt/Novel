@@ -3,7 +3,7 @@ import { getSessionForDatabase } from "../../database";
 import { nodeLabels } from "../../shared/constants/node-labels";
 import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
-import { CharacterNode } from "./character.types";
+import { CharacterListQuery, CharacterNode } from "./character.types";
 
 const CREATE_CHARACTER = `
 CREATE (c:${nodeLabels.character} {
@@ -75,10 +75,20 @@ SET
 RETURN c
 `;
 
-const GET_ALL_CHARACTERS = `
+const GET_CHARACTERS = `
 MATCH (c:${nodeLabels.character})
+WHERE
+  ($name IS NULL OR toLower(c.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(c.tags, []))
+  AND ($race IS NULL OR c.race = $race)
+  AND ($gender IS NULL OR c.gender = $gender)
+  AND ($status IS NULL OR c.status = $status)
+  AND ($level IS NULL OR c.level = $level)
+  AND ($isMainCharacter IS NULL OR c.isMainCharacter = $isMainCharacter)
 RETURN c
 ORDER BY c.createdAt DESC
+SKIP $offset
+LIMIT $limit
 `;
 
 const DELETE_CHARACTER = `
@@ -160,12 +170,26 @@ export const updateCharacter = async (
   }
 };
 
-export const getAllCharacters = async (
-  database: string
+export const getCharacters = async (
+  database: string,
+  query: CharacterListQuery
 ): Promise<CharacterNode[]> => {
   const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
-    const result = await session.run(GET_ALL_CHARACTERS);
+    const result = await session.run(GET_CHARACTERS, {
+      name: query.name ?? null,
+      tag: query.tag ?? null,
+      race: query.race ?? null,
+      gender: query.gender ?? null,
+      status: query.status ?? null,
+      level: query.level ?? null,
+      isMainCharacter:
+        typeof query.isMainCharacter === "boolean"
+          ? query.isMainCharacter
+          : null,
+      offset: query.offset ?? 0,
+      limit: query.limit ?? 50,
+    });
     return result.records.map((record) => {
       const node = record.get("c");
       return mapNode(node?.properties ?? {}) as CharacterNode;

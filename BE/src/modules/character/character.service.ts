@@ -3,12 +3,14 @@ import { generateId } from "../../shared/utils/generate-id";
 import {
   createCharacter,
   deleteCharacter,
-  getAllCharacters,
+  getCharacters,
   updateCharacter,
 } from "./character.repo";
 import {
   CharacterInput,
   CharacterLevel,
+  CharacterGender,
+  CharacterListQuery,
   CharacterNode,
   CharacterRace,
   CharacterStatus,
@@ -65,6 +67,70 @@ const assertOptionalNumber = (
     throw new AppError(`${field} must be a number`, 400);
   }
   return value;
+};
+
+const parseOptionalQueryString = (
+  value: unknown,
+  field: string
+): string | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "string") {
+    throw new AppError(`${field} must be a string`, 400);
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const parseOptionalQueryNumber = (
+  value: unknown,
+  field: string
+): number | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      throw new AppError(`${field} must be a number`, 400);
+    }
+    return value;
+  }
+  if (typeof value !== "string") {
+    throw new AppError(`${field} must be a number`, 400);
+  }
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return undefined;
+  }
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) {
+    throw new AppError(`${field} must be a number`, 400);
+  }
+  return parsed;
+};
+
+const parseOptionalQueryBoolean = (
+  value: unknown,
+  field: string
+): boolean | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value !== "string") {
+    throw new AppError(`${field} must be a boolean`, 400);
+  }
+  const trimmed = value.trim().toLowerCase();
+  if (trimmed === "true") {
+    return true;
+  }
+  if (trimmed === "false") {
+    return false;
+  }
+  throw new AppError(`${field} must be a boolean`, 400);
 };
 
 const assertOptionalEnum = <T extends string>(
@@ -148,6 +214,62 @@ const buildCharacterNode = (payload: CharacterInput): CharacterNode => {
     isMainCharacter: payload.isMainCharacter ?? false,
     createdAt: now,
     updatedAt: now,
+  };
+};
+
+const parseCharacterListQuery = (query: unknown): CharacterListQuery => {
+  if (!query || typeof query !== "object") {
+    return { limit: 50, offset: 0 };
+  }
+
+  const data = query as Record<string, unknown>;
+  const limit = parseOptionalQueryNumber(data.limit, "limit");
+  const offset = parseOptionalQueryNumber(data.offset, "offset");
+
+  const normalizedLimit = limit ?? 50;
+  const normalizedOffset = offset ?? 0;
+
+  if (normalizedLimit <= 0) {
+    throw new AppError("limit must be > 0", 400);
+  }
+  if (normalizedLimit > 200) {
+    throw new AppError("limit must be <= 200", 400);
+  }
+  if (normalizedOffset < 0) {
+    throw new AppError("offset must be >= 0", 400);
+  }
+
+  const race = parseOptionalQueryString(data.race, "race");
+  const gender = parseOptionalQueryString(data.gender, "gender");
+  const status = parseOptionalQueryString(data.status, "status");
+  const level = parseOptionalQueryString(data.level, "level");
+
+  if (race && !RACES.includes(race as CharacterRace)) {
+    throw new AppError(`race must be one of ${RACES.join(", ")}`, 400);
+  }
+  if (gender && !["male", "female", "other"].includes(gender)) {
+    throw new AppError("gender must be one of male, female, other", 400);
+  }
+  if (status && !STATUSES.includes(status as CharacterStatus)) {
+    throw new AppError(`status must be one of ${STATUSES.join(", ")}`, 400);
+  }
+  if (level && !LEVELS.includes(level as CharacterLevel)) {
+    throw new AppError(`level must be one of ${LEVELS.join(", ")}`, 400);
+  }
+
+  return {
+    limit: normalizedLimit,
+    offset: normalizedOffset,
+    name: parseOptionalQueryString(data.name, "name"),
+    tag: parseOptionalQueryString(data.tag, "tag"),
+    race: race as CharacterRace | undefined,
+    gender: gender as CharacterGender | undefined,
+    status: status as CharacterStatus | undefined,
+    level: level as CharacterLevel | undefined,
+    isMainCharacter: parseOptionalQueryBoolean(
+      data.isMainCharacter,
+      "isMainCharacter"
+    ),
   };
 };
 
@@ -297,7 +419,16 @@ export const characterService = {
   },
   getAll: async (dbName: unknown): Promise<CharacterNode[]> => {
     const database = assertDatabaseName(dbName);
-    return getAllCharacters(database);
+    return getCharacters(database, { limit: 50, offset: 0 });
+  },
+  getAllWithQuery: async (
+    dbName: unknown,
+    query: unknown
+  ): Promise<{ data: CharacterNode[]; meta: CharacterListQuery }> => {
+    const database = assertDatabaseName(dbName);
+    const parsedQuery = parseCharacterListQuery(query);
+    const data = await getCharacters(database, parsedQuery);
+    return { data, meta: parsedQuery };
   },
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);

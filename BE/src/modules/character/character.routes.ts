@@ -9,6 +9,23 @@ export const characterRoutes: RouteConfig[] = [
     schema: {
       tags: ["Character"],
       summary: "Get all characters",
+      querystring: {
+        type: "object",
+        properties: {
+          limit: { type: "number" },
+          offset: { type: "number" },
+          name: { type: "string" },
+          tag: { type: "string" },
+          race: { type: "string", enum: ["human", "elf", "demon"] },
+          gender: { type: "string", enum: ["male", "female", "other"] },
+          status: { type: "string", enum: ["Alive", "Dead"] },
+          level: {
+            type: "string",
+            enum: ["T1", "T2", "T3", "T4", "T5", "T6", "T7"],
+          },
+          isMainCharacter: { type: "boolean" },
+        },
+      },
       response: {
         200: {
           type: "object",
@@ -16,6 +33,20 @@ export const characterRoutes: RouteConfig[] = [
             data: {
               type: "array",
               items: { type: "object", additionalProperties: true },
+            },
+            meta: {
+              type: "object",
+              properties: {
+                limit: { type: "number" },
+                offset: { type: "number" },
+                name: { type: "string" },
+                tag: { type: "string" },
+                race: { type: "string" },
+                gender: { type: "string" },
+                status: { type: "string" },
+                level: { type: "string" },
+                isMainCharacter: { type: "boolean" },
+              },
             },
           },
         },
