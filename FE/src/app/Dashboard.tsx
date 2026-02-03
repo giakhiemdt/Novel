@@ -101,77 +101,85 @@ export const Dashboard = () => {
 
   return (
     <div className="overview-page">
-      <section className="card overview-card">
-        <h3 className="section-title">{t("Core details")}</h3>
-        <p className="header__subtitle">
-          {t("This content fills the overview page.")}
-        </p>
-        <div className="overview-grid">
-          <div className="overview-field overview-field--title">
-            <TextInput
-              label="Title"
-              value={values.title}
-              onChange={(value) => setField("title", value)}
-              required
-            />
+      <div className="overview-layout">
+        <section className="card overview-card">
+          <div className="overview-header">
+            <div>
+              <h3 className="section-title">{t("Core details")}</h3>
+              <p className="header__subtitle">
+                {t("This content fills the overview page.")}
+              </p>
+            </div>
+            <div className="overview-actions">
+              {!overview && (
+                <Button onClick={handleSave} disabled={saving || loading}>
+                  {saving ? t("Creating...") : t("Create overview")}
+                </Button>
+              )}
+              {overview && (
+                <Button onClick={handleSave} disabled={saving || loading}>
+                  {saving ? t("Saving...") : t("Update overview")}
+                </Button>
+              )}
+            </div>
           </div>
-          <div className="overview-field overview-field--subtitle">
-            <TextInput
-              label="Subtitle"
-              value={values.subtitle}
-              onChange={(value) => setField("subtitle", value)}
-            />
-          </div>
-          <div className="overview-row">
-            <div className="overview-field">
+
+          <div className="overview-grid">
+            <div className="overview-field overview-field--title">
               <TextInput
-                label="Technology Era"
-                value={values.technologyEra}
-                onChange={(value) => setField("technologyEra", value)}
+                label="Title"
+                value={values.title}
+                onChange={(value) => setField("title", value)}
+                required
               />
             </div>
-            <div className="overview-field">
-              <MultiSelect
-                label="Genre"
-                values={values.genre}
-                onChange={(value) => setField("genre", value)}
-                showAddButton={false}
+            <div className="overview-field overview-field--subtitle">
+              <TextInput
+                label="Subtitle"
+                value={values.subtitle}
+                onChange={(value) => setField("subtitle", value)}
+              />
+            </div>
+            <div className="overview-row">
+              <div className="overview-field">
+                <TextInput
+                  label="Technology Era"
+                  value={values.technologyEra}
+                  onChange={(value) => setField("technologyEra", value)}
+                />
+              </div>
+              <div className="overview-field">
+                <MultiSelect
+                  label="Genre"
+                  values={values.genre}
+                  onChange={(value) => setField("genre", value)}
+                  showAddButton={false}
+                />
+              </div>
+            </div>
+            <div className="overview-field overview-field--summary">
+              <TextArea
+                label="Short Summary"
+                value={values.shortSummary}
+                onChange={(value) => setField("shortSummary", value)}
+                placeholder="Quick summary for readers"
+              />
+            </div>
+            <div className="overview-field overview-field--world">
+              <TextArea
+                label="World Overview"
+                value={values.worldOverview}
+                onChange={(value) => setField("worldOverview", value)}
+                placeholder="Broader context and setting details"
               />
             </div>
           </div>
-          <div className="overview-field overview-field--summary">
-            <TextArea
-              label="Short Summary"
-              value={values.shortSummary}
-              onChange={(value) => setField("shortSummary", value)}
-              placeholder="Quick summary for readers"
-            />
-          </div>
-          <div className="overview-field overview-field--world">
-            <TextArea
-              label="World Overview"
-              value={values.worldOverview}
-              onChange={(value) => setField("worldOverview", value)}
-              placeholder="Broader context and setting details"
-            />
-          </div>
-        </div>
-      </section>
+        </section>
 
-      <div className="overview-actions">
-        {!overview && (
-          <Button onClick={handleSave} disabled={saving || loading}>
-            {saving ? t("Creating...") : t("Create overview")}
-          </Button>
-        )}
-        {overview && (
-          <Button onClick={handleSave} disabled={saving || loading}>
-            {saving ? t("Saving...") : t("Update overview")}
-          </Button>
-        )}
+        <aside className="overview-side">
+          <HealthCheck />
+        </aside>
       </div>
-
-      <HealthCheck />
     </div>
   );
 };

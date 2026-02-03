@@ -390,6 +390,31 @@ h3 {
   gap: var(--space-5);
 }
 
+.overview-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.7fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.overview-side .card {
+  position: sticky;
+  top: var(--space-6);
+}
+
+.overview-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.overview-header .overview-actions {
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
 .overview-card {
   display: flex;
   flex-direction: column;
@@ -426,6 +451,16 @@ h3 {
 .overview-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+@media (max-width: 1100px) {
+  .overview-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .overview-side .card {
+    position: static;
+  }
 }
 
 .card {
