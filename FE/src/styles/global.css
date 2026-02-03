@@ -67,6 +67,36 @@ h3 {
   transition: width 0.25s ease, padding 0.25s ease;
 }
 
+:root[data-theme="light"] .sidebar {
+  background: linear-gradient(165deg, #f4f7fb 0%, #eef3f8 60%, #e6eef6 100%);
+  color: var(--color-ink);
+  border-right: 1px solid rgba(60, 90, 120, 0.12);
+}
+
+:root[data-theme="light"] .sidebar__toggle:hover {
+  background: rgba(31, 138, 158, 0.12);
+}
+
+:root[data-theme="light"] .sidebar__icon {
+  background: rgba(31, 138, 158, 0.14);
+}
+
+:root[data-theme="light"] .sidebar__link:hover,
+:root[data-theme="light"] .sidebar__link--active {
+  background: rgba(31, 138, 158, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(31, 138, 158, 0.25);
+}
+
+:root[data-theme="light"] .sidebar__project-select {
+  background: #ffffff;
+  border-color: rgba(60, 90, 120, 0.2);
+  color: var(--color-ink);
+}
+
+:root[data-theme="light"] .sidebar__section-title {
+  color: rgba(90, 115, 140, 0.85);
+}
+
 .sidebar--collapsed {
   padding: var(--space-3) var(--space-2);
   align-items: center;
