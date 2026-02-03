@@ -4,6 +4,7 @@ import {
   checkChapterExists,
   checkEventExists,
   checkLocationExists,
+  checkSceneExists,
   createScene,
   deleteScene,
   getCharacterIds,
@@ -418,6 +419,80 @@ export const sceneService = {
     const parsedQuery = parseSceneListQuery(query);
     const data = await getScenes(database, parsedQuery);
     return { data, meta: parsedQuery };
+  },
+  linkEvent: async (
+    sceneId: string,
+    eventId: unknown,
+    dbName: unknown
+  ): Promise<void> => {
+    const database = assertDatabaseName(dbName);
+    const parsedEventId = assertRequiredString(eventId, "eventId");
+    const sceneExists = await checkSceneExists(database, sceneId);
+    if (!sceneExists) {
+      throw new AppError("scene not found", 404);
+    }
+    const eventExists = await checkEventExists(database, parsedEventId);
+    if (!eventExists) {
+      throw new AppError("event not found", 404);
+    }
+    await linkSceneEvent(database, sceneId, parsedEventId);
+  },
+  unlinkEvent: async (sceneId: string, dbName: unknown): Promise<void> => {
+    const database = assertDatabaseName(dbName);
+    const sceneExists = await checkSceneExists(database, sceneId);
+    if (!sceneExists) {
+      throw new AppError("scene not found", 404);
+    }
+    await unlinkSceneEvent(database, sceneId);
+  },
+  linkLocation: async (
+    sceneId: string,
+    locationId: unknown,
+    dbName: unknown
+  ): Promise<void> => {
+    const database = assertDatabaseName(dbName);
+    const parsedLocationId = assertRequiredString(locationId, "locationId");
+    const sceneExists = await checkSceneExists(database, sceneId);
+    if (!sceneExists) {
+      throw new AppError("scene not found", 404);
+    }
+    const locationExists = await checkLocationExists(database, parsedLocationId);
+    if (!locationExists) {
+      throw new AppError("location not found", 404);
+    }
+    await linkSceneLocation(database, sceneId, parsedLocationId);
+  },
+  unlinkLocation: async (sceneId: string, dbName: unknown): Promise<void> => {
+    const database = assertDatabaseName(dbName);
+    const sceneExists = await checkSceneExists(database, sceneId);
+    if (!sceneExists) {
+      throw new AppError("scene not found", 404);
+    }
+    await unlinkSceneLocation(database, sceneId);
+  },
+  setCharacters: async (
+    sceneId: string,
+    payload: unknown,
+    dbName: unknown
+  ): Promise<void> => {
+    const database = assertDatabaseName(dbName);
+    if (!payload || typeof payload !== "object") {
+      throw new AppError("payload must be an object", 400);
+    }
+    const data = payload as Record<string, unknown>;
+    const characterIds = assertOptionalStringArray(
+      data.characterIds,
+      "characterIds"
+    );
+    if (!characterIds) {
+      throw new AppError("characterIds is required", 400);
+    }
+    const sceneExists = await checkSceneExists(database, sceneId);
+    if (!sceneExists) {
+      throw new AppError("scene not found", 404);
+    }
+    await assertCharacterIds(database, characterIds);
+    await updateSceneCharacters(database, sceneId, characterIds);
   },
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);

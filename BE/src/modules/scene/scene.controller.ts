@@ -68,9 +68,91 @@ const deleteScene = async (
   }
 };
 
+const linkSceneEvent = async (
+  req: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> => {
+  try {
+    const dbName = getDatabaseHeader(req);
+    const { id } = req.params as { id: string };
+    const body = req.body as { eventId?: string };
+    await sceneService.linkEvent(id, body?.eventId, dbName);
+    reply.status(200).send({ message: "Scene linked to event" });
+  } catch (error) {
+    const handled = handleError(error);
+    reply.status(handled.statusCode).send({ message: handled.message });
+  }
+};
+
+const unlinkSceneEvent = async (
+  req: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> => {
+  try {
+    const dbName = getDatabaseHeader(req);
+    const { id } = req.params as { id: string };
+    await sceneService.unlinkEvent(id, dbName);
+    reply.status(200).send({ message: "Scene unlinked from event" });
+  } catch (error) {
+    const handled = handleError(error);
+    reply.status(handled.statusCode).send({ message: handled.message });
+  }
+};
+
+const linkSceneLocation = async (
+  req: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> => {
+  try {
+    const dbName = getDatabaseHeader(req);
+    const { id } = req.params as { id: string };
+    const body = req.body as { locationId?: string };
+    await sceneService.linkLocation(id, body?.locationId, dbName);
+    reply.status(200).send({ message: "Scene linked to location" });
+  } catch (error) {
+    const handled = handleError(error);
+    reply.status(handled.statusCode).send({ message: handled.message });
+  }
+};
+
+const unlinkSceneLocation = async (
+  req: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> => {
+  try {
+    const dbName = getDatabaseHeader(req);
+    const { id } = req.params as { id: string };
+    await sceneService.unlinkLocation(id, dbName);
+    reply.status(200).send({ message: "Scene unlinked from location" });
+  } catch (error) {
+    const handled = handleError(error);
+    reply.status(handled.statusCode).send({ message: handled.message });
+  }
+};
+
+const setSceneCharacters = async (
+  req: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> => {
+  try {
+    const dbName = getDatabaseHeader(req);
+    const { id } = req.params as { id: string };
+    await sceneService.setCharacters(id, req.body, dbName);
+    reply.status(200).send({ message: "Scene characters updated" });
+  } catch (error) {
+    const handled = handleError(error);
+    reply.status(handled.statusCode).send({ message: handled.message });
+  }
+};
+
 export const sceneController = {
   createScene,
   updateScene,
   getAllScenes,
+  linkSceneEvent,
+  unlinkSceneEvent,
+  linkSceneLocation,
+  unlinkSceneLocation,
+  setSceneCharacters,
   deleteScene,
 };

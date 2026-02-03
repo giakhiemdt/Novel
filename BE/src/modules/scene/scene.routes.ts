@@ -112,6 +112,91 @@ export const sceneRoutes: RouteConfig[] = [
     },
   },
   {
+    method: "POST",
+    path: "/scenes/:id/event",
+    handler: sceneController.linkSceneEvent,
+    schema: {
+      tags: ["Scene"],
+      summary: "Link scene to event",
+      body: {
+        type: "object",
+        required: ["eventId"],
+        properties: { eventId: { type: "string" } },
+      },
+      response: {
+        200: { type: "object", properties: { message: { type: "string" } } },
+        400: { type: "object", properties: { message: { type: "string" } } },
+        404: { type: "object", properties: { message: { type: "string" } } },
+      },
+    },
+  },
+  {
+    method: "DELETE",
+    path: "/scenes/:id/event",
+    handler: sceneController.unlinkSceneEvent,
+    schema: {
+      tags: ["Scene"],
+      summary: "Unlink scene from event",
+      response: {
+        200: { type: "object", properties: { message: { type: "string" } } },
+        404: { type: "object", properties: { message: { type: "string" } } },
+      },
+    },
+  },
+  {
+    method: "POST",
+    path: "/scenes/:id/location",
+    handler: sceneController.linkSceneLocation,
+    schema: {
+      tags: ["Scene"],
+      summary: "Link scene to location",
+      body: {
+        type: "object",
+        required: ["locationId"],
+        properties: { locationId: { type: "string" } },
+      },
+      response: {
+        200: { type: "object", properties: { message: { type: "string" } } },
+        400: { type: "object", properties: { message: { type: "string" } } },
+        404: { type: "object", properties: { message: { type: "string" } } },
+      },
+    },
+  },
+  {
+    method: "DELETE",
+    path: "/scenes/:id/location",
+    handler: sceneController.unlinkSceneLocation,
+    schema: {
+      tags: ["Scene"],
+      summary: "Unlink scene from location",
+      response: {
+        200: { type: "object", properties: { message: { type: "string" } } },
+        404: { type: "object", properties: { message: { type: "string" } } },
+      },
+    },
+  },
+  {
+    method: "POST",
+    path: "/scenes/:id/characters",
+    handler: sceneController.setSceneCharacters,
+    schema: {
+      tags: ["Scene"],
+      summary: "Set scene characters",
+      body: {
+        type: "object",
+        required: ["characterIds"],
+        properties: {
+          characterIds: { type: "array", items: { type: "string" } },
+        },
+      },
+      response: {
+        200: { type: "object", properties: { message: { type: "string" } } },
+        400: { type: "object", properties: { message: { type: "string" } } },
+        404: { type: "object", properties: { message: { type: "string" } } },
+      },
+    },
+  },
+  {
     method: "DELETE",
     path: "/scenes/:id",
     handler: sceneController.deleteScene,

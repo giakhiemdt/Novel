@@ -87,6 +87,11 @@ MATCH (c:${nodeLabels.chapter} {id: $id})
 RETURN c IS NOT NULL AS exists
 `;
 
+const CHECK_SCENE = `
+MATCH (s:${nodeLabels.scene} {id: $id})
+RETURN s IS NOT NULL AS exists
+`;
+
 const CHECK_EVENT = `
 MATCH (e:${nodeLabels.event} {id: $id})
 RETURN e IS NOT NULL AS exists
@@ -255,6 +260,19 @@ export const checkChapterExists = async (
   const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
     const result = await session.run(CHECK_CHAPTER, { id });
+    return (result.records[0]?.get("exists") as boolean | undefined) ?? false;
+  } finally {
+    await session.close();
+  }
+};
+
+export const checkSceneExists = async (
+  database: string,
+  id: string
+): Promise<boolean> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const result = await session.run(CHECK_SCENE, { id });
     return (result.records[0]?.get("exists") as boolean | undefined) ?? false;
   } finally {
     await session.close();
