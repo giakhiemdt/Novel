@@ -1,7 +1,7 @@
 import { AppError } from "../../shared/errors/app-error";
 import { generateId } from "../../shared/utils/generate-id";
 import { createArc, deleteArc, getArcs, updateArc } from "./arc.repo";
-import { ArcInput, ArcNode } from "./arc.types";
+import { ArcInput, ArcListQuery, ArcNode } from "./arc.types";
 
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
@@ -52,6 +52,46 @@ const assertOptionalStringArray = (
   return value;
 };
 
+const parseOptionalQueryString = (
+  value: unknown,
+  field: string
+): string | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "string") {
+    throw new AppError(`${field} must be a string`, 400);
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const parseOptionalQueryNumber = (
+  value: unknown,
+  field: string
+): number | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      throw new AppError(`${field} must be a number`, 400);
+    }
+    return value;
+  }
+  if (typeof value !== "string") {
+    throw new AppError(`${field} must be a number`, 400);
+  }
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return undefined;
+  }
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) {
+    throw new AppError(`${field} must be a number`, 400);
+  }
+  return parsed;
+};
 const assertDatabaseName = (value: unknown): string => {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new AppError("dbName is required", 400);
@@ -110,6 +150,40 @@ const buildArcNode = (payload: ArcInput): ArcNode => {
   };
 };
 
+const parseArcListQuery = (query: unknown): ArcListQuery => {
+  if (!query || typeof query !== "object") {
+    return { limit: 50, offset: 0 };
+  }
+
+  const data = query as Record<string, unknown>;
+  const limit = parseOptionalQueryNumber(data.limit, "limit");
+  const offset = parseOptionalQueryNumber(data.offset, "offset");
+
+  const normalizedLimit = limit ?? 50;
+  const normalizedOffset = offset ?? 0;
+
+  if (normalizedLimit <= 0) {
+    throw new AppError("limit must be > 0", 400);
+  }
+  if (normalizedLimit > 200) {
+    throw new AppError("limit must be <= 200", 400);
+  }
+  if (normalizedOffset < 0) {
+    throw new AppError("offset must be >= 0", 400);
+  }
+
+  const result: ArcListQuery = {
+    limit: normalizedLimit,
+    offset: normalizedOffset,
+  };
+
+  addIfDefined(result, "q", parseOptionalQueryString(data.q, "q"));
+  addIfDefined(result, "name", parseOptionalQueryString(data.name, "name"));
+  addIfDefined(result, "tag", parseOptionalQueryString(data.tag, "tag"));
+
+  return result;
+};
+
 export const arcService = {
   create: async (payload: unknown, dbName: unknown): Promise<ArcNode> => {
     const database = assertDatabaseName(dbName);
@@ -139,7 +213,16 @@ export const arcService = {
   },
   getAll: async (dbName: unknown): Promise<ArcNode[]> => {
     const database = assertDatabaseName(dbName);
-    return getArcs(database);
+    return getArcs(database, { limit: 50, offset: 0 });
+  },
+  getAllWithQuery: async (
+    dbName: unknown,
+    query: unknown
+  ): Promise<{ data: ArcNode[]; meta: ArcListQuery }> => {
+    const database = assertDatabaseName(dbName);
+    const parsedQuery = parseArcListQuery(query);
+    const data = await getArcs(database, parsedQuery);
+    return { data, meta: parsedQuery };
   },
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);

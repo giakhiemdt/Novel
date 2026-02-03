@@ -12,3 +12,11 @@ export type ArcNode = ArcInput & {
   createdAt: string;
   updatedAt: string;
 };
+
+export type ArcListQuery = {
+  limit?: number;
+  offset?: number;
+  q?: string;
+  name?: string;
+  tag?: string;
+};

@@ -17,3 +17,15 @@ export type SceneNode = SceneInput & {
   createdAt: string;
   updatedAt: string;
 };
+
+export type SceneListQuery = {
+  limit?: number;
+  offset?: number;
+  q?: string;
+  name?: string;
+  tag?: string;
+  chapterId?: string;
+  eventId?: string;
+  locationId?: string;
+  characterId?: string;
+};

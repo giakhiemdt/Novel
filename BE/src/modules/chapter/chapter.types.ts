@@ -13,3 +13,12 @@ export type ChapterNode = ChapterInput & {
   createdAt: string;
   updatedAt: string;
 };
+
+export type ChapterListQuery = {
+  limit?: number;
+  offset?: number;
+  q?: string;
+  name?: string;
+  tag?: string;
+  arcId?: string;
+};

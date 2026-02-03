@@ -45,8 +45,8 @@ const getAllScenes = async (
 ): Promise<void> => {
   try {
     const dbName = getDatabaseHeader(_req);
-    const scenes = await sceneService.getAll(dbName);
-    reply.status(200).send({ data: scenes });
+    const result = await sceneService.getAllWithQuery(dbName, _req.query);
+    reply.status(200).send(result);
   } catch (error) {
     const handled = handleError(error);
     reply.status(handled.statusCode).send({ message: handled.message });

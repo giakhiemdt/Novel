@@ -45,8 +45,8 @@ const getAllChapters = async (
 ): Promise<void> => {
   try {
     const dbName = getDatabaseHeader(_req);
-    const chapters = await chapterService.getAll(dbName);
-    reply.status(200).send({ data: chapters });
+    const result = await chapterService.getAllWithQuery(dbName, _req.query);
+    reply.status(200).send(result);
   } catch (error) {
     const handled = handleError(error);
     reply.status(handled.statusCode).send({ message: handled.message });

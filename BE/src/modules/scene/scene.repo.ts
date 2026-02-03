@@ -4,7 +4,7 @@ import { nodeLabels } from "../../shared/constants/node-labels";
 import { relationTypes } from "../../shared/constants/relation-types";
 import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
-import { SceneNode } from "./scene.types";
+import { SceneListQuery, SceneNode } from "./scene.types";
 
 const CREATE_SCENE = `
 CREATE (s:${nodeLabels.scene} {
@@ -40,8 +40,39 @@ OPTIONAL MATCH (c:${nodeLabels.chapter})-[:${relationTypes.chapterHasScene}]->(s
 OPTIONAL MATCH (s)-[:${relationTypes.sceneReferencesEvent}]->(e:${nodeLabels.event})
 OPTIONAL MATCH (s)-[:${relationTypes.sceneTakesPlaceIn}]->(l:${nodeLabels.location})
 OPTIONAL MATCH (s)-[:${relationTypes.sceneFeaturesCharacter}]->(ch:${nodeLabels.character})
-RETURN s, c, e, l, collect(ch.id) AS characterIds
+WITH s, c, e, l, collect(ch.id) AS characterIds
+WHERE
+  ($name IS NULL OR toLower(s.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(s.tags, []))
+  AND ($chapterId IS NULL OR c.id = $chapterId)
+  AND ($eventId IS NULL OR e.id = $eventId)
+  AND ($locationId IS NULL OR l.id = $locationId)
+  AND ($characterId IS NULL OR $characterId IN characterIds)
+RETURN s, c, e, l, characterIds
 ORDER BY s.order ASC, s.createdAt DESC
+SKIP $offset
+LIMIT $limit
+`;
+
+const GET_SCENES_BY_SEARCH = `
+CALL db.index.fulltext.queryNodes("scene_search", $q) YIELD node, score
+WITH node AS s, score
+OPTIONAL MATCH (c:${nodeLabels.chapter})-[:${relationTypes.chapterHasScene}]->(s)
+OPTIONAL MATCH (s)-[:${relationTypes.sceneReferencesEvent}]->(e:${nodeLabels.event})
+OPTIONAL MATCH (s)-[:${relationTypes.sceneTakesPlaceIn}]->(l:${nodeLabels.location})
+OPTIONAL MATCH (s)-[:${relationTypes.sceneFeaturesCharacter}]->(ch:${nodeLabels.character})
+WITH s, c, e, l, collect(ch.id) AS characterIds, score
+WHERE
+  ($name IS NULL OR toLower(s.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(s.tags, []))
+  AND ($chapterId IS NULL OR c.id = $chapterId)
+  AND ($eventId IS NULL OR e.id = $eventId)
+  AND ($locationId IS NULL OR l.id = $locationId)
+  AND ($characterId IS NULL OR $characterId IN characterIds)
+RETURN s, c, e, l, characterIds
+ORDER BY score DESC, s.order ASC, s.createdAt DESC
+SKIP $offset
+LIMIT $limit
 `;
 
 const DELETE_SCENE = `
@@ -167,10 +198,24 @@ export const updateScene = async (
   }
 };
 
-export const getScenes = async (database: string): Promise<SceneNode[]> => {
+export const getScenes = async (
+  database: string,
+  query: SceneListQuery
+): Promise<SceneNode[]> => {
   const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
-    const result = await session.run(GET_SCENES);
+    const statement = query.q ? GET_SCENES_BY_SEARCH : GET_SCENES;
+    const result = await session.run(statement, {
+      q: query.q ?? "",
+      name: query.name ?? null,
+      tag: query.tag ?? null,
+      chapterId: query.chapterId ?? null,
+      eventId: query.eventId ?? null,
+      locationId: query.locationId ?? null,
+      characterId: query.characterId ?? null,
+      offset: query.offset ?? 0,
+      limit: query.limit ?? 50,
+    });
     return result.records.map((record) => {
       const node = record.get("s");
       const chapter = record.get("c");

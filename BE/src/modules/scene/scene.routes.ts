@@ -9,6 +9,20 @@ export const sceneRoutes: RouteConfig[] = [
     schema: {
       tags: ["Scene"],
       summary: "Get all scenes",
+      querystring: {
+        type: "object",
+        properties: {
+          q: { type: "string" },
+          limit: { type: "number" },
+          offset: { type: "number" },
+          name: { type: "string" },
+          tag: { type: "string" },
+          chapterId: { type: "string" },
+          eventId: { type: "string" },
+          locationId: { type: "string" },
+          characterId: { type: "string" },
+        },
+      },
       response: {
         200: {
           type: "object",
@@ -16,6 +30,20 @@ export const sceneRoutes: RouteConfig[] = [
             data: {
               type: "array",
               items: { type: "object", additionalProperties: true },
+            },
+            meta: {
+              type: "object",
+              properties: {
+                q: { type: "string" },
+                limit: { type: "number" },
+                offset: { type: "number" },
+                name: { type: "string" },
+                tag: { type: "string" },
+                chapterId: { type: "string" },
+                eventId: { type: "string" },
+                locationId: { type: "string" },
+                characterId: { type: "string" },
+              },
             },
           },
         },

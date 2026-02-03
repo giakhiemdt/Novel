@@ -3,7 +3,7 @@ import { getSessionForDatabase } from "../../database";
 import { nodeLabels } from "../../shared/constants/node-labels";
 import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
-import { ArcNode } from "./arc.types";
+import { ArcListQuery, ArcNode } from "./arc.types";
 
 const CREATE_ARC = `
 CREATE (a:${nodeLabels.arc} {
@@ -33,8 +33,25 @@ RETURN a
 
 const GET_ARCS = `
 MATCH (a:${nodeLabels.arc})
+WHERE
+  ($name IS NULL OR toLower(a.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(a.tags, []))
 RETURN a
 ORDER BY a.order ASC, a.createdAt DESC
+SKIP $offset
+LIMIT $limit
+`;
+
+const GET_ARCS_BY_SEARCH = `
+CALL db.index.fulltext.queryNodes("arc_search", $q) YIELD node, score
+WITH node AS a, score
+WHERE
+  ($name IS NULL OR toLower(a.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(a.tags, []))
+RETURN a
+ORDER BY score DESC, a.order ASC, a.createdAt DESC
+SKIP $offset
+LIMIT $limit
 `;
 
 const DELETE_ARC = `
@@ -92,10 +109,20 @@ export const updateArc = async (
   }
 };
 
-export const getArcs = async (database: string): Promise<ArcNode[]> => {
+export const getArcs = async (
+  database: string,
+  query: ArcListQuery
+): Promise<ArcNode[]> => {
   const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
-    const result = await session.run(GET_ARCS);
+    const statement = query.q ? GET_ARCS_BY_SEARCH : GET_ARCS;
+    const result = await session.run(statement, {
+      q: query.q ?? "",
+      name: query.name ?? null,
+      tag: query.tag ?? null,
+      offset: query.offset ?? 0,
+      limit: query.limit ?? 50,
+    });
     return result.records.map((record) => {
       const node = record.get("a");
       return mapNode(node?.properties ?? {}) as ArcNode;

@@ -4,7 +4,7 @@ import { nodeLabels } from "../../shared/constants/node-labels";
 import { relationTypes } from "../../shared/constants/relation-types";
 import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
-import { ChapterNode } from "./chapter.types";
+import { ChapterListQuery, ChapterNode } from "./chapter.types";
 
 const CREATE_CHAPTER = `
 CREATE (c:${nodeLabels.chapter} {
@@ -67,8 +67,28 @@ RETURN c, a
 const GET_CHAPTERS = `
 MATCH (c:${nodeLabels.chapter})
 OPTIONAL MATCH (a:${nodeLabels.arc})-[:${relationTypes.arcHasChapter}]->(c)
+WHERE
+  ($name IS NULL OR toLower(c.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(c.tags, []))
+  AND ($arcId IS NULL OR a.id = $arcId)
 RETURN c, a
 ORDER BY c.order ASC, c.createdAt DESC
+SKIP $offset
+LIMIT $limit
+`;
+
+const GET_CHAPTERS_BY_SEARCH = `
+CALL db.index.fulltext.queryNodes("chapter_search", $q) YIELD node, score
+WITH node AS c, score
+OPTIONAL MATCH (a:${nodeLabels.arc})-[:${relationTypes.arcHasChapter}]->(c)
+WHERE
+  ($name IS NULL OR toLower(c.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(c.tags, []))
+  AND ($arcId IS NULL OR a.id = $arcId)
+RETURN c, a
+ORDER BY score DESC, c.order ASC, c.createdAt DESC
+SKIP $offset
+LIMIT $limit
 `;
 
 const DELETE_CHAPTER = `
@@ -168,10 +188,21 @@ export const updateChapterWithArc = async (
   }
 };
 
-export const getChapters = async (database: string): Promise<ChapterNode[]> => {
+export const getChapters = async (
+  database: string,
+  query: ChapterListQuery
+): Promise<ChapterNode[]> => {
   const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
-    const result = await session.run(GET_CHAPTERS);
+    const statement = query.q ? GET_CHAPTERS_BY_SEARCH : GET_CHAPTERS;
+    const result = await session.run(statement, {
+      q: query.q ?? "",
+      name: query.name ?? null,
+      tag: query.tag ?? null,
+      arcId: query.arcId ?? null,
+      offset: query.offset ?? 0,
+      limit: query.limit ?? 50,
+    });
     return result.records.map((record) => {
       const node = record.get("c");
       const arc = record.get("a");

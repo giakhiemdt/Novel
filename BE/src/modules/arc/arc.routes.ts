@@ -9,6 +9,16 @@ export const arcRoutes: RouteConfig[] = [
     schema: {
       tags: ["Arc"],
       summary: "Get all arcs",
+      querystring: {
+        type: "object",
+        properties: {
+          q: { type: "string" },
+          limit: { type: "number" },
+          offset: { type: "number" },
+          name: { type: "string" },
+          tag: { type: "string" },
+        },
+      },
       response: {
         200: {
           type: "object",
@@ -16,6 +26,16 @@ export const arcRoutes: RouteConfig[] = [
             data: {
               type: "array",
               items: { type: "object", additionalProperties: true },
+            },
+            meta: {
+              type: "object",
+              properties: {
+                q: { type: "string" },
+                limit: { type: "number" },
+                offset: { type: "number" },
+                name: { type: "string" },
+                tag: { type: "string" },
+              },
             },
           },
         },

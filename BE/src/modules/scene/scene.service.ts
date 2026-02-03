@@ -17,7 +17,7 @@ import {
   updateScene,
   updateSceneCharacters,
 } from "./scene.repo";
-import { SceneInput, SceneNode } from "./scene.types";
+import { SceneInput, SceneListQuery, SceneNode } from "./scene.types";
 
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
@@ -68,6 +68,46 @@ const assertOptionalStringArray = (
   return value;
 };
 
+const parseOptionalQueryString = (
+  value: unknown,
+  field: string
+): string | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "string") {
+    throw new AppError(`${field} must be a string`, 400);
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const parseOptionalQueryNumber = (
+  value: unknown,
+  field: string
+): number | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      throw new AppError(`${field} must be a number`, 400);
+    }
+    return value;
+  }
+  if (typeof value !== "string") {
+    throw new AppError(`${field} must be a number`, 400);
+  }
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return undefined;
+  }
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) {
+    throw new AppError(`${field} must be a number`, 400);
+  }
+  return parsed;
+};
 const assertDatabaseName = (value: unknown): string => {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new AppError("dbName is required", 400);
@@ -151,6 +191,59 @@ const buildSceneNode = (payload: SceneInput): SceneNode => {
   };
 };
 
+const parseSceneListQuery = (query: unknown): SceneListQuery => {
+  if (!query || typeof query !== "object") {
+    return { limit: 50, offset: 0 };
+  }
+
+  const data = query as Record<string, unknown>;
+  const limit = parseOptionalQueryNumber(data.limit, "limit");
+  const offset = parseOptionalQueryNumber(data.offset, "offset");
+
+  const normalizedLimit = limit ?? 50;
+  const normalizedOffset = offset ?? 0;
+
+  if (normalizedLimit <= 0) {
+    throw new AppError("limit must be > 0", 400);
+  }
+  if (normalizedLimit > 200) {
+    throw new AppError("limit must be <= 200", 400);
+  }
+  if (normalizedOffset < 0) {
+    throw new AppError("offset must be >= 0", 400);
+  }
+
+  const result: SceneListQuery = {
+    limit: normalizedLimit,
+    offset: normalizedOffset,
+  };
+
+  addIfDefined(result, "q", parseOptionalQueryString(data.q, "q"));
+  addIfDefined(result, "name", parseOptionalQueryString(data.name, "name"));
+  addIfDefined(result, "tag", parseOptionalQueryString(data.tag, "tag"));
+  addIfDefined(
+    result,
+    "chapterId",
+    parseOptionalQueryString(data.chapterId, "chapterId")
+  );
+  addIfDefined(
+    result,
+    "eventId",
+    parseOptionalQueryString(data.eventId, "eventId")
+  );
+  addIfDefined(
+    result,
+    "locationId",
+    parseOptionalQueryString(data.locationId, "locationId")
+  );
+  addIfDefined(
+    result,
+    "characterId",
+    parseOptionalQueryString(data.characterId, "characterId")
+  );
+
+  return result;
+};
 const assertCharacterIds = async (
   database: string,
   characterIds: string[]
@@ -315,7 +408,16 @@ export const sceneService = {
   },
   getAll: async (dbName: unknown): Promise<SceneNode[]> => {
     const database = assertDatabaseName(dbName);
-    return getScenes(database);
+    return getScenes(database, { limit: 50, offset: 0 });
+  },
+  getAllWithQuery: async (
+    dbName: unknown,
+    query: unknown
+  ): Promise<{ data: SceneNode[]; meta: SceneListQuery }> => {
+    const database = assertDatabaseName(dbName);
+    const parsedQuery = parseSceneListQuery(query);
+    const data = await getScenes(database, parsedQuery);
+    return { data, meta: parsedQuery };
   },
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);
