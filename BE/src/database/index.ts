@@ -5,3 +5,4 @@ export {
   getSystemSession,
   verifyConnection,
 } from "./neo4j.session";
+export { ensureConstraintsForDatabase } from "./neo4j.constraints";

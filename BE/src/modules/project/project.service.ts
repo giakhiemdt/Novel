@@ -6,6 +6,7 @@ import {
   dropProjectDatabase,
   getAllProjects,
 } from "./project.repo";
+import { ensureConstraintsForDatabase } from "../../database";
 import { ProjectInput, ProjectNode, ProjectStatus } from "./project.types";
 
 const STATUSES: ProjectStatus[] = ["active", "archived"];
@@ -143,6 +144,7 @@ export const projectService = {
     const databaseIdentifier = buildDatabaseIdentifier(node.dbName);
     await createProjectDatabase(databaseIdentifier);
     try {
+      await ensureConstraintsForDatabase(node.dbName);
       return await createProject(node);
     } catch (error) {
       try {

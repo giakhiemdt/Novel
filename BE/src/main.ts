@@ -1,11 +1,13 @@
 import { appConfig } from "./config/app.config";
+import { env } from "./config/env";
 import { createApp } from "./app";
-import { closeDriver, verifyConnection } from "./database";
+import { closeDriver, ensureConstraintsForDatabase, verifyConnection } from "./database";
 import { logger } from "./shared/utils/logger";
 
 const main = async (): Promise<void> => {
   try {
     await verifyConnection();
+    await ensureConstraintsForDatabase(env.NEO4J_DATABASE);
     logger.info("Neo4j connection verified against database 'novel'.");
 
     const app = createApp();
