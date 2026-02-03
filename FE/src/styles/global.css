@@ -14,6 +14,10 @@ body {
   min-height: 100vh;
 }
 
+:root[data-theme="light"] body {
+  background: radial-gradient(circle at 10% 10%, #e9eef5 0%, #f7f9fc 55%, #ffffff 100%);
+}
+
 #root {
   min-height: 100vh;
 }
@@ -400,10 +404,10 @@ h3 {
 }
 
 .overview-layout {
-  display: grid;
+  /* display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.7fr);
   gap: var(--space-5);
-  align-items: start;
+  align-items: start; */
 }
 
 .overview-side .card {

@@ -571,6 +571,9 @@ const vi: Dictionary = {
   "Worldbuilding": "Thế giới",
   "Story": "Câu chuyện",
   "System": "Hệ thống",
+  "Theme": "Giao diện",
+  "Dark": "Tối",
+  "Light": "Sáng",
 };
 
 export const translations: Record<Language, Dictionary> = {

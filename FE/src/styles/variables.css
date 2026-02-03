@@ -26,3 +26,15 @@
 
   --shadow-soft: 0 16px 36px var(--color-shadow);
 }
+
+:root[data-theme="light"] {
+  --color-ink: #1d2a36;
+  --color-ink-soft: #546273;
+  --color-paper: #f5f7fb;
+  --color-panel: #ffffff;
+  --color-panel-2: #f2f4f8;
+  --color-accent: #1f8a9e;
+  --color-accent-2: #3db5a7;
+  --color-border: rgba(60, 90, 120, 0.18);
+  --color-shadow: rgba(15, 25, 35, 0.12);
+}
