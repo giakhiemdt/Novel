@@ -9,6 +9,8 @@ import { ChapterCreate } from "../features/chapter/ChapterCreate";
 import { SceneCreate } from "../features/scene/SceneCreate";
 import { ItemCreate } from "../features/item/ItemCreate";
 import { RelationshipCreate } from "../features/relationship/RelationshipCreate";
+import { ConflictCheck } from "../features/conflict/ConflictCheck";
+import { WorldRuleCreate } from "../features/worldrule/WorldRuleCreate";
 import { Dashboard } from "./Dashboard";
 
 export const AppRouter = () => {
@@ -25,6 +27,8 @@ export const AppRouter = () => {
       <Route path="/scenes" element={<SceneCreate />} />
       <Route path="/items" element={<ItemCreate />} />
       <Route path="/relationships" element={<RelationshipCreate />} />
+      <Route path="/world-rules" element={<WorldRuleCreate />} />
+      <Route path="/conflicts" element={<ConflictCheck />} />
     </Routes>
   );
 };

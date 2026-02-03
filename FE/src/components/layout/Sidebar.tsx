@@ -31,6 +31,8 @@ const navItems = [
   { to: "/scenes", label: "Scenes", shortLabel: "S" },
   { to: "/items", label: "Items", shortLabel: "I" },
   { to: "/relationships", label: "Relationships", shortLabel: "R" },
+  { to: "/world-rules", label: "World Rules", shortLabel: "W" },
+  { to: "/conflicts", label: "Conflicts", shortLabel: "X" },
 ];
 
 export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
