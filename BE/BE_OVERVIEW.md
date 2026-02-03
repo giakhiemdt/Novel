@@ -1,14 +1,16 @@
 # Tổng quan Backend Novel
 
+## Mục tiêu dự án
+Backend quản lý dữ liệu tiểu thuyết dài hạn (worldbuilding + cấu trúc kể chuyện), sử dụng Neo4j để lưu node và quan hệ.
+
 ## Công nghệ & kiến trúc
 - **Runtime/Ngôn ngữ:** Node.js + TypeScript.
 - **Framework HTTP:** Fastify.
-- **CSDL:** Neo4j (sử dụng multi-database).
-- **Docs:** Swagger + Swagger UI (mặc định mở tại `/docs`).
-- **Kiến trúc:** phân lớp `routes -> controller -> service -> repo`.
+- **CSDL:** Neo4j (multi-database).
+- **Docs:** Swagger + Swagger UI (`/docs`).
+- **Kiến trúc:** `routes → controller → service → repo`.
 
 ## Cấu hình môi trường
-Các biến môi trường (có default):
 - `NEO4J_URI` (mặc định `neo4j://localhost:7687`)
 - `NEO4J_USER` (mặc định `neo4j`)
 - `NEO4J_PASSWORD` (mặc định `12345678`)
@@ -22,86 +24,141 @@ Các biến môi trường (có default):
 - `npm start`: chạy từ `dist/main.js`.
 
 ## Luồng chạy chính
-- `src/main.ts`:
-  - Kiểm tra kết nối Neo4j khi khởi động.
-  - Khởi tạo app Fastify, đăng ký CORS, Swagger, routes.
-  - Lắng nghe cổng theo `APP_PORT`.
-  - Hỗ trợ shutdown graceful (SIGINT/SIGTERM) + đóng driver Neo4j.
+- Kiểm tra kết nối Neo4j khi start.
+- Tự động tạo constraint + full-text index nếu chưa có.
+- Khởi tạo Fastify + đăng ký routes + swagger.
 
-## Cấu trúc dữ liệu chính (Node labels)
-- **Project**, **Overview**, **Character**, **Timeline**, **Location**, **Faction**, **Event**.
+## Model dữ liệu chính (Node)
+- **Project**: dự án tiểu thuyết (tạo DB con).
+- **Overview**: tổng quan thế giới.
+- **Character**: nhân vật.
+- **Timeline**: dòng thời gian.
+- **Location**: địa điểm.
+- **Faction**: phe phái.
+- **Event**: sự kiện.
+- **Arc / Chapter / Scene**: cấu trúc kể chuyện.
+- **Item**: vật phẩm.
+- **CharacterRelation**: quan hệ nhân vật ↔ nhân vật.
 
-## Các quan hệ (Relationships)
-- `TIMELINE`: `PREVIOUS` / `NEXT` giữa các timeline.
-- `LOCATION`: `CONTAINS` giữa vị trí (có metadata `sinceYear`, `untilYear`, `note`).
-- `EVENT`: `OCCURS_IN` tới `Location`, `OCCURS_ON` tới `Timeline`.
-- `CHARACTER`: `PARTICIPATES_IN` tới `Event` (kèm role, participationType, outcome,...).
+## Quan hệ (Relationships)
+- **Timeline**: `PREVIOUS` / `NEXT` giữa các timeline.
+- **Location**: `CONTAINS` giữa vị trí (có `sinceYear`, `untilYear`, `note`).
+- **Event**: `OCCURS_IN` (Location), `OCCURS_ON` (Timeline), `PARTICIPATES_IN` (Character).
+- **Arc/Chapter/Scene**: `ARC_HAS_CHAPTER`, `CHAPTER_HAS_SCENE`.
+- **Scene**: `SCENE_REFERENCES_EVENT`, `SCENE_FEATURES_CHARACTER`, `SCENE_TAKES_PLACE_IN`.
+- **Item**: `OWNS_ITEM` (Character/Faction), `ITEM_APPEARS_IN` (Event).
+- **CharacterRelation**: `CHARACTER_RELATES_TO` (relation type + thời gian hiệu lực).
 
 ## API hiện có
-> Lưu ý: hầu hết các module (trừ **Project**) yêu cầu header `x-neo4j-database` để chỉ định DB.
+> Lưu ý: hầu hết các module (trừ **Project**) yêu cầu header `x-neo4j-database`.
 
 ### Health
-- `GET /health` → kiểm tra trạng thái API.
+- `GET /health`
 
-### Project (quản lý project & database Neo4j)
-- `GET /projects` → lấy danh sách project.
-- `POST /projects` → tạo project (tự tạo Neo4j database cùng `dbName`).
+### Project
+- `GET /projects`
+- `POST /projects` (tự tạo Neo4j database theo `dbName`)
 
-### Overview (thông tin tổng quan truyện)
-- `GET /overview` → lấy overview.
-- `POST /overview` → tạo overview (chỉ cho phép 1 bản ghi).
-- `PUT /overview` → cập nhật overview.
+### Overview
+- `GET /overview`
+- `POST /overview`
+- `PUT /overview`
 
 ### Character
-- `GET /characters` → danh sách nhân vật.
-- `POST /characters` → tạo nhân vật.
-- `PUT /characters/:id` → cập nhật nhân vật.
-- `DELETE /characters/:id` → xoá nhân vật.
+- `GET /characters` (pagination + filter + search `q`)
+- `POST /characters`
+- `PUT /characters/:id`
+- `DELETE /characters/:id`
 
 ### Timeline
-- `GET /timelines` → danh sách timeline.
-- `POST /timelines` → tạo timeline (có thể link `previousId`/`nextId`).
-- `DELETE /timelines/:id` → xoá timeline.
-- `POST /timelines/link` → link timeline bằng `currentId` + `previousId`/`nextId`.
-- `POST /timelines/unlink` → unlink timeline.
-- `POST /timelines/relink` → unlink rồi link lại.
+- `GET /timelines` (pagination + filter + search `q`)
+- `POST /timelines`
+- `DELETE /timelines/:id`
+- `POST /timelines/link`
+- `POST /timelines/unlink`
+- `POST /timelines/relink`
 
 ### Location
-- `GET /locations` → danh sách location.
-- `POST /locations` → tạo location.
-- `PUT /locations/:id` → cập nhật location.
-- `DELETE /locations/:id` → xoá location.
-- `POST /locations/contains` → tạo quan hệ `CONTAINS` (có `sinceYear`, `untilYear`, `note`).
-- `POST /locations/contains/unlink` → huỷ quan hệ `CONTAINS`.
+- `GET /locations` (pagination + filter + search `q`)
+- `POST /locations`
+- `PUT /locations/:id`
+- `DELETE /locations/:id`
+- `POST /locations/contains`
+- `POST /locations/contains/unlink`
 
 ### Faction
-- `GET /factions` → danh sách faction.
-- `POST /factions` → tạo faction.
-- `PUT /factions/:id` → cập nhật faction.
-- `DELETE /factions/:id` → xoá faction.
+- `GET /factions` (pagination + filter + search `q`)
+- `POST /factions`
+- `PUT /factions/:id`
+- `DELETE /factions/:id`
 
 ### Event
-- `GET /events` → danh sách event.
-- `POST /events` → tạo event (hỗ trợ link Location/Timeline + participants).
-- `PUT /events/:id` → cập nhật event (đồng bộ lại quan hệ nếu có).
-- `DELETE /events/:id` → xoá event.
+- `GET /events` (pagination + filter + search `q`)
+- `POST /events`
+- `PUT /events/:id`
+- `DELETE /events/:id`
+
+### Arc / Chapter / Scene
+- `GET /arcs` (pagination + filter + search `q`)
+- `GET /arcs/structure` (Arc → Chapter → Scene)
+- `POST /arcs`
+- `PUT /arcs/:id`
+- `DELETE /arcs/:id`
+
+- `GET /chapters` (pagination + filter + search `q`)
+- `POST /chapters`
+- `PUT /chapters/:id`
+- `DELETE /chapters/:id`
+
+- `GET /scenes` (pagination + filter + search `q`)
+- `POST /scenes`
+- `PUT /scenes/:id`
+- `DELETE /scenes/:id`
+
+### Scene liên kết riêng
+- `POST /scenes/:id/event`
+- `DELETE /scenes/:id/event`
+- `POST /scenes/:id/location`
+- `DELETE /scenes/:id/location`
+- `POST /scenes/:id/characters`
+
+### Item (Artifact)
+- `GET /items` (pagination + filter + search `q`)
+- `POST /items`
+- `PUT /items/:id`
+- `DELETE /items/:id`
+- `POST /items/:id/event`
+- `DELETE /items/:id/event`
+- `GET /events/:id/items` (pagination + filter + search `q`)
+- `GET /items/:id/events` (pagination + filter + search `q`)
+
+### Character Relationship
+- `GET /character-relations?characterId=...&type=...`
+- `POST /character-relations`
+- `PUT /character-relations`
+- `DELETE /character-relations`
+
+### Conflict Checker
+- `GET /conflicts`
+  - Event overlap theo timeline
+  - Scene không thuộc Chapter
+  - Chapter không thuộc Arc
+  - Character status = Dead nhưng vẫn xuất hiện ở Event
 
 ## Validation & Error handling
-- Validate payload tại `service` layer (type, required, enum, range).
-- Trả lỗi dạng `{ message }` với status code rõ ràng (400/404/409/500).
-- Dùng `AppError` + `handleError` để chuẩn hoá lỗi.
+- Validate payload tại service (required, enum, range, format).
+- Trả lỗi `{ message }` với status code 400/404/409/500.
+- Dùng `AppError` + `handleError`.
 
-## Neo4j multi-database
-- Module **Project** tạo database mới trong Neo4j (`CREATE DATABASE <dbName>`) rồi lưu Project node.
-- Các module còn lại đọc DB từ header `x-neo4j-database` để thao tác dữ liệu.
+## Tìm kiếm & phân trang
+- Hầu hết list API hỗ trợ `limit`, `offset`, filter, và full‑text `q`.
+- Full‑text index: Character, Event, Location, Faction, Timeline, Arc, Chapter, Scene, Item, Project, Overview.
+
+## Multi‑database Neo4j
+- `POST /projects` tạo DB mới.
+- Các module còn lại thao tác DB theo `x-neo4j-database`.
 
 ## Mức độ hoàn thiện / TODO
-- Module **Graph** hiện để trống (routes/service/repo chưa triển khai).
-- `src/tools/*` (seed/debug/check) chỉ là placeholder.
-- `src/tests/*` rỗng (chưa có test thực tế).
-
-## Gợi ý mở rộng nhanh
-- Thêm auth (JWT / API key), rate limit.
-- Thêm index/constraint cho các node quan trọng (id unique).
-- Bổ sung test cho service/repo, và seed dữ liệu mẫu.
-
+- `Graph` module còn trống.
+- `tools/*` (seed/debug/check) còn placeholder.
+- `tests/*` chưa có test thực tế.
