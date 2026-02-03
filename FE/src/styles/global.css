@@ -548,20 +548,29 @@ h3 {
   font-weight: 700;
 }
 
+.field,
 .input,
 .select,
-.textarea {
+.textarea,
+.multi-select__control {
   border: 1px solid var(--input-border);
   border-radius: var(--radius-sm);
-  padding: 12px 14px;
   background: var(--input-bg);
   color: var(--color-ink);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
+.input,
+.select,
+.textarea {
+  padding: 12px 14px;
+}
+
+.field:focus,
 .input:focus,
 .select:focus,
-.textarea:focus {
+.textarea:focus,
+.multi-select__control:focus-within {
   outline: none;
   border-color: var(--input-focus-border);
   box-shadow: 0 0 0 3px var(--input-focus-ring);
@@ -681,7 +690,6 @@ h3 {
   min-height: 44px;
   padding: 6px 10px;
   border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
   background: var(--multi-select-bg);
 }
 
