@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "../../components/common/Button";
-import { ErrorMessage } from "../../components/common/ErrorMessage";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
 import { Select } from "../../components/form/Select";
 import { TextArea } from "../../components/form/TextArea";
 import { TextInput } from "../../components/form/TextInput";
 import { useForm } from "../../hooks/useForm";
-import { createCharacter, getAllCharacters } from "./character.api";
+import { useProjectChange } from "../../hooks/useProjectChange";
+import { useI18n } from "../../i18n/I18nProvider";
+import { useToast } from "../../components/common/Toast";
+import {
+  createCharacter,
+  deleteCharacter,
+  getAllCharacters,
+  updateCharacter,
+} from "./character.api";
 import { CharacterList } from "./CharacterList";
 import { validateCharacter } from "./character.schema";
 import type { Character, CharacterPayload } from "./character.types";
@@ -45,40 +52,21 @@ const initialState = {
 type CharacterFormState = typeof initialState;
 
 export const CharacterCreate = () => {
+  const { t } = useI18n();
   const { values, setField, reset } = useForm<CharacterFormState>(initialState);
   const [items, setItems] = useState<Character[]>([]);
-  const [selected, setSelected] = useState<Character | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [listError, setListError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [editItem, setEditItem] = useState<Character | null>(null);
+  const [editValues, setEditValues] = useState<CharacterFormState | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const { notify } = useToast();
 
-  const loadItems = useCallback(async (selectId?: string) => {
-    setLoading(true);
-    setListError(null);
+  const loadItems = useCallback(async () => {
     try {
       const data = await getAllCharacters();
       setItems(data ?? []);
-      if (!data || data.length === 0) {
-        setSelected(null);
-        return;
-      }
-      if (selectId) {
-        const match = data.find((item) => item.id === selectId);
-        setSelected(match ?? data[0]);
-        return;
-      }
-      setSelected((prev) => {
-        if (!prev) {
-          return data[0];
-        }
-        return data.find((item) => item.id === prev.id) ?? data[0];
-      });
     } catch (err) {
-      setListError((err as Error).message);
-    } finally {
-      setLoading(false);
+      notify((err as Error).message, "error");
     }
   }, [getAllCharacters]);
 
@@ -86,20 +74,39 @@ export const CharacterCreate = () => {
     void loadItems();
   }, [loadItems]);
 
-  const renderPills = (values?: string[]) => {
-    if (!values || values.length === 0) {
-      return <span className="header__subtitle">-</span>;
-    }
-    return (
-      <div className="pill-list">
-        {values.map((value) => (
-          <span className="pill" key={value}>
-            {value}
-          </span>
-        ))}
-      </div>
-    );
-  };
+  useProjectChange(() => {
+    void loadItems();
+  });
+
+  const mapCharacterToForm = (item: Character): CharacterFormState => ({
+    name: item.name ?? "",
+    alias: item.alias ?? [],
+    soulArt: item.soulArt ?? [],
+    level: item.level ?? "",
+    status: item.status ?? "",
+    isMainCharacter: item.isMainCharacter ?? false,
+    gender: item.gender ?? "",
+    age: item.age !== undefined ? String(item.age) : "",
+    race: item.race ?? "",
+    appearance: item.appearance ?? "",
+    height: item.height !== undefined ? String(item.height) : "",
+    distinctiveTraits: item.distinctiveTraits ?? [],
+    personalityTraits: item.personalityTraits ?? [],
+    beliefs: item.beliefs ?? [],
+    fears: item.fears ?? [],
+    desires: item.desires ?? [],
+    weaknesses: item.weaknesses ?? [],
+    origin: item.origin ?? "",
+    background: item.background ?? "",
+    trauma: item.trauma ?? [],
+    secret: item.secret ?? "",
+    currentLocation: item.currentLocation ?? "",
+    currentGoal: item.currentGoal ?? "",
+    currentAffiliation: item.currentAffiliation ?? "",
+    powerState: item.powerState ?? "",
+    notes: item.notes ?? "",
+    tags: item.tags ?? [],
+  });
 
   const buildPayload = (): CharacterPayload => ({
     name: values.name,
@@ -132,237 +139,683 @@ export const CharacterCreate = () => {
   });
 
   const handleSubmit = async () => {
-    setStatus(null);
-    setError(null);
     const payload = buildPayload();
     const validation = validateCharacter(payload);
     if (!validation.valid) {
-      setError(`Missing required fields: ${validation.missing.join(", ")}`);
+      notify(
+        `${t("Missing required fields:")} ${validation.missing.join(", ")}`,
+        "error"
+      );
       return;
     }
 
     try {
       const created = await createCharacter(payload);
-      setStatus("Character created successfully.");
+      notify(t("Character created successfully."), "success");
       reset();
       setShowForm(false);
-      await loadItems(created.id);
+      await loadItems();
     } catch (err) {
-      setError((err as Error).message);
+      notify((err as Error).message, "error");
+    }
+  };
+
+  const handleEditOpen = (item: Character) => {
+    setEditItem(item);
+    setEditValues(mapCharacterToForm(item));
+    setShowForm(false);
+  };
+
+  const handleEditCancel = () => {
+    setEditItem(null);
+    setEditValues(null);
+  };
+
+  const handleEditSave = async () => {
+    if (!editItem || !editValues) {
+      return;
+    }
+    setIsSavingEdit(true);
+    try {
+      await updateCharacter(editItem.id, {
+        name: editValues.name,
+        alias: editValues.alias,
+        soulArt: editValues.soulArt,
+        level: editValues.level || undefined,
+        status: editValues.status || undefined,
+        isMainCharacter: editValues.isMainCharacter,
+        gender: editValues.gender as Character["gender"],
+        age: editValues.age === "" ? Number.NaN : Number(editValues.age),
+        race: editValues.race as Character["race"],
+        appearance: editValues.appearance || undefined,
+        height: editValues.height === "" ? undefined : Number(editValues.height),
+        distinctiveTraits: editValues.distinctiveTraits,
+        personalityTraits: editValues.personalityTraits,
+        beliefs: editValues.beliefs,
+        fears: editValues.fears,
+        desires: editValues.desires,
+        weaknesses: editValues.weaknesses,
+        origin: editValues.origin || undefined,
+        background: editValues.background || undefined,
+        trauma: editValues.trauma,
+        secret: editValues.secret || undefined,
+        currentLocation: editValues.currentLocation || undefined,
+        currentGoal: editValues.currentGoal || undefined,
+        currentAffiliation: editValues.currentAffiliation || undefined,
+        powerState: editValues.powerState || undefined,
+        notes: editValues.notes || undefined,
+        tags: editValues.tags,
+      });
+      notify(t("Character updated successfully."), "success");
+      await loadItems();
+    } catch (err) {
+      notify((err as Error).message, "error");
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleDelete = async (item: Character) => {
+    const confirmed = window.confirm(
+      t("Delete this character? This action cannot be undone.")
+    );
+    if (!confirmed) {
+      return;
+    }
+    try {
+      await deleteCharacter(item.id);
+      notify(t("Character deleted."), "success");
+      if (editItem?.id === item.id) {
+        handleEditCancel();
+      }
+      await loadItems();
+    } catch (err) {
+      notify((err as Error).message, "error");
     }
   };
 
   return (
     <div>
-      <div className="page-toolbar">
-        <Button onClick={() => setShowForm((prev) => !prev)} variant="primary">
-          {showForm ? "Close form" : "Create new character"}
-        </Button>
-        <Button onClick={() => loadItems()} variant="ghost" disabled={loading}>
-          {loading ? "Refreshing..." : "Refresh list"}
-        </Button>
+      <div className="card">
+        <div className="card__header">
+          <div>
+            <h3 className="section-title">{t("Character nodes")}</h3>
+            <p className="header__subtitle">
+              {t("Click a row to inspect details.")}
+            </p>
+          </div>
+          <Button onClick={() => setShowForm((prev) => !prev)} variant="primary">
+            {showForm ? t("Close form") : t("Create new character")}
+          </Button>
+        </div>
+        <CharacterList items={items} onEdit={handleEditOpen} onDelete={handleDelete} />
       </div>
 
-      <div className="content-grid">
-        <div className="card">
-          <h3 className="section-title">Character nodes</h3>
-          <p className="header__subtitle">Click a row to inspect details.</p>
-          {listError && <ErrorMessage message={listError} />}
-          {!listError && (
-            <CharacterList
-              items={items}
-              selectedId={selected?.id}
-              onSelect={setSelected}
-            />
-          )}
-        </div>
-        <div className="card">
-          <h3 className="section-title">Details</h3>
-          {selected ? (
-            <dl className="detail-list">
-              <dt>Name</dt>
-              <dd>{selected.name}</dd>
-              <dt>ID</dt>
-              <dd>{selected.id ?? "-"}</dd>
-              <dt>Gender</dt>
-              <dd>{selected.gender ?? "-"}</dd>
-              <dt>Age</dt>
-              <dd>{selected.age ?? "-"}</dd>
-              <dt>Race</dt>
-              <dd>{selected.race ?? "-"}</dd>
-              <dt>Status</dt>
-              <dd>{selected.status ?? "-"}</dd>
-              <dt>Level</dt>
-              <dd>{selected.level ?? "-"}</dd>
-              <dt>Main</dt>
-              <dd>{selected.isMainCharacter ? "Yes" : "No"}</dd>
-              <dt>Alias</dt>
-              <dd>{renderPills(selected.alias)}</dd>
-              <dt>Tags</dt>
-              <dd>{renderPills(selected.tags)}</dd>
-            </dl>
-          ) : (
-            <p className="header__subtitle">Select a character to see details.</p>
-          )}
-        </div>
-      </div>
+      {editItem && editValues && (
+        <>
+          <div className="card">
+            <div className="card__header">
+              <div>
+                <h3 className="section-title">{t("Edit character")}</h3>
+                <p className="header__subtitle">{editItem.name}</p>
+              </div>
+              <Button variant="ghost" onClick={handleEditCancel}>
+                {t("Cancel")}
+              </Button>
+            </div>
+          </div>
+
+          <FormSection title="Core Identity">
+            <div className="form-field--wide">
+              <TextInput
+                label="Name"
+                value={editValues.name}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, name: value })
+                }
+                required
+              />
+            </div>
+            <div className="form-field--narrow">
+              <Select
+                label="Gender"
+                value={editValues.gender}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, gender: value })
+                }
+                options={[
+                  { value: "male", label: "Male" },
+                  { value: "female", label: "Female" },
+                  { value: "other", label: "Other" },
+                ]}
+                required
+              />
+            </div>
+            <div className="form-field--narrow form-field--compact">
+              <TextInput
+                label="Age"
+                type="number"
+                value={editValues.age}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, age: value })
+                }
+                required
+              />
+            </div>
+            <div className="form-field--narrow">
+              <Select
+                label="Race"
+                value={editValues.race}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, race: value })
+                }
+                options={[
+                  { value: "human", label: "Human" },
+                  { value: "elf", label: "Elf" },
+                  { value: "demon", label: "Demon" },
+                ]}
+                required
+              />
+            </div>
+            <div className="form-field--narrow">
+              <Select
+                label="Level"
+                value={editValues.level}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, level: value })
+                }
+                options={["T1", "T2", "T3", "T4", "T5", "T6", "T7"].map(
+                  (value) => ({ value, label: value })
+                )}
+              />
+            </div>
+            <div className="form-field--narrow">
+              <Select
+                label="Status"
+                value={editValues.status}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, status: value })
+                }
+                options={[
+                  { value: "Alive", label: "Alive" },
+                  { value: "Dead", label: "Dead" },
+                ]}
+              />
+            </div>
+            <div className="form-field--narrow">
+              <label className="toggle">
+                <span>{t("Main character")}</span>
+                <input
+                  type="checkbox"
+                  checked={editValues.isMainCharacter}
+                  onChange={(event) =>
+                    setEditValues(
+                      (prev) =>
+                        prev && {
+                          ...prev,
+                          isMainCharacter: event.target.checked,
+                        }
+                    )
+                  }
+                />
+                <span className="toggle__track" aria-hidden="true">
+                  <span className="toggle__thumb" />
+                </span>
+              </label>
+            </div>
+            <div className="form-field--wide">
+              <MultiSelect
+                label="Alias"
+                values={editValues.alias}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, alias: value })
+                }
+              />
+            </div>
+            <div className="form-field--wide">
+              <MultiSelect
+                label="Soul Art"
+                values={editValues.soulArt}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, soulArt: value })
+                }
+              />
+            </div>
+          </FormSection>
+
+          <FormSection title="Traits">
+            <div className="form-field--wide">
+              <TextInput
+                label="Appearance"
+                value={editValues.appearance}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, appearance: value })
+                }
+              />
+            </div>
+            <div className="form-field--narrow form-field--compact">
+              <TextInput
+                label="Height"
+                type="number"
+                value={editValues.height}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, height: value })
+                }
+              />
+            </div>
+            <div className="form-field--wide">
+              <MultiSelect
+                label="Distinctive Traits"
+                values={editValues.distinctiveTraits}
+                onChange={(value) =>
+                  setEditValues(
+                    (prev) => prev && { ...prev, distinctiveTraits: value }
+                  )
+                }
+              />
+            </div>
+            <div className="form-field--wide">
+              <MultiSelect
+                label="Personality Traits"
+                values={editValues.personalityTraits}
+                onChange={(value) =>
+                  setEditValues(
+                    (prev) => prev && { ...prev, personalityTraits: value }
+                  )
+                }
+              />
+            </div>
+            <div className="form-field--wide">
+              <MultiSelect
+                label="Beliefs"
+                values={editValues.beliefs}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, beliefs: value })
+                }
+              />
+            </div>
+            <div className="form-field--wide">
+              <MultiSelect
+                label="Fears"
+                values={editValues.fears}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, fears: value })
+                }
+              />
+            </div>
+            <div className="form-field--wide">
+              <MultiSelect
+                label="Desires"
+                values={editValues.desires}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, desires: value })
+                }
+              />
+            </div>
+            <div className="form-field--wide">
+              <MultiSelect
+                label="Weaknesses"
+                values={editValues.weaknesses}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, weaknesses: value })
+                }
+              />
+            </div>
+          </FormSection>
+
+          <FormSection title="Background">
+            <div className="form-field--wide">
+              <TextInput
+                label="Origin"
+                value={editValues.origin}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, origin: value })
+                }
+              />
+            </div>
+            <div className="form-field--wide">
+              <TextArea
+                label="Background"
+                value={editValues.background}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, background: value })
+                }
+              />
+            </div>
+            <div className="form-field--wide">
+              <MultiSelect
+                label="Trauma"
+                values={editValues.trauma}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, trauma: value })
+                }
+              />
+            </div>
+            <div className="form-field--wide">
+              <TextInput
+                label="Secret"
+                value={editValues.secret}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, secret: value })
+                }
+              />
+            </div>
+            <div className="form-field--wide">
+              <TextInput
+                label="Current Location"
+                value={editValues.currentLocation}
+                onChange={(value) =>
+                  setEditValues(
+                    (prev) => prev && { ...prev, currentLocation: value }
+                  )
+                }
+              />
+            </div>
+            <div className="form-field--wide">
+              <TextInput
+                label="Current Goal"
+                value={editValues.currentGoal}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, currentGoal: value })
+                }
+              />
+            </div>
+            <div className="form-field--wide">
+              <TextInput
+                label="Current Affiliation"
+                value={editValues.currentAffiliation}
+                onChange={(value) =>
+                  setEditValues(
+                    (prev) => prev && { ...prev, currentAffiliation: value }
+                  )
+                }
+              />
+            </div>
+            <div className="form-field--wide">
+              <TextInput
+                label="Power State"
+                value={editValues.powerState}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, powerState: value })
+                }
+              />
+            </div>
+          </FormSection>
+
+          <FormSection title="Notes & Tags">
+            <div className="form-field--wide">
+              <TextArea
+                label="Notes"
+                value={editValues.notes}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, notes: value })
+                }
+              />
+            </div>
+            <div className="form-field--wide">
+              <MultiSelect
+                label="Tags"
+                values={editValues.tags}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, tags: value })
+                }
+              />
+            </div>
+          </FormSection>
+
+          <div className="card">
+            <Button onClick={handleEditSave} disabled={isSavingEdit}>
+              {isSavingEdit ? t("Saving...") : t("Save changes")}
+            </Button>
+          </div>
+        </>
+      )}
 
       {showForm && (
         <>
-          <FormSection
-            title="Core Identity"
-            description="Base profile for the character node."
-          >
-        <TextInput
-          label="Name"
-          value={values.name}
-          onChange={(value) => setField("name", value)}
-          required
-        />
-        <Select
-          label="Gender"
-          value={values.gender}
-          onChange={(value) => setField("gender", value)}
-          options={[
-            { value: "male", label: "Male" },
-            { value: "female", label: "Female" },
-            { value: "other", label: "Other" },
-          ]}
-          required
-        />
-        <TextInput
-          label="Age"
-          type="number"
-          value={values.age}
-          onChange={(value) => setField("age", value)}
-          required
-        />
-        <Select
-          label="Race"
-          value={values.race}
-          onChange={(value) => setField("race", value)}
-          options={[
-            { value: "human", label: "Human" },
-            { value: "elf", label: "Elf" },
-            { value: "demon", label: "Demon" },
-          ]}
-          required
-        />
-        <Select
-          label="Level"
-          value={values.level}
-          onChange={(value) => setField("level", value)}
-          options={["T1", "T2", "T3", "T4", "T5", "T6", "T7"].map((value) => ({
-            value,
-            label: value,
-          }))}
-        />
-        <Select
-          label="Status"
-          value={values.status}
-          onChange={(value) => setField("status", value)}
-          options={[
-            { value: "Alive", label: "Alive" },
-            { value: "Dead", label: "Dead" },
-          ]}
-        />
-        <TextInput
-          label="Appearance"
-          value={values.appearance}
-          onChange={(value) => setField("appearance", value)}
-        />
-        <TextInput
-          label="Height"
-          type="number"
-          value={values.height}
-          onChange={(value) => setField("height", value)}
-        />
-        <label className="form-field">
-          <span>Main character</span>
-          <input
-            type="checkbox"
-            checked={values.isMainCharacter}
-            onChange={(event) => setField("isMainCharacter", event.target.checked)}
+      <FormSection
+        title="Core Identity"
+        description="Base profile for the character node."
+      >
+        <div className="form-field--wide">
+          <TextInput
+            label="Name"
+            value={values.name}
+            onChange={(value) => setField("name", value)}
+            required
           />
-        </label>
-        <MultiSelect
-          label="Alias"
-          values={values.alias}
-          onChange={(value) => setField("alias", value)}
-        />
-        <MultiSelect
-          label="Soul Art"
-          values={values.soulArt}
-          onChange={(value) => setField("soulArt", value)}
-        />
+        </div>
+        <div className="form-field--narrow">
+          <Select
+            label="Gender"
+            value={values.gender}
+            onChange={(value) => setField("gender", value)}
+            options={[
+              { value: "male", label: "Male" },
+              { value: "female", label: "Female" },
+              { value: "other", label: "Other" },
+            ]}
+            required
+          />
+        </div>
+        <div className="form-field--narrow">
+          <TextInput
+            label="Age"
+            type="number"
+            value={values.age}
+            onChange={(value) => setField("age", value)}
+            required
+          />
+        </div>
+        <div className="form-field--narrow">
+          <Select
+            label="Race"
+            value={values.race}
+            onChange={(value) => setField("race", value)}
+            options={[
+              { value: "human", label: "Human" },
+              { value: "elf", label: "Elf" },
+              { value: "demon", label: "Demon" },
+            ]}
+            required
+          />
+        </div>
+        <div className="form-field--narrow">
+          <Select
+            label="Level"
+            value={values.level}
+            onChange={(value) => setField("level", value)}
+            options={["T1", "T2", "T3", "T4", "T5", "T6", "T7"].map((value) => ({
+              value,
+              label: value,
+            }))}
+          />
+        </div>
+        <div className="form-field--narrow">
+          <Select
+            label="Status"
+            value={values.status}
+            onChange={(value) => setField("status", value)}
+            options={[
+              { value: "Alive", label: "Alive" },
+              { value: "Dead", label: "Dead" },
+            ]}
+          />
+        </div>
+        <div className="form-field--wide">
+          <TextInput
+            label="Appearance"
+            value={values.appearance}
+            onChange={(value) => setField("appearance", value)}
+          />
+        </div>
+        <div className="form-field--narrow">
+          <TextInput
+            label="Height"
+            type="number"
+            value={values.height}
+            onChange={(value) => setField("height", value)}
+          />
+        </div>
+        <div className="form-field--narrow">
+          <label className="toggle">
+            <span>{t("Main character")}</span>
+            <input
+              type="checkbox"
+              checked={values.isMainCharacter}
+              onChange={(event) =>
+                setField("isMainCharacter", event.target.checked)
+              }
+            />
+            <span className="toggle__track" aria-hidden="true">
+              <span className="toggle__thumb" />
+            </span>
+          </label>
+        </div>
+        <div className="form-field--wide">
+          <MultiSelect
+            label="Alias"
+            values={values.alias}
+            onChange={(value) => setField("alias", value)}
+          />
+        </div>
+        <div className="form-field--wide">
+          <MultiSelect
+            label="Soul Art"
+            values={values.soulArt}
+            onChange={(value) => setField("soulArt", value)}
+          />
+        </div>
       </FormSection>
 
       <FormSection title="Traits" description="Personality and inner layers.">
-        <MultiSelect
-          label="Distinctive Traits"
-          values={values.distinctiveTraits}
-          onChange={(value) => setField("distinctiveTraits", value)}
-        />
-        <MultiSelect
-          label="Personality Traits"
-          values={values.personalityTraits}
-          onChange={(value) => setField("personalityTraits", value)}
-        />
-        <MultiSelect label="Beliefs" values={values.beliefs} onChange={(value) => setField("beliefs", value)} />
-        <MultiSelect label="Fears" values={values.fears} onChange={(value) => setField("fears", value)} />
-        <MultiSelect label="Desires" values={values.desires} onChange={(value) => setField("desires", value)} />
-        <MultiSelect
-          label="Weaknesses"
-          values={values.weaknesses}
-          onChange={(value) => setField("weaknesses", value)}
-        />
-        <MultiSelect label="Trauma" values={values.trauma} onChange={(value) => setField("trauma", value)} />
-        <TextInput label="Secret" value={values.secret} onChange={(value) => setField("secret", value)} />
+        <div className="form-field--wide">
+          <MultiSelect
+            label="Distinctive Traits"
+            values={values.distinctiveTraits}
+            onChange={(value) => setField("distinctiveTraits", value)}
+          />
+        </div>
+        <div className="form-field--wide">
+          <MultiSelect
+            label="Personality Traits"
+            values={values.personalityTraits}
+            onChange={(value) => setField("personalityTraits", value)}
+          />
+        </div>
+        <div className="form-field--wide">
+          <MultiSelect
+            label="Beliefs"
+            values={values.beliefs}
+            onChange={(value) => setField("beliefs", value)}
+          />
+        </div>
+        <div className="form-field--wide">
+          <MultiSelect
+            label="Fears"
+            values={values.fears}
+            onChange={(value) => setField("fears", value)}
+          />
+        </div>
+        <div className="form-field--wide">
+          <MultiSelect
+            label="Desires"
+            values={values.desires}
+            onChange={(value) => setField("desires", value)}
+          />
+        </div>
+        <div className="form-field--wide">
+          <MultiSelect
+            label="Weaknesses"
+            values={values.weaknesses}
+            onChange={(value) => setField("weaknesses", value)}
+          />
+        </div>
+        <div className="form-field--wide">
+          <MultiSelect
+            label="Trauma"
+            values={values.trauma}
+            onChange={(value) => setField("trauma", value)}
+          />
+        </div>
+        <div className="form-field--wide">
+          <TextInput
+            label="Secret"
+            value={values.secret}
+            onChange={(value) => setField("secret", value)}
+          />
+        </div>
       </FormSection>
 
       <FormSection title="Origin Story" description="Narrative background and origins.">
-        <TextInput label="Origin" value={values.origin} onChange={(value) => setField("origin", value)} />
-        <TextArea
-          label="Background"
-          value={values.background}
-          onChange={(value) => setField("background", value)}
-        />
+        <div className="form-field--wide">
+          <TextInput
+            label="Origin"
+            value={values.origin}
+            onChange={(value) => setField("origin", value)}
+          />
+        </div>
+        <div className="form-field--wide">
+          <TextArea
+            label="Background"
+            value={values.background}
+            onChange={(value) => setField("background", value)}
+          />
+        </div>
       </FormSection>
 
       <FormSection title="Current State" description="Present status in the story world.">
-        <TextInput
-          label="Current Location"
-          value={values.currentLocation}
-          onChange={(value) => setField("currentLocation", value)}
-        />
-        <TextInput
-          label="Current Goal"
-          value={values.currentGoal}
-          onChange={(value) => setField("currentGoal", value)}
-        />
-        <TextInput
-          label="Current Affiliation"
-          value={values.currentAffiliation}
-          onChange={(value) => setField("currentAffiliation", value)}
-        />
-        <TextInput
-          label="Power State"
-          value={values.powerState}
-          onChange={(value) => setField("powerState", value)}
-        />
+        <div className="form-field--wide">
+          <TextInput
+            label="Current Location"
+            value={values.currentLocation}
+            onChange={(value) => setField("currentLocation", value)}
+          />
+        </div>
+        <div className="form-field--wide">
+          <TextInput
+            label="Current Goal"
+            value={values.currentGoal}
+            onChange={(value) => setField("currentGoal", value)}
+          />
+        </div>
+        <div className="form-field--wide">
+          <TextInput
+            label="Current Affiliation"
+            value={values.currentAffiliation}
+            onChange={(value) => setField("currentAffiliation", value)}
+          />
+        </div>
+        <div className="form-field--wide">
+          <TextInput
+            label="Power State"
+            value={values.powerState}
+            onChange={(value) => setField("powerState", value)}
+          />
+        </div>
       </FormSection>
 
       <FormSection title="Notes & Tags" description="Extra context and indexing.">
-        <TextArea label="Notes" value={values.notes} onChange={(value) => setField("notes", value)} />
-        <MultiSelect label="Tags" values={values.tags} onChange={(value) => setField("tags", value)} />
+        <div className="form-field--wide">
+          <TextArea
+            label="Notes"
+            value={values.notes}
+            onChange={(value) => setField("notes", value)}
+          />
+        </div>
+        <div className="form-field--wide">
+          <MultiSelect
+            label="Tags"
+            values={values.tags}
+            onChange={(value) => setField("tags", value)}
+          />
+        </div>
       </FormSection>
 
           <div className="card">
             <Button onClick={handleSubmit} variant="primary">
               Create character
             </Button>
-            {status && <p className="notice">{status}</p>}
-            {error && <ErrorMessage message={error} />}
           </div>
         </>
       )}

@@ -2,6 +2,7 @@ import { AppError } from "../../shared/errors/app-error";
 import { generateId } from "../../shared/utils/generate-id";
 import {
   createTimeline,
+  deleteTimeline,
   getAllTimelines,
   linkTimeline,
   unlinkTimeline,
@@ -77,6 +78,21 @@ const assertOptionalStringArray = (
   return value;
 };
 
+const assertDatabaseName = (value: unknown): string => {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new AppError("dbName is required", 400);
+  }
+  const dbName = value.trim();
+  const isValid = /^[A-Za-z0-9_-]+$/.test(dbName);
+  if (!isValid) {
+    throw new AppError(
+      "dbName must contain only letters, numbers, underscores, or hyphens",
+      400
+    );
+  }
+  return dbName;
+};
+
 const addIfDefined = (
   target: Record<string, unknown>,
   key: string,
@@ -93,16 +109,14 @@ const validateTimelinePayload = (payload: unknown): TimelineInput => {
   }
 
   const data = payload as Record<string, unknown>;
-  const startYear = assertRequiredNumber(data.startYear, "startYear");
-  const endYear = assertRequiredNumber(data.endYear, "endYear");
-  if (endYear < startYear) {
-    throw new AppError("endYear must be >= startYear", 400);
+  const durationYears = assertRequiredNumber(data.durationYears, "durationYears");
+  if (durationYears <= 0) {
+    throw new AppError("durationYears must be > 0", 400);
   }
 
   const result: Record<string, unknown> = {
     name: assertRequiredString(data.name, "name"),
-    startYear,
-    endYear,
+    durationYears,
   };
 
   addIfDefined(result, "id", assertOptionalString(data.id, "id"));
@@ -168,7 +182,7 @@ const buildTimelineNode = (
   return {
     ...nodePayload,
     id: payload.id ?? generateId(),
-    durationYears: payload.endYear - payload.startYear,
+    durationYears: payload.durationYears,
     isOngoing: payload.isOngoing ?? false,
     createdAt: now,
     updatedAt: now,
@@ -176,7 +190,11 @@ const buildTimelineNode = (
 };
 
 export const timelineService = {
-  create: async (payload: unknown): Promise<Omit<TimelineNode, "previousId" | "nextId">> => {
+  create: async (
+    payload: unknown,
+    dbName: unknown
+  ): Promise<Omit<TimelineNode, "previousId" | "nextId">> => {
+    const database = assertDatabaseName(dbName);
     const validated = validateTimelinePayload(payload);
     const node = buildTimelineNode(validated);
 
@@ -189,7 +207,12 @@ export const timelineService = {
     }
 
     try {
-      return await createTimeline(node, validated.previousId, validated.nextId);
+      return await createTimeline(
+        node,
+        database,
+        validated.previousId,
+        validated.nextId
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to create timeline";
       if (message.includes("not found")) {
@@ -201,10 +224,12 @@ export const timelineService = {
       throw new AppError(message, 500);
     }
   },
-  getAll: async (): Promise<TimelineNode[]> => {
-    return getAllTimelines();
+  getAll: async (dbName: unknown): Promise<TimelineNode[]> => {
+    const database = assertDatabaseName(dbName);
+    return getAllTimelines(database);
   },
-  link: async (payload: unknown): Promise<void> => {
+  link: async (payload: unknown, dbName: unknown): Promise<void> => {
+    const database = assertDatabaseName(dbName);
     if (!payload || typeof payload !== "object") {
       throw new AppError("payload must be an object", 400);
     }
@@ -228,7 +253,7 @@ export const timelineService = {
     }
 
     try {
-      await linkTimeline(currentId, previousId, nextId);
+      await linkTimeline(database, currentId, previousId, nextId);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to link timeline";
       if (message.includes("not found")) {
@@ -240,7 +265,8 @@ export const timelineService = {
       throw new AppError(message, 500);
     }
   },
-  unlink: async (payload: unknown): Promise<void> => {
+  unlink: async (payload: unknown, dbName: unknown): Promise<void> => {
+    const database = assertDatabaseName(dbName);
     if (!payload || typeof payload !== "object") {
       throw new AppError("payload must be an object", 400);
     }
@@ -251,7 +277,7 @@ export const timelineService = {
     const nextId = assertOptionalString(data.nextId, "nextId");
 
     try {
-      await unlinkTimeline(currentId, previousId, nextId);
+      await unlinkTimeline(database, currentId, previousId, nextId);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to unlink timeline";
       if (message.includes("not found")) {
@@ -260,7 +286,8 @@ export const timelineService = {
       throw new AppError(message, 500);
     }
   },
-  relink: async (payload: unknown): Promise<void> => {
+  relink: async (payload: unknown, dbName: unknown): Promise<void> => {
+    const database = assertDatabaseName(dbName);
     if (!payload || typeof payload !== "object") {
       throw new AppError("payload must be an object", 400);
     }
@@ -284,8 +311,8 @@ export const timelineService = {
     }
 
     try {
-      await unlinkTimeline(currentId);
-      await linkTimeline(currentId, previousId, nextId);
+      await unlinkTimeline(database, currentId);
+      await linkTimeline(database, currentId, previousId, nextId);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to relink timeline";
       if (message.includes("not found")) {
@@ -295,6 +322,13 @@ export const timelineService = {
         throw new AppError(message, 409);
       }
       throw new AppError(message, 500);
+    }
+  },
+  delete: async (id: string, dbName: unknown): Promise<void> => {
+    const database = assertDatabaseName(dbName);
+    const deleted = await deleteTimeline(database, id);
+    if (!deleted) {
+      throw new AppError("timeline not found", 404);
     }
   },
 };

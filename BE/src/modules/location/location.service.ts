@@ -1,6 +1,13 @@
 import { AppError } from "../../shared/errors/app-error";
 import { generateId } from "../../shared/utils/generate-id";
-import { createLocation, getAllLocations } from "./location.repo";
+import {
+  createContainsLink,
+  createLocation,
+  deleteLocation,
+  deleteContainsLink,
+  getAllLocations,
+  updateLocation,
+} from "./location.repo";
 import { LocationInput, LocationNode } from "./location.types";
 
 const isStringArray = (value: unknown): value is string[] =>
@@ -52,6 +59,30 @@ const assertOptionalNumber = (
   return value;
 };
 
+const TYPE_LEVELS: Record<string, number> = {
+  "LEVEL 1 - STRUCTURE": 1,
+  "LEVEL 2 - COMPLEX": 2,
+  "LEVEL 3 - SETTLEMENT": 3,
+  "LEVEL 4 - REGION": 4,
+  "LEVEL 5 - TERRITORY": 5,
+  "LEVEL 6 - WORLD SCALE": 6,
+};
+
+const assertDatabaseName = (value: unknown): string => {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new AppError("dbName is required", 400);
+  }
+  const dbName = value.trim();
+  const isValid = /^[A-Za-z0-9_-]+$/.test(dbName);
+  if (!isValid) {
+    throw new AppError(
+      "dbName must contain only letters, numbers, underscores, or hyphens",
+      400
+    );
+  }
+  return dbName;
+};
+
 const assertOptionalStringArray = (
   value: unknown,
   field: string
@@ -87,7 +118,12 @@ const validateLocationPayload = (payload: unknown): LocationInput => {
 
   addIfDefined(result, "id", assertOptionalString(data.id, "id"));
   addIfDefined(result, "alias", assertOptionalStringArray(data.alias, "alias"));
-  addIfDefined(result, "type", assertOptionalString(data.type, "type"));
+  addIfDefined(result, "type", assertRequiredString(data.type, "type"));
+  addIfDefined(
+    result,
+    "typeDetail",
+    assertOptionalString(data.typeDetail, "typeDetail")
+  );
   addIfDefined(result, "category", assertOptionalString(data.category, "category"));
   addIfDefined(
     result,
@@ -170,12 +206,117 @@ const buildLocationNode = (payload: LocationInput): LocationNode => {
 };
 
 export const locationService = {
-  create: async (payload: unknown): Promise<LocationNode> => {
+  create: async (payload: unknown, dbName: unknown): Promise<LocationNode> => {
+    const database = assertDatabaseName(dbName);
     const validated = validateLocationPayload(payload);
     const node = buildLocationNode(validated);
-    return createLocation(node);
+    return createLocation(node, database);
   },
-  getAll: async (): Promise<LocationNode[]> => {
-    return getAllLocations();
+  update: async (
+    id: string,
+    payload: unknown,
+    dbName: unknown
+  ): Promise<LocationNode> => {
+    const database = assertDatabaseName(dbName);
+    const validated = validateLocationPayload(payload);
+    const now = new Date().toISOString();
+    const node: LocationNode = {
+      ...validated,
+      id,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const updated = await updateLocation(node, database);
+    if (!updated) {
+      throw new AppError("location not found", 404);
+    }
+    return updated;
+  },
+  getAll: async (dbName: unknown): Promise<LocationNode[]> => {
+    const database = assertDatabaseName(dbName);
+    return getAllLocations(database);
+  },
+  delete: async (id: string, dbName: unknown): Promise<void> => {
+    const database = assertDatabaseName(dbName);
+    const deleted = await deleteLocation(database, id);
+    if (!deleted) {
+      throw new AppError("location not found", 404);
+    }
+  },
+  createContains: async (
+    payload: unknown,
+    dbName: unknown
+  ): Promise<void> => {
+    const database = assertDatabaseName(dbName);
+    if (!payload || typeof payload !== "object") {
+      throw new AppError("payload must be an object", 400);
+    }
+    const data = payload as Record<string, unknown>;
+    const parentId = assertRequiredString(data.parentId, "parentId");
+    const childId = assertRequiredString(data.childId, "childId");
+    if (parentId === childId) {
+      throw new AppError("parentId must be different from childId", 400);
+    }
+
+    const sinceYear =
+      data.sinceYear === null
+        ? null
+        : assertOptionalNumber(data.sinceYear, "sinceYear") ?? null;
+    const untilYear =
+      data.untilYear === null
+        ? null
+        : assertOptionalNumber(data.untilYear, "untilYear") ?? null;
+    const note =
+      data.note === null ? null : assertOptionalString(data.note, "note") ?? null;
+
+    if (sinceYear !== null && untilYear !== null && untilYear < sinceYear) {
+      throw new AppError("untilYear must be >= sinceYear", 400);
+    }
+
+    const locations = await getAllLocations(database);
+    const parent = locations.find((item) => item.id === parentId);
+    const child = locations.find((item) => item.id === childId);
+    if (!parent || !child) {
+      throw new AppError("location not found", 404);
+    }
+    const parentLevel = parent.type ? TYPE_LEVELS[parent.type] : undefined;
+    const childLevel = child.type ? TYPE_LEVELS[child.type] : undefined;
+    if (!parentLevel || !childLevel) {
+      throw new AppError("type is required for both locations", 400);
+    }
+    if (parentLevel < childLevel) {
+      throw new AppError("parent type must be >= child type", 400);
+    }
+
+    try {
+      await createContainsLink(database, parentId, childId, sinceYear, untilYear, note);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to link locations";
+      if (message.includes("not found")) {
+        throw new AppError(message, 404);
+      }
+      if (message.includes("already has")) {
+        throw new AppError(message, 409);
+      }
+      throw new AppError(message, 500);
+    }
+  },
+  deleteContains: async (
+    payload: unknown,
+    dbName: unknown
+  ): Promise<void> => {
+    const database = assertDatabaseName(dbName);
+    if (!payload || typeof payload !== "object") {
+      throw new AppError("payload must be an object", 400);
+    }
+    const data = payload as Record<string, unknown>;
+    const childId = assertRequiredString(data.childId, "childId");
+    const parentId = assertOptionalString(data.parentId, "parentId");
+    if (parentId && parentId === childId) {
+      throw new AppError("parentId must be different from childId", 400);
+    }
+
+    await deleteContainsLink(database, childId, parentId);
   },
 };

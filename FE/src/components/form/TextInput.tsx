@@ -1,4 +1,5 @@
 import { ChangeEvent } from "react";
+import { useI18n } from "../../i18n/I18nProvider";
 
 export type TextInputProps = {
   label: string;
@@ -17,6 +18,7 @@ export const TextInput = ({
   placeholder,
   required,
 }: TextInputProps) => {
+  const { t } = useI18n();
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     onChange(event.target.value);
   };
@@ -24,7 +26,7 @@ export const TextInput = ({
   return (
     <div className="form-field">
       <label>
-        {label}
+        {t(label)}
         {required && <span className="required">*</span>}
       </label>
       <input
@@ -32,7 +34,7 @@ export const TextInput = ({
         value={value}
         onChange={handleChange}
         type={type}
-        placeholder={placeholder}
+        placeholder={placeholder ? t(placeholder) : undefined}
       />
     </div>
   );

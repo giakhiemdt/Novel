@@ -1,5 +1,5 @@
 import neo4j, { Integer } from "neo4j-driver";
-import { getSession } from "../../database";
+import { getSessionForDatabase } from "../../database";
 import { nodeLabels } from "../../shared/constants/node-labels";
 import { relationTypes } from "../../shared/constants/relation-types";
 import { buildParams } from "../../shared/utils/build-params";
@@ -11,8 +11,6 @@ CREATE (t:${nodeLabels.timeline} {
   id: $id,
   name: $name,
   code: $code,
-  startYear: $startYear,
-  endYear: $endYear,
   durationYears: $durationYears,
   isOngoing: $isOngoing,
   summary: $summary,
@@ -33,7 +31,9 @@ RETURN t
 
 const GET_ALL_TIMELINES = `
 MATCH (t:${nodeLabels.timeline})
-RETURN t
+OPTIONAL MATCH (t)-[:${relationTypes.timelinePrevious}]->(p:${nodeLabels.timeline})
+OPTIONAL MATCH (t)-[:${relationTypes.timelineNext}]->(n:${nodeLabels.timeline})
+RETURN t, p, n
 ORDER BY t.createdAt DESC
 `;
 
@@ -41,8 +41,6 @@ const TIMELINE_PARAMS = [
   "id",
   "name",
   "code",
-  "startYear",
-  "endYear",
   "durationYears",
   "isOngoing",
   "summary",
@@ -114,12 +112,20 @@ MATCH (next)-[r2:${relationTypes.timelinePrevious}]->(current)
 DELETE r1, r2
 `;
 
+const DELETE_TIMELINE = `
+MATCH (t:${nodeLabels.timeline} {id: $id})
+WITH t
+DETACH DELETE t
+RETURN 1 AS deleted
+`;
+
 export const createTimeline = async (
   data: Omit<TimelineNode, "previousId" | "nextId">,
+  database: string,
   previousId?: string,
   nextId?: string
 ): Promise<Omit<TimelineNode, "previousId" | "nextId">> => {
-  const session = getSession(neo4j.session.WRITE);
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
   try {
     const result = await session.executeWrite(async (tx) => {
       const params = buildParams(data, TIMELINE_PARAMS);
@@ -162,13 +168,21 @@ export const createTimeline = async (
   }
 };
 
-export const getAllTimelines = async (): Promise<TimelineNode[]> => {
-  const session = getSession(neo4j.session.READ);
+export const getAllTimelines = async (
+  database: string
+): Promise<TimelineNode[]> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
     const result = await session.run(GET_ALL_TIMELINES);
     return result.records.map((record) => {
       const node = record.get("t");
-      return mapNode(node?.properties ?? {}) as TimelineNode;
+      const previous = record.get("p");
+      const next = record.get("n");
+      return {
+        ...(mapNode(node?.properties ?? {}) as TimelineNode),
+        previousId: previous?.properties?.id ?? undefined,
+        nextId: next?.properties?.id ?? undefined,
+      } as TimelineNode;
     });
   } finally {
     await session.close();
@@ -176,11 +190,12 @@ export const getAllTimelines = async (): Promise<TimelineNode[]> => {
 };
 
 export const linkTimeline = async (
+  database: string,
   currentId: string,
   previousId?: string,
   nextId?: string
 ): Promise<void> => {
-  const session = getSession(neo4j.session.WRITE);
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
   try {
     await session.executeWrite(async (tx) => {
       const currentCheck = await tx.run(CHECK_EXISTS, { id: currentId });
@@ -239,11 +254,12 @@ export const linkTimeline = async (
 };
 
 export const unlinkTimeline = async (
+  database: string,
   currentId: string,
   previousId?: string,
   nextId?: string
 ): Promise<void> => {
-  const session = getSession(neo4j.session.WRITE);
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
   try {
     await session.executeWrite(async (tx) => {
       const currentCheck = await tx.run(CHECK_EXISTS, { id: currentId });
@@ -264,6 +280,19 @@ export const unlinkTimeline = async (
         await tx.run(UNLINK_NEXT_ANY, { currentId });
       }
     });
+  } finally {
+    await session.close();
+  }
+};
+
+export const deleteTimeline = async (
+  database: string,
+  id: string
+): Promise<boolean> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    const result = await session.run(DELETE_TIMELINE, { id });
+    return result.records.length > 0;
   } finally {
     await session.close();
   }

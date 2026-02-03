@@ -1,30 +1,51 @@
-import { useI18n } from "../../i18n/I18nProvider";
-import type { Faction } from "./faction.types";
 import { useState } from "react";
+import { useI18n } from "../../i18n/I18nProvider";
+import type { Event } from "./event.types";
 
-export type FactionListProps = {
-  items: Faction[];
-  onSelect?: (item: Faction) => void;
-  onEdit?: (item: Faction) => void;
-  onDelete?: (item: Faction) => void;
+export type EventListProps = {
+  items: Event[];
+  onSelect?: (item: Event) => void;
+  onEdit?: (item: Event) => void;
+  onDelete?: (item: Event) => void;
 };
 
-export const FactionList = ({
-  items,
-  onSelect,
-  onEdit,
-  onDelete,
-}: FactionListProps) => {
+export const EventList = ({ items, onSelect, onEdit, onDelete }: EventListProps) => {
   const { t } = useI18n();
-  const [detailItem, setDetailItem] = useState<Faction | null>(null);
+  const [detailItem, setDetailItem] = useState<Event | null>(null);
   if (items.length === 0) {
-    return <p className="header__subtitle">{t("No factions yet.")}</p>;
+    return <p className="header__subtitle">{t("No events yet.")}</p>;
   }
 
   const renderValue = (value: unknown) => {
     if (Array.isArray(value)) {
       if (value.length === 0) {
         return <span className="header__subtitle">-</span>;
+      }
+      if (typeof value[0] === "object" && value[0] !== null) {
+        return (
+          <div className="pill-list">
+            {value.map((item) => {
+              const participant = item as {
+                characterId?: string;
+                characterName?: string;
+                role?: string;
+                participationType?: string;
+              };
+              const label = [
+                participant.characterName ?? participant.characterId ?? "-",
+                participant.role ? t(participant.role) : "-",
+                participant.participationType ? t(participant.participationType) : "-",
+              ]
+                .filter(Boolean)
+                .join(" · ");
+              return (
+                <span className="pill" key={participant.characterId ?? label}>
+                  {label}
+                </span>
+              );
+            })}
+          </div>
+        );
       }
       return (
         <div className="pill-list">
@@ -36,74 +57,62 @@ export const FactionList = ({
         </div>
       );
     }
-    if (typeof value === "boolean") {
-      return value ? t("Yes") : t("No");
-    }
     if (value === undefined || value === null || value === "") {
       return <span className="header__subtitle">-</span>;
     }
     return value as string | number;
   };
 
-  const detailSections = (item: Faction) => [
+  const detailSections = (item: Event) => [
     {
-      title: t("Faction Identity"),
+      title: t("Event Identity"),
       fields: [
         { label: t("Name"), value: item.name, size: "wide" },
-        { label: t("Alias"), value: item.alias, size: "wide" },
         { label: t("Type"), value: item.type ? t(item.type) : "-", size: "narrow" },
         {
-          label: t("Alignment"),
-          value: item.alignment ? t(item.alignment) : "-",
+          label: t("Type Detail"),
+          value: item.typeDetail ? t(item.typeDetail) : "-",
           size: "narrow",
         },
-        { label: t("Public"), value: item.isPublic, size: "narrow" },
-        { label: t("Canon"), value: item.isCanon, size: "narrow" },
+        { label: t("Scope"), value: item.scope ? t(item.scope) : "-", size: "narrow" },
+        {
+          label: t("Location"),
+          value: item.locationName ?? item.locationId ?? "-",
+          size: "wide",
+        },
+        {
+          label: t("Timeline"),
+          value: item.timelineName ?? item.timelineId ?? "-",
+          size: "wide",
+        },
+        {
+          label: t("Event Year"),
+          value: item.timelineYear ?? "-",
+          size: "narrow",
+        },
+        {
+          label: t("Duration"),
+          value:
+            item.durationValue !== undefined
+              ? `${item.durationValue} ${
+                  item.durationUnit ? t(item.durationUnit) : ""
+                }`.trim()
+              : "-",
+          size: "narrow",
+        },
       ],
     },
     {
-      title: t("Belief System"),
+      title: t("Narrative"),
       fields: [
-        { label: t("Ideology"), value: item.ideology, size: "wide" },
-        { label: t("Goal"), value: item.goal, size: "wide" },
-        { label: t("Doctrine"), value: item.doctrine, size: "wide" },
-        { label: t("Taboos"), value: item.taboos, size: "wide" },
-        { label: t("Founding Story"), value: item.foundingStory, size: "wide" },
-        { label: t("Age Estimate"), value: item.ageEstimate, size: "narrow" },
-      ],
-    },
-    {
-      title: t("Power & Influence"),
-      fields: [
-        { label: t("Power Level"), value: item.powerLevel, size: "narrow" },
-        { label: t("Influence Scope"), value: item.influenceScope, size: "wide" },
-        { label: t("Military Power"), value: item.militaryPower, size: "wide" },
-        { label: t("Special Assets"), value: item.specialAssets, size: "wide" },
-        { label: t("Major Conflicts"), value: item.majorConflicts, size: "wide" },
-        { label: t("Reputation"), value: item.reputation, size: "wide" },
-      ],
-    },
-    {
-      title: t("Leadership"),
-      fields: [
-        { label: t("Leadership Type"), value: item.leadershipType, size: "wide" },
-        { label: t("Leader Title"), value: item.leaderTitle, size: "wide" },
-        { label: t("Hierarchy Note"), value: item.hierarchyNote, size: "wide" },
-        { label: t("Member Policy"), value: item.memberPolicy, size: "wide" },
-      ],
-    },
-    {
-      title: t("Current Status"),
-      fields: [
-        { label: t("Current Status"), value: item.currentStatus, size: "wide" },
-        { label: t("Current Strategy"), value: item.currentStrategy, size: "wide" },
-        { label: t("Known Enemies"), value: item.knownEnemies, size: "wide" },
-        { label: t("Known Allies"), value: item.knownAllies, size: "wide" },
+        { label: t("Summary"), value: item.summary, size: "wide" },
+        { label: t("Description"), value: item.description, size: "wide" },
       ],
     },
     {
       title: t("Notes & Tags"),
       fields: [
+        { label: t("Participants"), value: item.participants, size: "wide" },
         { label: t("Notes"), value: item.notes, size: "wide" },
         { label: t("Tags"), value: item.tags, size: "wide" },
       ],
@@ -116,9 +125,12 @@ export const FactionList = ({
         <thead>
           <tr>
             <th>{t("Name")}</th>
-            <th>{t("Alignment")}</th>
-            <th>{t("Power Level")}</th>
-            <th>{t("Current Status")}</th>
+            <th>{t("Type")}</th>
+            <th>{t("Type Detail")}</th>
+            <th>{t("Scope")}</th>
+            <th>{t("Timeline")}</th>
+            <th>{t("Event Year")}</th>
+            <th>{t("Duration")}</th>
             <th>{t("Actions")}</th>
           </tr>
         </thead>
@@ -140,9 +152,18 @@ export const FactionList = ({
               <td>
                 <strong>{item.name}</strong>
               </td>
-              <td>{item.alignment ? t(item.alignment) : "-"}</td>
-              <td>{item.powerLevel ?? "-"}</td>
-              <td>{item.currentStatus ?? "-"}</td>
+              <td>{item.type ? t(item.type) : "-"}</td>
+              <td>{item.typeDetail ? t(item.typeDetail) : "-"}</td>
+              <td>{item.scope ? t(item.scope) : "-"}</td>
+              <td>{item.timelineName ?? item.timelineId ?? "-"}</td>
+              <td>{item.timelineYear ?? "-"}</td>
+              <td>
+                {item.durationValue !== undefined
+                  ? `${item.durationValue} ${
+                      item.durationUnit ? t(item.durationUnit) : ""
+                    }`.trim()
+                  : "-"}
+              </td>
               <td className="table__actions">
                 <button
                   type="button"
@@ -188,7 +209,7 @@ export const FactionList = ({
           >
             <div className="modal__header">
               <div>
-                <h3>{t("Faction details")}</h3>
+                <h3>{t("Event details")}</h3>
                 <p className="modal__subtitle">{detailItem.name}</p>
               </div>
               <button

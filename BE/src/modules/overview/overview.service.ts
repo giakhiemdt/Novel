@@ -83,6 +83,21 @@ const validateOverviewPayload = (payload: unknown): OverviewInput => {
   return result as OverviewInput;
 };
 
+const assertDatabaseName = (value: unknown): string => {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new AppError("dbName is required", 400);
+  }
+  const dbName = value.trim();
+  const isValid = /^[A-Za-z0-9_-]+$/.test(dbName);
+  if (!isValid) {
+    throw new AppError(
+      "dbName must contain only letters, numbers, underscores, or hyphens",
+      400
+    );
+  }
+  return dbName;
+};
+
 const buildOverviewNode = (
   payload: OverviewInput,
   createdAt?: string
@@ -96,25 +111,34 @@ const buildOverviewNode = (
 };
 
 export const overviewService = {
-  create: async (payload: unknown): Promise<OverviewNode> => {
-    const existing = await getOverview();
+  create: async (
+    payload: unknown,
+    dbName: unknown
+  ): Promise<OverviewNode> => {
+    const database = assertDatabaseName(dbName);
+    const existing = await getOverview(database);
     if (existing) {
       throw new AppError("overview already exists", 400);
     }
     const validated = validateOverviewPayload(payload);
     const node = buildOverviewNode(validated);
-    return createOverview(node);
+    return createOverview(node, database);
   },
-  get: async (): Promise<OverviewNode | null> => {
-    return getOverview();
+  get: async (dbName: unknown): Promise<OverviewNode | null> => {
+    const database = assertDatabaseName(dbName);
+    return getOverview(database);
   },
-  update: async (payload: unknown): Promise<OverviewNode> => {
-    const existing = await getOverview();
+  update: async (
+    payload: unknown,
+    dbName: unknown
+  ): Promise<OverviewNode> => {
+    const database = assertDatabaseName(dbName);
+    const existing = await getOverview(database);
     if (!existing) {
       throw new AppError("overview not found", 404);
     }
     const validated = validateOverviewPayload(payload);
     const node = buildOverviewNode(validated, existing.createdAt);
-    return updateOverview(node);
+    return updateOverview(node, database);
   },
 };

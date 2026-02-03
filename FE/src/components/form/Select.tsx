@@ -1,4 +1,5 @@
 import { ChangeEvent } from "react";
+import { useI18n } from "../../i18n/I18nProvider";
 
 export type SelectOption = {
   label: string;
@@ -12,6 +13,7 @@ export type SelectProps = {
   options: SelectOption[];
   placeholder?: string;
   required?: boolean;
+  disabled?: boolean;
 };
 
 export const Select = ({
@@ -21,7 +23,9 @@ export const Select = ({
   options,
   placeholder,
   required,
+  disabled,
 }: SelectProps) => {
+  const { t } = useI18n();
   const handleChange = (event: ChangeEvent<HTMLSelectElement>) => {
     onChange(event.target.value);
   };
@@ -29,14 +33,19 @@ export const Select = ({
   return (
     <div className="form-field">
       <label>
-        {label}
+        {t(label)}
         {required && <span className="required">*</span>}
       </label>
-      <select className="select" value={value} onChange={handleChange}>
-        <option value="">{placeholder ?? "Select"}</option>
+      <select
+        className="select"
+        value={value}
+        onChange={handleChange}
+        disabled={disabled}
+      >
+        <option value="">{t(placeholder ?? "Select")}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
-            {option.label}
+            {t(option.label)}
           </option>
         ))}
       </select>

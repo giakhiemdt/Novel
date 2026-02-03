@@ -1,6 +1,7 @@
 import neo4j from "neo4j-driver";
-import { getSession } from "../../database";
+import { getSessionForDatabase } from "../../database";
 import { nodeLabels } from "../../shared/constants/node-labels";
+import { relationTypes } from "../../shared/constants/relation-types";
 import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
 import { LocationNode } from "./location.types";
@@ -11,6 +12,7 @@ CREATE (l:${nodeLabels.location} {
   name: $name,
   alias: $alias,
   type: $type,
+  typeDetail: $typeDetail,
   category: $category,
   isHabitable: $isHabitable,
   isSecret: $isSecret,
@@ -36,10 +38,80 @@ CREATE (l:${nodeLabels.location} {
 RETURN l
 `;
 
+const UPDATE_LOCATION = `
+MATCH (l:${nodeLabels.location} {id: $id})
+SET
+  l.name = $name,
+  l.alias = $alias,
+  l.type = $type,
+  l.typeDetail = $typeDetail,
+  l.category = $category,
+  l.isHabitable = $isHabitable,
+  l.isSecret = $isSecret,
+  l.terrain = $terrain,
+  l.climate = $climate,
+  l.environment = $environment,
+  l.naturalResources = $naturalResources,
+  l.powerDensity = $powerDensity,
+  l.dangerLevel = $dangerLevel,
+  l.anomalies = $anomalies,
+  l.restrictions = $restrictions,
+  l.historicalSummary = $historicalSummary,
+  l.legend = $legend,
+  l.ruinsOrigin = $ruinsOrigin,
+  l.currentStatus = $currentStatus,
+  l.controlledBy = $controlledBy,
+  l.populationNote = $populationNote,
+  l.notes = $notes,
+  l.tags = $tags,
+  l.updatedAt = $updatedAt
+RETURN l
+`;
+
 const GET_ALL_LOCATIONS = `
 MATCH (l:${nodeLabels.location})
-RETURN l
+OPTIONAL MATCH (parent:${nodeLabels.location})-[r:${relationTypes.contains}]->(l)
+RETURN l, parent, r
 ORDER BY l.createdAt DESC
+`;
+
+const DELETE_LOCATION = `
+MATCH (l:${nodeLabels.location} {id: $id})
+WITH l
+DETACH DELETE l
+RETURN 1 AS deleted
+`;
+
+const CHECK_LOCATION_EXISTS = `
+MATCH (l:${nodeLabels.location} {id: $id})
+RETURN l IS NOT NULL AS exists
+`;
+
+const CHECK_PARENT_EXISTS = `
+MATCH (parent:${nodeLabels.location} {id: $parentId})
+RETURN parent IS NOT NULL AS exists
+`;
+
+const CHECK_CHILD_PARENT = `
+MATCH (parent:${nodeLabels.location})-[r:${relationTypes.contains}]->(child:${nodeLabels.location} {id: $childId})
+RETURN count(r) AS parentCount
+`;
+
+const CREATE_CONTAINS = `
+MATCH (parent:${nodeLabels.location} {id: $parentId})
+MATCH (child:${nodeLabels.location} {id: $childId})
+MERGE (parent)-[r:${relationTypes.contains}]->(child)
+SET
+  r.sinceYear = $sinceYear,
+  r.untilYear = $untilYear,
+  r.note = $note
+RETURN r
+`;
+
+const DELETE_CONTAINS = `
+MATCH (parent:${nodeLabels.location})-[r:${relationTypes.contains}]->(child:${nodeLabels.location} {id: $childId})
+WHERE $parentId IS NULL OR parent.id = $parentId
+DELETE r
 `;
 
 const LOCATION_PARAMS = [
@@ -47,6 +119,7 @@ const LOCATION_PARAMS = [
   "name",
   "alias",
   "type",
+  "typeDetail",
   "category",
   "isHabitable",
   "isSecret",
@@ -70,8 +143,15 @@ const LOCATION_PARAMS = [
   "updatedAt",
 ];
 
-export const createLocation = async (data: LocationNode): Promise<LocationNode> => {
-  const session = getSession(neo4j.session.WRITE);
+const LOCATION_UPDATE_PARAMS = LOCATION_PARAMS.filter(
+  (key) => key !== "createdAt"
+);
+
+export const createLocation = async (
+  data: LocationNode,
+  database: string
+): Promise<LocationNode> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
   try {
     const params = buildParams(data, LOCATION_PARAMS);
     const result = await session.run(CREATE_LOCATION, params);
@@ -83,13 +163,115 @@ export const createLocation = async (data: LocationNode): Promise<LocationNode> 
   }
 };
 
-export const getAllLocations = async (): Promise<LocationNode[]> => {
-  const session = getSession(neo4j.session.READ);
+export const updateLocation = async (
+  data: LocationNode,
+  database: string
+): Promise<LocationNode | null> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    const params = buildParams(data, LOCATION_UPDATE_PARAMS);
+    const result = await session.run(UPDATE_LOCATION, params);
+    const record = result.records[0];
+    if (!record) {
+      return null;
+    }
+    const node = record.get("l");
+    return mapNode(node?.properties ?? data) as LocationNode;
+  } finally {
+    await session.close();
+  }
+};
+
+export const getAllLocations = async (
+  database: string
+): Promise<LocationNode[]> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
     const result = await session.run(GET_ALL_LOCATIONS);
     return result.records.map((record) => {
       const node = record.get("l");
-      return mapNode(node?.properties ?? {}) as LocationNode;
+      const parent = record.get("parent");
+      const relation = record.get("r");
+      return {
+        ...(mapNode(node?.properties ?? {}) as LocationNode),
+        parentId: parent?.properties?.id ?? undefined,
+        contains: relation?.properties ?? undefined,
+      } as LocationNode;
+    });
+  } finally {
+    await session.close();
+  }
+};
+
+export const deleteLocation = async (
+  database: string,
+  id: string
+): Promise<boolean> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    const result = await session.run(DELETE_LOCATION, { id });
+    return result.records.length > 0;
+  } finally {
+    await session.close();
+  }
+};
+
+export const createContainsLink = async (
+  database: string,
+  parentId: string,
+  childId: string,
+  sinceYear: number | null,
+  untilYear: number | null,
+  note: string | null
+): Promise<void> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    await session.executeWrite(async (tx) => {
+      const parentCheck = await tx.run(CHECK_PARENT_EXISTS, { parentId });
+      const parentExists = parentCheck.records[0]?.get("exists") as
+        | boolean
+        | undefined;
+      if (!parentExists) {
+        throw new Error("PARENT location not found");
+      }
+
+      const childCheck = await tx.run(CHECK_LOCATION_EXISTS, { id: childId });
+      const childExists = childCheck.records[0]?.get("exists") as
+        | boolean
+        | undefined;
+      if (!childExists) {
+        throw new Error("CHILD location not found");
+      }
+
+      const parentCountResult = await tx.run(CHECK_CHILD_PARENT, { childId });
+      const parentCount = parentCountResult.records[0]?.get("parentCount");
+      if (parentCount && parentCount.toNumber() > 0) {
+        throw new Error("CHILD already has parent");
+      }
+
+      await tx.run(CREATE_CONTAINS, {
+        parentId,
+        childId,
+        sinceYear,
+        untilYear,
+        note,
+      });
+    });
+  } finally {
+    await session.close();
+  }
+};
+
+export const deleteContainsLink = async (
+  database: string,
+  childId: string,
+  parentId?: string
+): Promise<void> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    await session.run(DELETE_CONTAINS, {
+      childId,
+      parentId: parentId ?? null,
     });
   } finally {
     await session.close();

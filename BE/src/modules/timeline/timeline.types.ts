@@ -2,8 +2,7 @@ export type TimelineInput = {
   id?: string;
   name: string;
   code?: string;
-  startYear: number;
-  endYear: number;
+  durationYears: number;
   isOngoing?: boolean;
   summary?: string;
   description?: string;
@@ -20,7 +19,6 @@ export type TimelineInput = {
 };
 
 export type TimelineNode = TimelineInput & {
-  durationYears: number;
   isOngoing: boolean;
   createdAt: string;
   updatedAt: string;

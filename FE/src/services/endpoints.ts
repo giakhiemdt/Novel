@@ -9,4 +9,5 @@ export const endpoints = {
   timelineRelink: "/timelines/relink",
   locations: "/locations",
   factions: "/factions",
+  events: "/events",
 };

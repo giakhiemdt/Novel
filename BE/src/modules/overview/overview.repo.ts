@@ -1,5 +1,5 @@
 import neo4j from "neo4j-driver";
-import { getSession } from "../../database";
+import { getSessionForDatabase } from "../../database";
 import { nodeLabels } from "../../shared/constants/node-labels";
 import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
@@ -50,9 +50,10 @@ const OVERVIEW_PARAMS = [
 ];
 
 export const createOverview = async (
-  data: OverviewNode
+  data: OverviewNode,
+  database: string
 ): Promise<OverviewNode> => {
-  const session = getSession(neo4j.session.WRITE);
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
   try {
     const params = buildParams(data, OVERVIEW_PARAMS);
     const result = await session.run(CREATE_OVERVIEW, params);
@@ -64,9 +65,10 @@ export const createOverview = async (
 };
 
 export const updateOverview = async (
-  data: OverviewNode
+  data: OverviewNode,
+  database: string
 ): Promise<OverviewNode> => {
-  const session = getSession(neo4j.session.WRITE);
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
   try {
     const params = buildParams(data, OVERVIEW_PARAMS);
     const result = await session.run(UPDATE_OVERVIEW, params);
@@ -77,8 +79,10 @@ export const updateOverview = async (
   }
 };
 
-export const getOverview = async (): Promise<OverviewNode | null> => {
-  const session = getSession(neo4j.session.READ);
+export const getOverview = async (
+  database: string
+): Promise<OverviewNode | null> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
     const result = await session.run(GET_OVERVIEW);
     const record = result.records[0];

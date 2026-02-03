@@ -3,6 +3,7 @@ export type LocationInput = {
   name: string;
   alias?: string[];
   type?: string;
+  typeDetail?: string;
   category?: string;
   isHabitable?: boolean;
   isSecret?: boolean;
@@ -27,4 +28,10 @@ export type LocationInput = {
 export type LocationNode = LocationInput & {
   createdAt: string;
   updatedAt: string;
+  parentId?: string;
+  contains?: {
+    sinceYear?: number | null;
+    untilYear?: number | null;
+    note?: string | null;
+  };
 };

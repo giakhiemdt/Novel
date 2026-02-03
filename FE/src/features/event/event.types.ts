@@ -1,4 +1,4 @@
-export type EventInput = {
+export type EventPayload = {
   id?: string;
   name: string;
   type?: string;
@@ -17,24 +17,23 @@ export type EventInput = {
   endYear?: number;
   summary?: string;
   description?: string;
-  participants?: EventParticipantInput[];
+  participants?: EventParticipant[];
   notes?: string;
   tags?: string[];
 };
 
-export type EventParticipantInput = {
+export type EventParticipant = {
   characterId: string;
   role: string;
-  participationType: string;
+  participationType: "ACTIVE" | "PASSIVE" | "INDIRECT";
   outcome?: string;
   statusChange?: string;
   note?: string;
   characterName?: string;
 };
 
-export type EventNode = EventInput & {
-  id: string;
-  createdAt: string;
-  updatedAt: string;
+export type Event = EventPayload & {
+  createdAt?: string;
+  updatedAt?: string;
   locationName?: string;
 };

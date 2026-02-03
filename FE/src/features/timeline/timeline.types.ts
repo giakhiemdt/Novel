@@ -2,8 +2,7 @@ export type TimelinePayload = {
   id?: string;
   name: string;
   code?: string;
-  startYear: number;
-  endYear: number;
+  durationYears: number;
   isOngoing?: boolean;
   summary?: string;
   description?: string;
@@ -20,9 +19,10 @@ export type TimelinePayload = {
 };
 
 export type Timeline = TimelinePayload & {
-  durationYears?: number;
   createdAt?: string;
   updatedAt?: string;
+  previousId?: string;
+  nextId?: string;
 };
 
 export type TimelineLinkPayload = {

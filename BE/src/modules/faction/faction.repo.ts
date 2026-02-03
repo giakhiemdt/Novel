@@ -1,5 +1,5 @@
 import neo4j from "neo4j-driver";
-import { getSession } from "../../database";
+import { getSessionForDatabase } from "../../database";
 import { nodeLabels } from "../../shared/constants/node-labels";
 import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
@@ -42,10 +42,52 @@ CREATE (f:${nodeLabels.faction} {
 RETURN f
 `;
 
+const UPDATE_FACTION = `
+MATCH (f:${nodeLabels.faction} {id: $id})
+SET
+  f.name = $name,
+  f.alias = $alias,
+  f.type = $type,
+  f.alignment = $alignment,
+  f.isPublic = $isPublic,
+  f.isCanon = $isCanon,
+  f.ideology = $ideology,
+  f.goal = $goal,
+  f.doctrine = $doctrine,
+  f.taboos = $taboos,
+  f.powerLevel = $powerLevel,
+  f.influenceScope = $influenceScope,
+  f.militaryPower = $militaryPower,
+  f.specialAssets = $specialAssets,
+  f.leadershipType = $leadershipType,
+  f.leaderTitle = $leaderTitle,
+  f.hierarchyNote = $hierarchyNote,
+  f.memberPolicy = $memberPolicy,
+  f.foundingStory = $foundingStory,
+  f.ageEstimate = $ageEstimate,
+  f.majorConflicts = $majorConflicts,
+  f.reputation = $reputation,
+  f.currentStatus = $currentStatus,
+  f.currentStrategy = $currentStrategy,
+  f.knownEnemies = $knownEnemies,
+  f.knownAllies = $knownAllies,
+  f.notes = $notes,
+  f.tags = $tags,
+  f.updatedAt = $updatedAt
+RETURN f
+`;
+
 const GET_ALL_FACTIONS = `
 MATCH (f:${nodeLabels.faction})
 RETURN f
 ORDER BY f.createdAt DESC
+`;
+
+const DELETE_FACTION = `
+MATCH (f:${nodeLabels.faction} {id: $id})
+WITH f
+DETACH DELETE f
+RETURN 1 AS deleted
 `;
 
 const FACTION_PARAMS = [
@@ -82,8 +124,15 @@ const FACTION_PARAMS = [
   "updatedAt",
 ];
 
-export const createFaction = async (data: FactionNode): Promise<FactionNode> => {
-  const session = getSession(neo4j.session.WRITE);
+const FACTION_UPDATE_PARAMS = FACTION_PARAMS.filter(
+  (key) => key !== "createdAt"
+);
+
+export const createFaction = async (
+  data: FactionNode,
+  database: string
+): Promise<FactionNode> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
   try {
     const params = buildParams(data, FACTION_PARAMS);
     const result = await session.run(CREATE_FACTION, params);
@@ -95,14 +144,48 @@ export const createFaction = async (data: FactionNode): Promise<FactionNode> => 
   }
 };
 
-export const getAllFactions = async (): Promise<FactionNode[]> => {
-  const session = getSession(neo4j.session.READ);
+export const updateFaction = async (
+  data: FactionNode,
+  database: string
+): Promise<FactionNode | null> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    const params = buildParams(data, FACTION_UPDATE_PARAMS);
+    const result = await session.run(UPDATE_FACTION, params);
+    const record = result.records[0];
+    if (!record) {
+      return null;
+    }
+    const node = record.get("f");
+    return mapNode(node?.properties ?? data) as FactionNode;
+  } finally {
+    await session.close();
+  }
+};
+
+export const getAllFactions = async (
+  database: string
+): Promise<FactionNode[]> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
     const result = await session.run(GET_ALL_FACTIONS);
     return result.records.map((record) => {
       const node = record.get("f");
       return mapNode(node?.properties ?? {}) as FactionNode;
     });
+  } finally {
+    await session.close();
+  }
+};
+
+export const deleteFaction = async (
+  database: string,
+  id: string
+): Promise<boolean> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    const result = await session.run(DELETE_FACTION, { id });
+    return result.records.length > 0;
   } finally {
     await session.close();
   }

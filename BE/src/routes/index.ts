@@ -5,6 +5,7 @@ import { projectRoutes } from "../modules/project/project.routes";
 import { timelineRoutes } from "../modules/timeline/timeline.routes";
 import { locationRoutes } from "../modules/location/location.routes";
 import { factionRoutes } from "../modules/faction/faction.routes";
+import { eventRoutes } from "../modules/event/event.routes";
 import { healthRoutes } from "./health.routes";
 
 export type RouteConfig = {
@@ -28,4 +29,5 @@ export const routes: RouteConfig[] = [
   ...timelineRoutes,
   ...locationRoutes,
   ...factionRoutes,
+  ...eventRoutes,
 ];

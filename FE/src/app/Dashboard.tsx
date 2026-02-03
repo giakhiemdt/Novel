@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Button } from "../components/common/Button";
-import { ErrorMessage } from "../components/common/ErrorMessage";
+import { useToast } from "../components/common/Toast";
 import { FormSection } from "../components/form/FormSection";
 import { MultiSelect } from "../components/form/MultiSelect";
 import { TextArea } from "../components/form/TextArea";
 import { TextInput } from "../components/form/TextInput";
 import { useForm } from "../hooks/useForm";
+import { useProjectChange } from "../hooks/useProjectChange";
+import { useI18n } from "../i18n/I18nProvider";
 import { validateRequired } from "../utils/validation";
 import {
   createOverview,
@@ -15,6 +17,8 @@ import {
 import type { OverviewNode, OverviewPayload } from "../features/overview/overview.types";
 
 export const Dashboard = () => {
+  const { t } = useI18n();
+  const { notify } = useToast();
   const { values, setField, setValues } = useForm({
     title: "",
     subtitle: "",
@@ -26,12 +30,9 @@ export const Dashboard = () => {
   const [overview, setOverview] = useState<OverviewNode | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
 
   const loadOverview = async () => {
     setLoading(true);
-    setError(null);
     try {
       const data = await getOverview();
       setOverview(data);
@@ -46,7 +47,7 @@ export const Dashboard = () => {
         });
       }
     } catch (err) {
-      setError((err as Error).message);
+      notify((err as Error).message, "error");
     } finally {
       setLoading(false);
     }
@@ -55,6 +56,10 @@ export const Dashboard = () => {
   useEffect(() => {
     void loadOverview();
   }, []);
+
+  useProjectChange(() => {
+    void loadOverview();
+  });
 
   const buildPayload = (): OverviewPayload => ({
     title: values.title,
@@ -66,12 +71,13 @@ export const Dashboard = () => {
   });
 
   const handleSave = async () => {
-    setStatus(null);
-    setError(null);
     const payload = buildPayload();
     const validation = validateRequired(payload, ["title"]);
     if (!validation.valid) {
-      setError(`Missing required fields: ${validation.missing.join(", ")}`);
+      notify(
+        `${t("Missing required fields:")} ${validation.missing.join(", ")}`,
+        "error"
+      );
       return;
     }
 
@@ -81,9 +87,12 @@ export const Dashboard = () => {
         ? await updateOverview(payload)
         : await createOverview(payload);
       setOverview(saved);
-      setStatus(overview ? "Overview updated." : "Overview created.");
+      notify(
+        overview ? t("Overview updated.") : t("Overview created."),
+        "success"
+      );
     } catch (err) {
-      setError((err as Error).message);
+      notify((err as Error).message, "error");
     } finally {
       setSaving(false);
     }
@@ -91,57 +100,72 @@ export const Dashboard = () => {
 
   return (
     <div className="overview-page">
-      {error && <ErrorMessage message={error} />}
-      {status && <div className="notice">{status}</div>}
-
-      <FormSection
-        title="Core details"
-        description="This content fills the overview page."
-      >
-        <TextInput
-          label="Title"
-          value={values.title}
-          onChange={(value) => setField("title", value)}
-          required
-        />
-        <TextInput
-          label="Subtitle"
-          value={values.subtitle}
-          onChange={(value) => setField("subtitle", value)}
-        />
-        <TextInput
-          label="Technology Era"
-          value={values.technologyEra}
-          onChange={(value) => setField("technologyEra", value)}
-        />
-        <MultiSelect
-          label="Genre"
-          values={values.genre}
-          onChange={(value) => setField("genre", value)}
-        />
-        <TextArea
-          label="Short Summary"
-          value={values.shortSummary}
-          onChange={(value) => setField("shortSummary", value)}
-          placeholder="Quick summary for readers"
-        />
-        <TextArea
-          label="World Overview"
-          value={values.worldOverview}
-          onChange={(value) => setField("worldOverview", value)}
-          placeholder="Broader context and setting details"
-        />
-      </FormSection>
+      <section className="card overview-card">
+        <h3 className="section-title">{t("Core details")}</h3>
+        <p className="header__subtitle">
+          {t("This content fills the overview page.")}
+        </p>
+        <div className="overview-grid">
+          <div className="overview-field overview-field--title">
+            <TextInput
+              label="Title"
+              value={values.title}
+              onChange={(value) => setField("title", value)}
+              required
+            />
+          </div>
+          <div className="overview-field overview-field--subtitle">
+            <TextInput
+              label="Subtitle"
+              value={values.subtitle}
+              onChange={(value) => setField("subtitle", value)}
+            />
+          </div>
+          <div className="overview-row">
+            <div className="overview-field">
+              <TextInput
+                label="Technology Era"
+                value={values.technologyEra}
+                onChange={(value) => setField("technologyEra", value)}
+              />
+            </div>
+            <div className="overview-field">
+              <MultiSelect
+                label="Genre"
+                values={values.genre}
+                onChange={(value) => setField("genre", value)}
+                showAddButton={false}
+              />
+            </div>
+          </div>
+          <div className="overview-field overview-field--summary">
+            <TextArea
+              label="Short Summary"
+              value={values.shortSummary}
+              onChange={(value) => setField("shortSummary", value)}
+              placeholder="Quick summary for readers"
+            />
+          </div>
+          <div className="overview-field overview-field--world">
+            <TextArea
+              label="World Overview"
+              value={values.worldOverview}
+              onChange={(value) => setField("worldOverview", value)}
+              placeholder="Broader context and setting details"
+            />
+          </div>
+        </div>
+      </section>
 
       <div className="overview-actions">
         {!overview && (
           <Button onClick={handleSave} disabled={saving || loading}>
-            {saving ? "Creating..." : "Create overview"}
+            {saving ? t("Creating...") : t("Create overview")}
           </Button>
         )}
         {overview && (
           <Button onClick={handleSave} disabled={saving || loading}>
-            {saving ? "Saving..." : "Update overview"}
+            {saving ? t("Saving...") : t("Update overview")}
           </Button>
         )}
       </div>

@@ -8,20 +8,24 @@ const titles: Record<string, { title: string; subtitle: string }> = {
     subtitle: "",
   },
   "/characters": {
-    title: "Characters",
-    subtitle: "Shape protagonists, allies, and antagonists with rich detail.",
+    title: "",
+    subtitle: "",
   },
   "/timelines": {
-    title: "Timelines",
-    subtitle: "Define eras and connect them with narrative links.",
+    title: "",
+    subtitle: "",
   },
   "/locations": {
-    title: "Locations",
-    subtitle: "Map worlds, cities, and hidden realms.",
+    title: "",
+    subtitle: "",
   },
   "/factions": {
-    title: "Factions",
-    subtitle: "Organize alliances, enemies, and power structures.",
+    title: "",
+    subtitle: "",
+  },
+  "/events": {
+    title: "",
+    subtitle: "",
   },
 };
 

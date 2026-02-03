@@ -4,8 +4,7 @@ import type { TimelineLinkPayload, TimelinePayload } from "./timeline.types";
 export const validateTimeline = (payload: TimelinePayload) =>
   validateRequired(payload as Record<string, unknown>, [
     "name",
-    "startYear",
-    "endYear",
+    "durationYears",
   ]);
 
 export const validateTimelineLink = (payload: TimelineLinkPayload) =>

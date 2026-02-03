@@ -1,6 +1,6 @@
 import { AppError } from "../../shared/errors/app-error";
 import { generateId } from "../../shared/utils/generate-id";
-import { createFaction, getAllFactions } from "./faction.repo";
+import { createFaction, deleteFaction, getAllFactions, updateFaction } from "./faction.repo";
 import { FactionInput, FactionNode } from "./faction.types";
 
 const isStringArray = (value: unknown): value is string[] =>
@@ -63,6 +63,21 @@ const assertOptionalStringArray = (
     throw new AppError(`${field} must be an array of strings`, 400);
   }
   return value;
+};
+
+const assertDatabaseName = (value: unknown): string => {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new AppError("dbName is required", 400);
+  }
+  const dbName = value.trim();
+  const isValid = /^[A-Za-z0-9_-]+$/.test(dbName);
+  if (!isValid) {
+    throw new AppError(
+      "dbName must contain only letters, numbers, underscores, or hyphens",
+      400
+    );
+  }
+  return dbName;
 };
 
 const addIfDefined = (
@@ -200,12 +215,41 @@ const buildFactionNode = (payload: FactionInput): FactionNode => {
 };
 
 export const factionService = {
-  create: async (payload: unknown): Promise<FactionNode> => {
+  create: async (payload: unknown, dbName: unknown): Promise<FactionNode> => {
+    const database = assertDatabaseName(dbName);
     const validated = validateFactionPayload(payload);
     const node = buildFactionNode(validated);
-    return createFaction(node);
+    return createFaction(node, database);
   },
-  getAll: async (): Promise<FactionNode[]> => {
-    return getAllFactions();
+  update: async (
+    id: string,
+    payload: unknown,
+    dbName: unknown
+  ): Promise<FactionNode> => {
+    const database = assertDatabaseName(dbName);
+    const validated = validateFactionPayload(payload);
+    const now = new Date().toISOString();
+    const node: FactionNode = {
+      ...validated,
+      id,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const updated = await updateFaction(node, database);
+    if (!updated) {
+      throw new AppError("faction not found", 404);
+    }
+    return updated;
+  },
+  getAll: async (dbName: unknown): Promise<FactionNode[]> => {
+    const database = assertDatabaseName(dbName);
+    return getAllFactions(database);
+  },
+  delete: async (id: string, dbName: unknown): Promise<void> => {
+    const database = assertDatabaseName(dbName);
+    const deleted = await deleteFaction(database, id);
+    if (!deleted) {
+      throw new AppError("faction not found", 404);
+    }
   },
 };

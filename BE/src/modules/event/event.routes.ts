@@ -1,1 +1,222 @@
-export const eventRoutes = [];
+import { RouteConfig } from "../../routes";
+import { eventController } from "./event.controller";
+
+export const eventRoutes: RouteConfig[] = [
+  {
+    method: "GET",
+    path: "/events",
+    handler: eventController.getAllEvents,
+    schema: {
+      tags: ["Event"],
+      summary: "Get all events",
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            data: {
+              type: "array",
+              items: { type: "object", additionalProperties: true },
+            },
+          },
+        },
+      },
+    },
+  },
+  {
+    method: "POST",
+    path: "/events",
+    handler: eventController.createEvent,
+    schema: {
+      tags: ["Event"],
+      summary: "Create event",
+      body: {
+        type: "object",
+        required: ["name"],
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          type: { type: "string" },
+          typeDetail: { type: "string" },
+          scope: { type: "string" },
+          locationId: { type: "string" },
+          location: { type: "string" },
+          timelineId: { type: "string" },
+          timelineYear: { type: "number" },
+          timelineMonth: { type: "number" },
+          timelineDay: { type: "number" },
+          durationValue: { type: "number" },
+          durationUnit: { type: "string" },
+          startYear: { type: "number" },
+          endYear: { type: "number" },
+          summary: { type: "string" },
+          description: { type: "string" },
+          participants: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                characterId: { type: "string" },
+                role: { type: "string" },
+                participationType: { type: "string" },
+                outcome: { type: "string" },
+                statusChange: { type: "string" },
+                note: { type: "string" },
+              },
+            },
+          },
+          notes: { type: "string" },
+          tags: { type: "array", items: { type: "string" } },
+        },
+      },
+      response: {
+        201: {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                name: { type: "string" },
+                type: { type: "string" },
+                typeDetail: { type: "string" },
+                scope: { type: "string" },
+                locationId: { type: "string" },
+                location: { type: "string" },
+                timelineId: { type: "string" },
+                timelineName: { type: "string" },
+                timelineYear: { type: "number" },
+                timelineMonth: { type: "number" },
+                timelineDay: { type: "number" },
+                durationValue: { type: "number" },
+                durationUnit: { type: "string" },
+                startYear: { type: "number" },
+                endYear: { type: "number" },
+                summary: { type: "string" },
+                description: { type: "string" },
+                participants: {
+                  type: "array",
+                  items: { type: "object", additionalProperties: true },
+                },
+                notes: { type: "string" },
+                tags: { type: "array", items: { type: "string" } },
+                createdAt: { type: "string", format: "date-time" },
+                updatedAt: { type: "string", format: "date-time" },
+              },
+            },
+          },
+        },
+        400: {
+          type: "object",
+          properties: { message: { type: "string" } },
+        },
+      },
+    },
+  },
+  {
+    method: "PUT",
+    path: "/events/:id",
+    handler: eventController.updateEvent,
+    schema: {
+      tags: ["Event"],
+      summary: "Update event",
+      body: {
+        type: "object",
+        required: ["name"],
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          type: { type: "string" },
+          typeDetail: { type: "string" },
+          scope: { type: "string" },
+          locationId: { type: "string" },
+          location: { type: "string" },
+          timelineId: { type: "string" },
+          timelineYear: { type: "number" },
+          timelineMonth: { type: "number" },
+          timelineDay: { type: "number" },
+          durationValue: { type: "number" },
+          durationUnit: { type: "string" },
+          startYear: { type: "number" },
+          endYear: { type: "number" },
+          summary: { type: "string" },
+          description: { type: "string" },
+          participants: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                characterId: { type: "string" },
+                role: { type: "string" },
+                participationType: { type: "string" },
+                outcome: { type: "string" },
+                statusChange: { type: "string" },
+                note: { type: "string" },
+              },
+            },
+          },
+          notes: { type: "string" },
+          tags: { type: "array", items: { type: "string" } },
+        },
+      },
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                name: { type: "string" },
+                type: { type: "string" },
+                typeDetail: { type: "string" },
+                scope: { type: "string" },
+                locationId: { type: "string" },
+                location: { type: "string" },
+                timelineId: { type: "string" },
+                timelineName: { type: "string" },
+                timelineYear: { type: "number" },
+                timelineMonth: { type: "number" },
+                timelineDay: { type: "number" },
+                durationValue: { type: "number" },
+                durationUnit: { type: "string" },
+                startYear: { type: "number" },
+                endYear: { type: "number" },
+                summary: { type: "string" },
+                description: { type: "string" },
+                participants: {
+                  type: "array",
+                  items: { type: "object", additionalProperties: true },
+                },
+                notes: { type: "string" },
+                tags: { type: "array", items: { type: "string" } },
+                createdAt: { type: "string", format: "date-time" },
+                updatedAt: { type: "string", format: "date-time" },
+              },
+            },
+          },
+        },
+        400: {
+          type: "object",
+          properties: { message: { type: "string" } },
+        },
+        404: {
+          type: "object",
+          properties: { message: { type: "string" } },
+        },
+      },
+    },
+  },
+  {
+    method: "DELETE",
+    path: "/events/:id",
+    handler: eventController.deleteEvent,
+    schema: {
+      tags: ["Event"],
+      summary: "Delete event",
+      response: {
+        204: { type: "null" },
+        404: { type: "object", properties: { message: { type: "string" } } },
+      },
+    },
+  },
+];

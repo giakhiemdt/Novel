@@ -10,6 +10,15 @@ export const getSession = (
     defaultAccessMode: accessMode,
   });
 
+export const getSessionForDatabase = (
+  database: string,
+  accessMode: SessionMode = neo4j.session.WRITE
+): Session =>
+  getDriver().session({
+    database,
+    defaultAccessMode: accessMode,
+  });
+
 export const getSystemSession = (
   accessMode: SessionMode = neo4j.session.WRITE
 ): Session =>

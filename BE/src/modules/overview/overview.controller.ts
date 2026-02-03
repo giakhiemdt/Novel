@@ -2,12 +2,21 @@ import { FastifyReply, FastifyRequest } from "fastify";
 import { handleError } from "../../shared/errors/error-handler";
 import { overviewService } from "./overview.service";
 
+const getDatabaseHeader = (req: FastifyRequest): string | undefined => {
+  const header = req.headers["x-neo4j-database"];
+  if (Array.isArray(header)) {
+    return header[0];
+  }
+  return header;
+};
+
 const createOverview = async (
   req: FastifyRequest,
   reply: FastifyReply
 ): Promise<void> => {
   try {
-    const overview = await overviewService.create(req.body);
+    const dbName = getDatabaseHeader(req);
+    const overview = await overviewService.create(req.body, dbName);
     reply.status(201).send({ data: overview });
   } catch (error) {
     const handled = handleError(error);
@@ -20,7 +29,8 @@ const getOverview = async (
   reply: FastifyReply
 ): Promise<void> => {
   try {
-    const overview = await overviewService.get();
+    const dbName = getDatabaseHeader(_req);
+    const overview = await overviewService.get(dbName);
     reply.status(200).send({ data: overview });
   } catch (error) {
     const handled = handleError(error);
@@ -33,7 +43,8 @@ const updateOverview = async (
   reply: FastifyReply
 ): Promise<void> => {
   try {
-    const overview = await overviewService.update(req.body);
+    const dbName = getDatabaseHeader(req);
+    const overview = await overviewService.update(req.body, dbName);
     reply.status(200).send({ data: overview });
   } catch (error) {
     const handled = handleError(error);

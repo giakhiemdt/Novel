@@ -5,12 +5,13 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 type RequestOptions = Omit<RequestInit, "body"> & { body?: unknown };
 
 const request = async <T>(path: string, options?: RequestOptions) => {
+  const { headers, ...rest } = options ?? {};
   const response = await fetch(`${BASE_URL}${path}`, {
+    ...rest,
     headers: {
       "Content-Type": "application/json",
-      ...(options?.headers ?? {}),
+      ...(headers ?? {}),
     },
-    ...options,
     body: options?.body ? JSON.stringify(options.body) : undefined,
   });
 
@@ -32,9 +33,10 @@ const request = async <T>(path: string, options?: RequestOptions) => {
 };
 
 export const api = {
-  get: <T>(path: string) => request<T>(path, { method: "GET" }),
-  post: <T>(path: string, body: unknown) =>
-    request<T>(path, { method: "POST", body }),
-  put: <T>(path: string, body: unknown) =>
-    request<T>(path, { method: "PUT", body }),
+  get: <T>(path: string, options?: RequestOptions) =>
+    request<T>(path, { method: "GET", ...(options ?? {}) }),
+  post: <T>(path: string, body: unknown, options?: RequestOptions) =>
+    request<T>(path, { method: "POST", body, ...(options ?? {}) }),
+  put: <T>(path: string, body: unknown, options?: RequestOptions) =>
+    request<T>(path, { method: "PUT", body, ...(options ?? {}) }),
 };

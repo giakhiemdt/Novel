@@ -1,5 +1,5 @@
 import neo4j from "neo4j-driver";
-import { getSession } from "../../database";
+import { getSessionForDatabase } from "../../database";
 import { nodeLabels } from "../../shared/constants/node-labels";
 import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
@@ -41,10 +41,51 @@ CREATE (c:${nodeLabels.character} {
 RETURN c
 `;
 
+const UPDATE_CHARACTER = `
+MATCH (c:${nodeLabels.character} {id: $id})
+SET
+  c.name = $name,
+  c.alias = $alias,
+  c.soulArt = $soulArt,
+  c.level = $level,
+  c.status = $status,
+  c.isMainCharacter = $isMainCharacter,
+  c.gender = $gender,
+  c.age = $age,
+  c.race = $race,
+  c.appearance = $appearance,
+  c.height = $height,
+  c.distinctiveTraits = $distinctiveTraits,
+  c.personalityTraits = $personalityTraits,
+  c.beliefs = $beliefs,
+  c.fears = $fears,
+  c.desires = $desires,
+  c.weaknesses = $weaknesses,
+  c.origin = $origin,
+  c.background = $background,
+  c.trauma = $trauma,
+  c.secret = $secret,
+  c.currentLocation = $currentLocation,
+  c.currentGoal = $currentGoal,
+  c.currentAffiliation = $currentAffiliation,
+  c.powerState = $powerState,
+  c.notes = $notes,
+  c.tags = $tags,
+  c.updatedAt = $updatedAt
+RETURN c
+`;
+
 const GET_ALL_CHARACTERS = `
 MATCH (c:${nodeLabels.character})
 RETURN c
 ORDER BY c.createdAt DESC
+`;
+
+const DELETE_CHARACTER = `
+MATCH (c:${nodeLabels.character} {id: $id})
+WITH c
+DETACH DELETE c
+RETURN 1 AS deleted
 `;
 
 const CHARACTER_PARAMS = [
@@ -80,10 +121,15 @@ const CHARACTER_PARAMS = [
   "updatedAt",
 ];
 
+const CHARACTER_UPDATE_PARAMS = CHARACTER_PARAMS.filter(
+  (key) => key !== "createdAt"
+);
+
 export const createCharacter = async (
-  data: CharacterNode
+  data: CharacterNode,
+  database: string
 ): Promise<CharacterNode> => {
-  const session = getSession(neo4j.session.WRITE);
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
   try {
     const params = buildParams(data, CHARACTER_PARAMS);
     const result = await session.run(CREATE_CHARACTER, params);
@@ -95,14 +141,48 @@ export const createCharacter = async (
   }
 };
 
-export const getAllCharacters = async (): Promise<CharacterNode[]> => {
-  const session = getSession(neo4j.session.READ);
+export const updateCharacter = async (
+  data: CharacterNode,
+  database: string
+): Promise<CharacterNode | null> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    const params = buildParams(data, CHARACTER_UPDATE_PARAMS);
+    const result = await session.run(UPDATE_CHARACTER, params);
+    const record = result.records[0];
+    if (!record) {
+      return null;
+    }
+    const node = record.get("c");
+    return mapNode(node?.properties ?? data) as CharacterNode;
+  } finally {
+    await session.close();
+  }
+};
+
+export const getAllCharacters = async (
+  database: string
+): Promise<CharacterNode[]> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
     const result = await session.run(GET_ALL_CHARACTERS);
     return result.records.map((record) => {
       const node = record.get("c");
       return mapNode(node?.properties ?? {}) as CharacterNode;
     });
+  } finally {
+    await session.close();
+  }
+};
+
+export const deleteCharacter = async (
+  database: string,
+  id: string
+): Promise<boolean> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    const result = await session.run(DELETE_CHARACTER, { id });
+    return result.records.length > 0;
   } finally {
     await session.close();
   }

@@ -1,6 +1,11 @@
 import { AppError } from "../../shared/errors/app-error";
 import { generateId } from "../../shared/utils/generate-id";
-import { createCharacter, getAllCharacters } from "./character.repo";
+import {
+  createCharacter,
+  deleteCharacter,
+  getAllCharacters,
+  updateCharacter,
+} from "./character.repo";
 import {
   CharacterInput,
   CharacterLevel,
@@ -117,6 +122,21 @@ const assertRequiredGender = (value: unknown): CharacterInput["gender"] => {
     throw new AppError("gender must be one of male, female, other", 400);
   }
   return normalized as CharacterInput["gender"];
+};
+
+const assertDatabaseName = (value: unknown): string => {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new AppError("dbName is required", 400);
+  }
+  const dbName = value.trim();
+  const isValid = /^[A-Za-z0-9_-]+$/.test(dbName);
+  if (!isValid) {
+    throw new AppError(
+      "dbName must contain only letters, numbers, underscores, or hyphens",
+      400
+    );
+  }
+  return dbName;
 };
 
 const buildCharacterNode = (payload: CharacterInput): CharacterNode => {
@@ -247,12 +267,43 @@ const validateCharacterPayload = (payload: unknown): CharacterInput => {
 };
 
 export const characterService = {
-  create: async (payload: unknown): Promise<CharacterNode> => {
+  create: async (payload: unknown, dbName: unknown): Promise<CharacterNode> => {
+    const database = assertDatabaseName(dbName);
     const validated = validateCharacterPayload(payload);
     const node = buildCharacterNode(validated);
-    return createCharacter(node);
+    return createCharacter(node, database);
   },
-  getAll: async (): Promise<CharacterNode[]> => {
-    return getAllCharacters();
+  update: async (
+    id: string,
+    payload: unknown,
+    dbName: unknown
+  ): Promise<CharacterNode> => {
+    const database = assertDatabaseName(dbName);
+    const validated = validateCharacterPayload(payload);
+    const now = new Date().toISOString();
+    const node: CharacterNode = {
+      ...validated,
+      id,
+      status: validated.status ?? "Alive",
+      isMainCharacter: validated.isMainCharacter ?? false,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const updated = await updateCharacter(node, database);
+    if (!updated) {
+      throw new AppError("character not found", 404);
+    }
+    return updated;
+  },
+  getAll: async (dbName: unknown): Promise<CharacterNode[]> => {
+    const database = assertDatabaseName(dbName);
+    return getAllCharacters(database);
+  },
+  delete: async (id: string, dbName: unknown): Promise<void> => {
+    const database = assertDatabaseName(dbName);
+    const deleted = await deleteCharacter(database, id);
+    if (!deleted) {
+      throw new AppError("character not found", 404);
+    }
   },
 };

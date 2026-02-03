@@ -1,4 +1,5 @@
 import { formatDateTime } from "../../utils/date";
+import { useI18n } from "../../i18n/I18nProvider";
 import type { Timeline } from "./timeline.types";
 
 export type TimelineListProps = {
@@ -8,18 +9,19 @@ export type TimelineListProps = {
 };
 
 export const TimelineList = ({ items, selectedId, onSelect }: TimelineListProps) => {
+  const { t } = useI18n();
   if (items.length === 0) {
-    return <p className="header__subtitle">No timelines yet.</p>;
+    return <p className="header__subtitle">{t("No timelines yet.")}</p>;
   }
 
   return (
     <table className="table">
       <thead>
         <tr>
-          <th>Name</th>
-          <th>Years</th>
-          <th>Duration</th>
-          <th>Created</th>
+          <th>{t("Name")}</th>
+          <th>{t("Years")}</th>
+          <th>{t("Duration")}</th>
+          <th>{t("Created")}</th>
         </tr>
       </thead>
       <tbody>
@@ -44,9 +46,9 @@ export const TimelineList = ({ items, selectedId, onSelect }: TimelineListProps)
               <div className="header__subtitle">{item.id}</div>
             </td>
             <td>
-              {item.startYear} - {item.endYear}
+              0 - {item.durationYears ?? 0}
             </td>
-            <td>{item.durationYears ?? item.endYear - item.startYear}</td>
+            <td>{item.durationYears ?? 0}</td>
             <td>{formatDateTime(item.createdAt)}</td>
           </tr>
         )})}

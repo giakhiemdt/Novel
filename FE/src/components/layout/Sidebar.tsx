@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { Button } from "../common/Button";
-import { ErrorMessage } from "../common/ErrorMessage";
+import { useToast } from "../common/Toast";
 import { MultiSelect } from "../form/MultiSelect";
 import { Select } from "../form/Select";
 import { TextArea } from "../form/TextArea";
@@ -12,6 +12,7 @@ import type {
   ProjectNode,
   ProjectStatus,
 } from "../../features/project/project.types";
+import { useI18n } from "../../i18n/I18nProvider";
 
 type SidebarProps = {
   collapsed: boolean;
@@ -24,15 +25,18 @@ const navItems = [
   { to: "/timelines", label: "Timelines", shortLabel: "T" },
   { to: "/locations", label: "Locations", shortLabel: "L" },
   { to: "/factions", label: "Factions", shortLabel: "F" },
+  { to: "/events", label: "Events", shortLabel: "E" },
 ];
 
 export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
+  const { language, setLanguage, t } = useI18n();
+  const { notify } = useToast();
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [projects, setProjects] = useState<ProjectNode[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState("");
-  const [projectError, setProjectError] = useState<string | null>(null);
+  const [selectedDbName, setSelectedDbName] = useState("");
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [form, setForm] = useState({
     id: "",
@@ -46,17 +50,22 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
 
   const loadProjects = async () => {
     setIsLoadingProjects(true);
-    setProjectError(null);
     try {
       const data = await getProjects();
       setProjects(data);
       if (data.length && !selectedProjectId) {
-        setSelectedProjectId(data[0].id);
+        const storedDb = localStorage.getItem("novel-selected-project-db");
+        const storedProject = storedDb
+          ? data.find((item) => item.dbName === storedDb)
+          : undefined;
+        const selected = storedProject ?? data[0];
+        setSelectedProjectId(selected.id);
+        setSelectedDbName(selected.dbName);
       }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to load projects";
-      setProjectError(message);
+      notify(message, "error");
     } finally {
       setIsLoadingProjects(false);
     }
@@ -67,7 +76,14 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
   }, []);
 
   useEffect(() => {
-    if (!isProjectModalOpen) {
+    if (!selectedDbName) {
+      return;
+    }
+    localStorage.setItem("novel-selected-project-db", selectedDbName);
+  }, [selectedDbName]);
+
+  useEffect(() => {
+    if (!isProjectModalOpen && !isSettingsOpen) {
       document.body.style.overflow = "";
       document.body.style.paddingRight = "";
       return;
@@ -84,7 +100,7 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
       document.body.style.overflow = "";
       document.body.style.paddingRight = "";
     };
-  }, [isProjectModalOpen]);
+  }, [isProjectModalOpen, isSettingsOpen]);
 
   const resetForm = () => {
     setForm({
@@ -100,19 +116,24 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
 
   const openModal = () => {
     resetForm();
-    setErrorMessage(null);
     setIsProjectModalOpen(true);
+  };
+
+  const openSettings = () => {
+    setIsSettingsOpen(true);
   };
 
   const closeModal = () => {
     setIsProjectModalOpen(false);
-    setErrorMessage(null);
+  };
+
+  const closeSettings = () => {
+    setIsSettingsOpen(false);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSaving(true);
-    setErrorMessage(null);
 
     const payload: ProjectInput = {
       name: form.name.trim(),
@@ -144,7 +165,7 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to create project";
-      setErrorMessage(message);
+      notify(message, "error");
     } finally {
       setIsSaving(false);
     }
@@ -173,21 +194,33 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
               }
             >
               <span className="sidebar__icon">{item.shortLabel}</span>
-              <span className="sidebar__label">{item.label}</span>
+              <span className="sidebar__label">{t(item.label)}</span>
             </NavLink>
           ))}
         </nav>
         <div className="sidebar__project">
-          <span className="sidebar__project-label">Project</span>
+          <span className="sidebar__project-label">{t("Project")}</span>
           <select
             className="sidebar__project-select"
             value={selectedProjectId}
-            onChange={(event) => setSelectedProjectId(event.target.value)}
+            onChange={(event) => {
+              const nextId = event.target.value;
+              setSelectedProjectId(nextId);
+              const match = projects.find((project) => project.id === nextId);
+              const nextDbName = match?.dbName ?? "";
+              setSelectedDbName(nextDbName);
+              if (nextDbName) {
+                localStorage.setItem("novel-selected-project-db", nextDbName);
+              }
+              window.dispatchEvent(new Event("novel-project-changed"));
+            }}
             disabled={isLoadingProjects || projects.length === 0}
           >
             {projects.length === 0 && (
               <option value="">
-                {isLoadingProjects ? "Loading projects..." : "No projects yet"}
+                {isLoadingProjects
+                  ? t("Loading projects...")
+                  : t("No projects yet")}
               </option>
             )}
             {projects.map((project) => (
@@ -196,9 +229,6 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
               </option>
             ))}
           </select>
-          {projectError && (
-            <span className="sidebar__project-error">{projectError}</span>
-          )}
         </div>
         <div className="sidebar__actions">
           <Button
@@ -207,7 +237,18 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
             onClick={openModal}
           >
             <span className="sidebar__new-project-icon">+</span>
-            <span className="sidebar__new-project-label">New Project</span>
+            <span className="sidebar__new-project-label">
+              {t("New Project")}
+            </span>
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className="sidebar__settings"
+            onClick={openSettings}
+          >
+            <span className="sidebar__settings-icon">⚙</span>
+            <span className="sidebar__settings-label">{t("Settings")}</span>
           </Button>
         </div>
       </aside>
@@ -219,9 +260,9 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
           >
             <div className="modal__header">
               <div>
-                <h3>Create project</h3>
+                <h3>{t("Create project")}</h3>
                 <p className="modal__subtitle">
-                  Set up a new workspace database for this story.
+                  {t("Set up a new workspace database for this story.")}
                 </p>
               </div>
               <button
@@ -234,7 +275,6 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
               </button>
             </div>
             <form className="modal__body" onSubmit={handleSubmit}>
-              {errorMessage && <ErrorMessage message={errorMessage} />}
               <div className="modal__grid">
                 <TextInput
                   label="Project ID"
@@ -290,13 +330,49 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
               </div>
               <div className="modal__footer">
                 <Button type="button" variant="ghost" onClick={closeModal}>
-                  Cancel
+                  {t("Cancel")}
                 </Button>
                 <Button type="submit" disabled={isSaving}>
-                  {isSaving ? "Creating..." : "Create project"}
+                  {isSaving ? t("Creating...") : t("Create project")}
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {isSettingsOpen && (
+        <div className="modal__backdrop" onClick={closeSettings}>
+          <div className="modal" onClick={(event) => event.stopPropagation()}>
+            <div className="modal__header">
+              <div>
+                <h3>{t("Settings")}</h3>
+                <p className="modal__subtitle">{t("Display language")}</p>
+              </div>
+              <button
+                className="modal__close"
+                type="button"
+                onClick={closeSettings}
+                aria-label="Close modal"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="modal__body">
+              <Select
+                label="Display language"
+                value={language}
+                onChange={(value) => setLanguage(value as "en" | "vi")}
+                options={[
+                  { label: "English", value: "en" },
+                  { label: "Vietnamese", value: "vi" },
+                ]}
+              />
+            </div>
+            <div className="modal__footer">
+              <Button type="button" variant="ghost" onClick={closeSettings}>
+                {t("Cancel")}
+              </Button>
+            </div>
           </div>
         </div>
       )}

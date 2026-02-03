@@ -1,5 +1,6 @@
 import { KeyboardEvent, useState } from "react";
 import { Button } from "../common/Button";
+import { useI18n } from "../../i18n/I18nProvider";
 
 export type MultiSelectProps = {
   label: string;
@@ -7,6 +8,7 @@ export type MultiSelectProps = {
   onChange: (values: string[]) => void;
   placeholder?: string;
   required?: boolean;
+  showAddButton?: boolean;
 };
 
 export const MultiSelect = ({
@@ -15,8 +17,10 @@ export const MultiSelect = ({
   onChange,
   placeholder,
   required,
+  showAddButton = false,
 }: MultiSelectProps) => {
   const [inputValue, setInputValue] = useState("");
+  const { t } = useI18n();
 
   const addValue = () => {
     const trimmed = inputValue.trim();
@@ -42,32 +46,34 @@ export const MultiSelect = ({
   return (
     <div className="form-field">
       <label>
-        {label}
+        {t(label)}
         {required && <span className="required">*</span>}
       </label>
-      <div style={{ display: "flex", gap: "8px" }}>
-        <input
-          className="input"
-          value={inputValue}
-          onChange={(event) => setInputValue(event.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder ?? "Type and press Enter"}
-        />
-        <Button type="button" variant="ghost" onClick={addValue}>
-          Add
-        </Button>
-      </div>
-      <div className="pill-list">
-        {values.map((value) => (
-          <button
-            type="button"
-            key={value}
-            className="pill"
-            onClick={() => removeValue(value)}
-          >
-            {value} ✕
-          </button>
-        ))}
+      <div className="multi-select">
+        <div className="multi-select__control">
+          {values.map((value) => (
+            <button
+              type="button"
+              key={value}
+              className="pill"
+              onClick={() => removeValue(value)}
+            >
+              {value} ✕
+            </button>
+          ))}
+          <input
+            className="multi-select__input"
+            value={inputValue}
+            onChange={(event) => setInputValue(event.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={t(placeholder ?? "Type and press Enter")}
+          />
+        </div>
+        {showAddButton && (
+          <Button type="button" variant="ghost" onClick={addValue}>
+            {t("Add")}
+          </Button>
+        )}
       </div>
     </div>
   );
