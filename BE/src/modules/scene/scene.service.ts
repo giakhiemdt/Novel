@@ -208,13 +208,12 @@ export const sceneService = {
       await updateSceneCharacters(database, created.id, validated.characterIds);
     }
 
-    return {
-      ...created,
-      chapterId: validated.chapterId,
-      eventId: validated.eventId,
-      locationId: validated.locationId,
-      characterIds: validated.characterIds ?? [],
-    };
+    const result: SceneNode = { ...created };
+    addIfDefined(result, "chapterId", validated.chapterId);
+    addIfDefined(result, "eventId", validated.eventId);
+    addIfDefined(result, "locationId", validated.locationId);
+    addIfDefined(result, "characterIds", validated.characterIds ?? []);
+    return result;
   },
   update: async (
     id: string,
@@ -299,14 +298,20 @@ export const sceneService = {
       );
     }
 
-    return {
-      ...updated,
-      chapterId: hasChapterId ? validated.chapterId : updated.chapterId,
-      eventId: hasEventId ? validated.eventId : updated.eventId,
-      locationId: hasLocationId ? validated.locationId : updated.locationId,
-      characterIds:
-        hasCharacterIds ? validated.characterIds ?? [] : updated.characterIds,
-    };
+    const result: SceneNode = { ...updated };
+    if (hasChapterId) {
+      addIfDefined(result, "chapterId", validated.chapterId);
+    }
+    if (hasEventId) {
+      addIfDefined(result, "eventId", validated.eventId);
+    }
+    if (hasLocationId) {
+      addIfDefined(result, "locationId", validated.locationId);
+    }
+    if (hasCharacterIds) {
+      addIfDefined(result, "characterIds", validated.characterIds ?? []);
+    }
+    return result;
   },
   getAll: async (dbName: unknown): Promise<SceneNode[]> => {
     const database = assertDatabaseName(dbName);
