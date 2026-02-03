@@ -68,9 +68,24 @@ const deleteArc = async (
   }
 };
 
+const getArcStructure = async (
+  _req: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> => {
+  try {
+    const dbName = getDatabaseHeader(_req);
+    const structure = await arcService.getStructure(dbName);
+    reply.status(200).send({ data: structure });
+  } catch (error) {
+    const handled = handleError(error);
+    reply.status(handled.statusCode).send({ message: handled.message });
+  }
+};
+
 export const arcController = {
   createArc,
   updateArc,
   getAllArcs,
+  getArcStructure,
   deleteArc,
 };

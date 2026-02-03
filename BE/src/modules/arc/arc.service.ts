@@ -1,7 +1,20 @@
 import { AppError } from "../../shared/errors/app-error";
 import { generateId } from "../../shared/utils/generate-id";
-import { createArc, deleteArc, getArcs, updateArc } from "./arc.repo";
-import { ArcInput, ArcListQuery, ArcNode } from "./arc.types";
+import {
+  createArc,
+  deleteArc,
+  getArcStructure,
+  getArcs,
+  updateArc,
+} from "./arc.repo";
+import {
+  ArcInput,
+  ArcListQuery,
+  ArcNode,
+  ArcStructureArc,
+  ArcStructureChapter,
+  ArcStructureScene,
+} from "./arc.types";
 
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
@@ -223,6 +236,76 @@ export const arcService = {
     const parsedQuery = parseArcListQuery(query);
     const data = await getArcs(database, parsedQuery);
     return { data, meta: parsedQuery };
+  },
+  getStructure: async (dbName: unknown): Promise<ArcStructureArc[]> => {
+    const database = assertDatabaseName(dbName);
+    const rows = await getArcStructure(database);
+    const arcMap = new Map<string, ArcStructureArc>();
+    const chapterMap = new Map<string, ArcStructureChapter>();
+
+    rows.forEach((row) => {
+      const arcId = row.arc.id;
+      if (!arcMap.has(arcId)) {
+        const arc: ArcStructureArc = {
+          id: row.arc.id,
+          name: row.arc.name,
+          chapters: [],
+        };
+        addIfDefined(arc, "order", row.arc.order);
+        addIfDefined(arc, "summary", row.arc.summary);
+        arcMap.set(arcId, arc);
+      }
+
+      if (row.chapter) {
+        const chapterId = String(row.chapter.id);
+        if (!chapterMap.has(chapterId)) {
+          const chapter: ArcStructureChapter = {
+            id: chapterId,
+            name: String(row.chapter.name ?? ""),
+            scenes: [],
+          };
+          addIfDefined(
+            chapter,
+            "order",
+            typeof row.chapter.order === "number" ? row.chapter.order : undefined
+          );
+          addIfDefined(
+            chapter,
+            "summary",
+            typeof row.chapter.summary === "string"
+              ? row.chapter.summary
+              : undefined
+          );
+          chapterMap.set(chapterId, chapter);
+          arcMap.get(arcId)?.chapters.push(chapter);
+        }
+
+        if (row.scene) {
+          const scene: ArcStructureScene = {
+            id: String(row.scene.id),
+            name: String(row.scene.name ?? ""),
+          };
+          addIfDefined(
+            scene,
+            "order",
+            typeof row.scene.order === "number" ? row.scene.order : undefined
+          );
+          addIfDefined(
+            scene,
+            "summary",
+            typeof row.scene.summary === "string"
+              ? row.scene.summary
+              : undefined
+          );
+          const chapter = chapterMap.get(chapterId);
+          if (chapter) {
+            chapter.scenes.push(scene);
+          }
+        }
+      }
+    });
+
+    return Array.from(arcMap.values());
   },
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);

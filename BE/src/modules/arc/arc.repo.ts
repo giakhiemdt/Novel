@@ -1,6 +1,7 @@
 import neo4j from "neo4j-driver";
 import { getSessionForDatabase } from "../../database";
 import { nodeLabels } from "../../shared/constants/node-labels";
+import { relationTypes } from "../../shared/constants/relation-types";
 import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
 import { ArcListQuery, ArcNode } from "./arc.types";
@@ -59,6 +60,14 @@ MATCH (a:${nodeLabels.arc} {id: $id})
 WITH a
 DETACH DELETE a
 RETURN 1 AS deleted
+`;
+
+const GET_ARC_STRUCTURE = `
+MATCH (a:${nodeLabels.arc})
+OPTIONAL MATCH (a)-[:${relationTypes.arcHasChapter}]->(c:${nodeLabels.chapter})
+OPTIONAL MATCH (c)-[:${relationTypes.chapterHasScene}]->(s:${nodeLabels.scene})
+RETURN a, c, s
+ORDER BY a.order ASC, a.createdAt DESC, c.order ASC, c.createdAt DESC, s.order ASC, s.createdAt DESC
 `;
 
 const ARC_PARAMS = [
@@ -140,6 +149,35 @@ export const deleteArc = async (
   try {
     const result = await session.run(DELETE_ARC, { id });
     return result.records.length > 0;
+  } finally {
+    await session.close();
+  }
+};
+
+export const getArcStructure = async (
+  database: string
+): Promise<{
+  arc: ArcNode;
+  chapter?: Record<string, unknown>;
+  scene?: Record<string, unknown>;
+}[]> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const result = await session.run(GET_ARC_STRUCTURE);
+    return result.records.map((record) => {
+      const arc = record.get("a");
+      const chapter = record.get("c");
+      const scene = record.get("s");
+      return {
+        arc: mapNode(arc?.properties ?? {}) as ArcNode,
+        chapter: chapter?.properties
+          ? (mapNode(chapter.properties) as Record<string, unknown>)
+          : undefined,
+        scene: scene?.properties
+          ? (mapNode(scene.properties) as Record<string, unknown>)
+          : undefined,
+      };
+    });
   } finally {
     await session.close();
   }

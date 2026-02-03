@@ -4,6 +4,26 @@ import { arcController } from "./arc.controller";
 export const arcRoutes: RouteConfig[] = [
   {
     method: "GET",
+    path: "/arcs/structure",
+    handler: arcController.getArcStructure,
+    schema: {
+      tags: ["Arc"],
+      summary: "Get arc structure",
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            data: {
+              type: "array",
+              items: { type: "object", additionalProperties: true },
+            },
+          },
+        },
+      },
+    },
+  },
+  {
+    method: "GET",
     path: "/arcs",
     handler: arcController.getAllArcs,
     schema: {
