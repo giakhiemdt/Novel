@@ -135,7 +135,9 @@ export const RelationshipList = ({
               <div>
                 <h3>{t("Relationship details")}</h3>
                 <p className="modal__subtitle">
-                  {resolveName(detailItem.fromId)} -> {resolveName(detailItem.toId)}
+                  {resolveName(detailItem.fromId)}
+                  {" -> "}
+                  {resolveName(detailItem.toId)}
                 </p>
               </div>
               <button

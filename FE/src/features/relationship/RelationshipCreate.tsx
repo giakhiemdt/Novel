@@ -227,8 +227,8 @@ export const RelationshipCreate = () => {
               <div>
                 <h3 className="section-title">{t("Edit relationship")}</h3>
                 <p className="header__subtitle">
-                  {charactersById[editItem.fromId] ?? editItem.fromId} ->
-                  {" "}
+                  {charactersById[editItem.fromId] ?? editItem.fromId}
+                  {" -> "}
                   {charactersById[editItem.toId] ?? editItem.toId}
                 </p>
               </div>
