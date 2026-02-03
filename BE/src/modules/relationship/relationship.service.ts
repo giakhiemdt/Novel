@@ -82,6 +82,16 @@ const assertDatabaseName = (value: unknown): string => {
   return dbName;
 };
 
+const addIfDefined = (
+  target: Record<string, unknown>,
+  key: string,
+  value: unknown
+): void => {
+  if (value !== undefined) {
+    target[key] = value;
+  }
+};
+
 const validatePayload = (payload: unknown): CharacterRelationInput => {
   if (!payload || typeof payload !== "object") {
     throw new AppError("payload must be an object", 400);
@@ -100,7 +110,11 @@ const validatePayload = (payload: unknown): CharacterRelationInput => {
   }
   const note = assertOptionalString(data.note, "note");
 
-  return { fromId, toId, type, startYear, endYear, note };
+  const result: CharacterRelationInput = { fromId, toId, type };
+  addIfDefined(result, "startYear", startYear);
+  addIfDefined(result, "endYear", endYear);
+  addIfDefined(result, "note", note);
+  return result;
 };
 
 export const relationshipService = {
@@ -182,7 +196,9 @@ export const relationshipService = {
     if (type && !TYPES.includes(type)) {
       throw new AppError(`type must be one of ${TYPES.join(", ")}`, 400);
     }
-    const filter: CharacterRelationQuery = { characterId, type };
+    const filter: CharacterRelationQuery = {};
+    addIfDefined(filter, "characterId", characterId);
+    addIfDefined(filter, "type", type);
     return getRelations(database, filter);
   },
 };
