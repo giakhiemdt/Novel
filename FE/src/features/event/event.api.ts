@@ -1,14 +1,7 @@
 import { api } from "../../services/api";
 import { endpoints } from "../../services/endpoints";
+import { withDatabaseHeader } from "../../services/db";
 import type { Event, EventPayload } from "./event.types";
-
-const getSelectedDatabase = (): string | null =>
-  localStorage.getItem("novel-selected-project-db");
-
-const withDatabaseHeader = () => {
-  const dbName = getSelectedDatabase();
-  return dbName ? { headers: { "x-neo4j-database": dbName } } : undefined;
-};
 
 export const getAllEvents = () =>
   api.get<Event[]>(endpoints.events, withDatabaseHeader());

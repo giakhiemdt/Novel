@@ -10,4 +10,12 @@ export const endpoints = {
   locations: "/locations",
   factions: "/factions",
   events: "/events",
+  arcs: "/arcs",
+  arcStructure: "/arcs/structure",
+  chapters: "/chapters",
+  scenes: "/scenes",
+  items: "/items",
+  characterRelations: "/character-relations",
+  conflicts: "/conflicts",
+  worldRules: "/world-rules",
 };
