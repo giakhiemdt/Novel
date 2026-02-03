@@ -97,7 +97,10 @@
   - `GET /conflicts`
 
 - WorldRule
-  - routes đã đăng ký (có module), chưa có UI FE
+  - `GET /world-rules`
+  - `POST /world-rules`
+  - `PUT /world-rules/:id`
+  - `DELETE /world-rules/:id`
 
 ### Trạng thái kỹ thuật BE
 - Graph module rỗng (`graph.*` trống)
@@ -120,40 +123,46 @@
 - Location — list/tree, create, edit, delete, link/unlink
 - Faction — list, create, edit, delete
 - Event — list, create, edit, delete + participants + timeline
+- Arc — list, create, edit, delete + xem cấu trúc Arc/Chapter/Scene
+- Chapter — list, create, edit, delete
+- Scene — list, create, edit, delete
+- Item — list, create, edit, delete + liên kết event
+- Relationship — list, create, edit, delete
+- WorldRule — list, create, edit, delete
+- Conflict — xem report (read-only)
 - Project — chọn project + tạo project (modal)
-- HealthCheck component có sẵn (chưa gắn vào UI chính)
+- HealthCheck đã gắn vào Dashboard
 
 ### API FE đang dùng
 - `/health`, `/projects`, `/overview`, `/characters`, `/timelines`, `/locations`, `/factions`, `/events`
+- `/arcs`, `/arcs/structure`, `/chapters`, `/scenes`
+- `/items`, `/items/:id/event`, `/events/:id/items`, `/items/:id/events`
+- `/character-relations`, `/world-rules`, `/conflicts`
 
 
 ## 3) FE còn thiếu so với BE
 
-### Thiếu UI hoàn toàn
-- Arc / Chapter / Scene
-- Item
-- Character Relationship
-- WorldRule
-- Conflict checker
+### Thiếu UI
 - Graph (nếu định dùng)
 
 ### Thiếu endpoint FE (endpoints.ts)
-- `arcs`, `chapters`, `scenes`
-- `items`, `events/:id/items`, `items/:id/events`
-- `character-relations`
-- `conflicts`
-- `worldrules` (tên route theo BE)
+- Không còn thiếu so với BE hiện tại
 
 ### Thiếu trang/route FE
-- Chưa có route UI cho các module trên trong `FE/src/app/router.tsx`
+- Chưa có route UI cho Graph (nếu cần)
+
+### Khoảng trống về tính năng
+- Chưa triển khai filter/pagination/search ở FE (BE đã hỗ trợ)
+- Chưa dùng các endpoint liên kết Scene riêng (`/scenes/:id/event`, `/scenes/:id/location`, `/scenes/:id/characters`) — hiện xử lý qua `PUT /scenes/:id`
 
 
 ## 4) Lỗi/thiếu sót đã xử lý
 - Đã bổ sung `api.delete` trong `FE/src/services/api.ts`.
+- Đã chuẩn hóa header `x-neo4j-database` dùng chung.
+- Đã ép kiểu `SKIP/LIMIT` để tránh lỗi Neo4j với số thực.
 
 
 ## 5) Gợi ý next steps (ngắn gọn)
-1) Bổ sung endpoints + api clients cho các module thiếu.
-2) Dựng UI tối thiểu cho Arc/Chapter/Scene và Item.
-3) Thêm trang Conflict checker (read-only) và Relationship.
-4) Nối HealthCheck vào Dashboard.
+1) Thêm filter/pagination/search ở FE theo query BE (q, limit, offset, tag...).
+2) Bổ sung UI/feature cho Graph nếu dùng.
+3) Thêm seed data + test tối thiểu.
