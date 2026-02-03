@@ -621,11 +621,16 @@ h3 {
   margin-top: var(--space-3);
 }
 
-.participant-card {
+.card-soft,
+.participant-card,
+.detail-item {
   border: none;
   border-radius: var(--radius-md);
-  padding: var(--space-3);
   background: var(--surface-card-soft);
+}
+
+.participant-card {
+  padding: var(--space-3);
 }
 
 .participant-card__header {
@@ -961,10 +966,7 @@ h3 {
 }
 
 .detail-item {
-  background: var(--surface-card-soft);
-  border-radius: 12px;
   padding: var(--space-2) var(--space-3);
-  border: none;
 }
 
 .detail-item--wide {
