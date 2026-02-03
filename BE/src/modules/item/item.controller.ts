@@ -68,9 +68,42 @@ const deleteItem = async (
   }
 };
 
+const linkItemEvent = async (
+  req: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> => {
+  try {
+    const dbName = getDatabaseHeader(req);
+    const { id } = req.params as { id: string };
+    const body = req.body as { eventId?: string };
+    await itemService.linkEvent(id, body?.eventId, dbName);
+    reply.status(200).send({ message: "Item linked to event" });
+  } catch (error) {
+    const handled = handleError(error);
+    reply.status(handled.statusCode).send({ message: handled.message });
+  }
+};
+
+const unlinkItemEvent = async (
+  req: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> => {
+  try {
+    const dbName = getDatabaseHeader(req);
+    const { id } = req.params as { id: string };
+    await itemService.unlinkEvent(id, dbName);
+    reply.status(200).send({ message: "Item unlinked from event" });
+  } catch (error) {
+    const handled = handleError(error);
+    reply.status(handled.statusCode).send({ message: handled.message });
+  }
+};
+
 export const itemController = {
   createItem,
   updateItem,
   getAllItems,
+  linkItemEvent,
+  unlinkItemEvent,
   deleteItem,
 };

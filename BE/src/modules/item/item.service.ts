@@ -1,11 +1,15 @@
 import { AppError } from "../../shared/errors/app-error";
 import { generateId } from "../../shared/utils/generate-id";
 import {
+  checkEventExists,
+  checkItemExists,
   checkOwnerExists,
   createItem,
   deleteItem,
   getItems,
+  linkItemEvent,
   linkOwner,
+  unlinkItemEvent,
   unlinkOwners,
   updateItem,
 } from "./item.repo";
@@ -331,5 +335,30 @@ export const itemService = {
     if (!deleted) {
       throw new AppError("item not found", 404);
     }
+  },
+  linkEvent: async (
+    id: string,
+    eventId: unknown,
+    dbName: unknown
+  ): Promise<void> => {
+    const database = assertDatabaseName(dbName);
+    const parsedEventId = assertRequiredString(eventId, "eventId");
+    const itemExists = await checkItemExists(database, id);
+    if (!itemExists) {
+      throw new AppError("item not found", 404);
+    }
+    const eventExists = await checkEventExists(database, parsedEventId);
+    if (!eventExists) {
+      throw new AppError("event not found", 404);
+    }
+    await linkItemEvent(database, id, parsedEventId);
+  },
+  unlinkEvent: async (id: string, dbName: unknown): Promise<void> => {
+    const database = assertDatabaseName(dbName);
+    const itemExists = await checkItemExists(database, id);
+    if (!itemExists) {
+      throw new AppError("item not found", 404);
+    }
+    await unlinkItemEvent(database, id);
   },
 };

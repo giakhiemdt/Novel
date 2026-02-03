@@ -108,6 +108,38 @@ export const itemRoutes: RouteConfig[] = [
     },
   },
   {
+    method: "POST",
+    path: "/items/:id/event",
+    handler: itemController.linkItemEvent,
+    schema: {
+      tags: ["Item"],
+      summary: "Link item to event",
+      body: {
+        type: "object",
+        required: ["eventId"],
+        properties: { eventId: { type: "string" } },
+      },
+      response: {
+        200: { type: "object", properties: { message: { type: "string" } } },
+        400: { type: "object", properties: { message: { type: "string" } } },
+        404: { type: "object", properties: { message: { type: "string" } } },
+      },
+    },
+  },
+  {
+    method: "DELETE",
+    path: "/items/:id/event",
+    handler: itemController.unlinkItemEvent,
+    schema: {
+      tags: ["Item"],
+      summary: "Unlink item from event",
+      response: {
+        200: { type: "object", properties: { message: { type: "string" } } },
+        404: { type: "object", properties: { message: { type: "string" } } },
+      },
+    },
+  },
+  {
     method: "DELETE",
     path: "/items/:id",
     handler: itemController.deleteItem,

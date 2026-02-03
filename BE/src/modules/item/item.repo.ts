@@ -86,6 +86,16 @@ MATCH (f:${nodeLabels.faction} {id: $id})
 RETURN f IS NOT NULL AS exists
 `;
 
+const CHECK_ITEM = `
+MATCH (i:${nodeLabels.item} {id: $id})
+RETURN i IS NOT NULL AS exists
+`;
+
+const CHECK_EVENT = `
+MATCH (e:${nodeLabels.event} {id: $id})
+RETURN e IS NOT NULL AS exists
+`;
+
 const LINK_OWNER_CHARACTER = `
 MATCH (c:${nodeLabels.character} {id: $ownerId})
 MATCH (i:${nodeLabels.item} {id: $itemId})
@@ -104,6 +114,17 @@ DELETE r
 WITH i
 MATCH (:${nodeLabels.faction})-[r2:${relationTypes.ownsItem}]->(i)
 DELETE r2
+`;
+
+const LINK_ITEM_EVENT = `
+MATCH (i:${nodeLabels.item} {id: $itemId})
+MATCH (e:${nodeLabels.event} {id: $eventId})
+MERGE (i)-[:${relationTypes.itemAppearsIn}]->(e)
+`;
+
+const UNLINK_ITEM_EVENT = `
+MATCH (i:${nodeLabels.item} {id: $itemId})-[r:${relationTypes.itemAppearsIn}]->(:${nodeLabels.event})
+DELETE r
 `;
 
 const ITEM_PARAMS = [
@@ -212,6 +233,32 @@ export const checkOwnerExists = async (
   }
 };
 
+export const checkItemExists = async (
+  database: string,
+  itemId: string
+): Promise<boolean> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const result = await session.run(CHECK_ITEM, { id: itemId });
+    return (result.records[0]?.get("exists") as boolean | undefined) ?? false;
+  } finally {
+    await session.close();
+  }
+};
+
+export const checkEventExists = async (
+  database: string,
+  eventId: string
+): Promise<boolean> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const result = await session.run(CHECK_EVENT, { id: eventId });
+    return (result.records[0]?.get("exists") as boolean | undefined) ?? false;
+  } finally {
+    await session.close();
+  }
+};
+
 export const linkOwner = async (
   database: string,
   itemId: string,
@@ -234,6 +281,31 @@ export const unlinkOwners = async (
   const session = getSessionForDatabase(database, neo4j.session.WRITE);
   try {
     await session.run(UNLINK_OWNERS, { itemId });
+  } finally {
+    await session.close();
+  }
+};
+
+export const linkItemEvent = async (
+  database: string,
+  itemId: string,
+  eventId: string
+): Promise<void> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    await session.run(LINK_ITEM_EVENT, { itemId, eventId });
+  } finally {
+    await session.close();
+  }
+};
+
+export const unlinkItemEvent = async (
+  database: string,
+  itemId: string
+): Promise<void> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    await session.run(UNLINK_ITEM_EVENT, { itemId });
   } finally {
     await session.close();
   }

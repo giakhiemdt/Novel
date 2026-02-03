@@ -12,4 +12,5 @@ export const relationTypes = {
   sceneFeaturesCharacter: "SCENE_FEATURES_CHARACTER",
   sceneTakesPlaceIn: "SCENE_TAKES_PLACE_IN",
   ownsItem: "OWNS_ITEM",
+  itemAppearsIn: "ITEM_APPEARS_IN",
 };
