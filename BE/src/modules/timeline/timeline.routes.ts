@@ -9,6 +9,17 @@ export const timelineRoutes: RouteConfig[] = [
     schema: {
       tags: ["Timeline"],
       summary: "Get all timelines",
+      querystring: {
+        type: "object",
+        properties: {
+          limit: { type: "number" },
+          offset: { type: "number" },
+          name: { type: "string" },
+          tag: { type: "string" },
+          code: { type: "string" },
+          isOngoing: { type: "boolean" },
+        },
+      },
       response: {
         200: {
           type: "object",
@@ -16,6 +27,17 @@ export const timelineRoutes: RouteConfig[] = [
             data: {
               type: "array",
               items: { type: "object", additionalProperties: true },
+            },
+            meta: {
+              type: "object",
+              properties: {
+                limit: { type: "number" },
+                offset: { type: "number" },
+                name: { type: "string" },
+                tag: { type: "string" },
+                code: { type: "string" },
+                isOngoing: { type: "boolean" },
+              },
             },
           },
         },

@@ -3,11 +3,11 @@ import { generateId } from "../../shared/utils/generate-id";
 import {
   createTimeline,
   deleteTimeline,
-  getAllTimelines,
+  getTimelines,
   linkTimeline,
   unlinkTimeline,
 } from "./timeline.repo";
-import { TimelineInput, TimelineNode } from "./timeline.types";
+import { TimelineInput, TimelineListQuery, TimelineNode } from "./timeline.types";
 
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
@@ -52,6 +52,69 @@ const assertOptionalNumber = (
   return value;
 };
 
+const parseOptionalQueryString = (
+  value: unknown,
+  field: string
+): string | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "string") {
+    throw new AppError(`${field} must be a string`, 400);
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const parseOptionalQueryNumber = (
+  value: unknown,
+  field: string
+): number | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      throw new AppError(`${field} must be a number`, 400);
+    }
+    return value;
+  }
+  if (typeof value !== "string") {
+    throw new AppError(`${field} must be a number`, 400);
+  }
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return undefined;
+  }
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) {
+    throw new AppError(`${field} must be a number`, 400);
+  }
+  return parsed;
+};
+
+const parseOptionalQueryBoolean = (
+  value: unknown,
+  field: string
+): boolean | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value !== "string") {
+    throw new AppError(`${field} must be a boolean`, 400);
+  }
+  const trimmed = value.trim().toLowerCase();
+  if (trimmed === "true") {
+    return true;
+  }
+  if (trimmed === "false") {
+    return false;
+  }
+  throw new AppError(`${field} must be a boolean`, 400);
+};
 const assertOptionalBoolean = (
   value: unknown,
   field: string
@@ -189,6 +252,38 @@ const buildTimelineNode = (
   };
 };
 
+const parseTimelineListQuery = (query: unknown): TimelineListQuery => {
+  if (!query || typeof query !== "object") {
+    return { limit: 50, offset: 0 };
+  }
+
+  const data = query as Record<string, unknown>;
+  const limit = parseOptionalQueryNumber(data.limit, "limit");
+  const offset = parseOptionalQueryNumber(data.offset, "offset");
+
+  const normalizedLimit = limit ?? 50;
+  const normalizedOffset = offset ?? 0;
+
+  if (normalizedLimit <= 0) {
+    throw new AppError("limit must be > 0", 400);
+  }
+  if (normalizedLimit > 200) {
+    throw new AppError("limit must be <= 200", 400);
+  }
+  if (normalizedOffset < 0) {
+    throw new AppError("offset must be >= 0", 400);
+  }
+
+  return {
+    limit: normalizedLimit,
+    offset: normalizedOffset,
+    name: parseOptionalQueryString(data.name, "name"),
+    tag: parseOptionalQueryString(data.tag, "tag"),
+    code: parseOptionalQueryString(data.code, "code"),
+    isOngoing: parseOptionalQueryBoolean(data.isOngoing, "isOngoing"),
+  };
+};
+
 export const timelineService = {
   create: async (
     payload: unknown,
@@ -226,7 +321,16 @@ export const timelineService = {
   },
   getAll: async (dbName: unknown): Promise<TimelineNode[]> => {
     const database = assertDatabaseName(dbName);
-    return getAllTimelines(database);
+    return getTimelines(database, { limit: 50, offset: 0 });
+  },
+  getAllWithQuery: async (
+    dbName: unknown,
+    query: unknown
+  ): Promise<{ data: TimelineNode[]; meta: TimelineListQuery }> => {
+    const database = assertDatabaseName(dbName);
+    const parsedQuery = parseTimelineListQuery(query);
+    const data = await getTimelines(database, parsedQuery);
+    return { data, meta: parsedQuery };
   },
   link: async (payload: unknown, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);

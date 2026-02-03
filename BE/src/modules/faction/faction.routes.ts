@@ -9,6 +9,19 @@ export const factionRoutes: RouteConfig[] = [
     schema: {
       tags: ["Faction"],
       summary: "Get all factions",
+      querystring: {
+        type: "object",
+        properties: {
+          limit: { type: "number" },
+          offset: { type: "number" },
+          name: { type: "string" },
+          tag: { type: "string" },
+          type: { type: "string" },
+          alignment: { type: "string" },
+          isPublic: { type: "boolean" },
+          isCanon: { type: "boolean" },
+        },
+      },
       response: {
         200: {
           type: "object",
@@ -16,6 +29,19 @@ export const factionRoutes: RouteConfig[] = [
             data: {
               type: "array",
               items: { type: "object", additionalProperties: true },
+            },
+            meta: {
+              type: "object",
+              properties: {
+                limit: { type: "number" },
+                offset: { type: "number" },
+                name: { type: "string" },
+                tag: { type: "string" },
+                type: { type: "string" },
+                alignment: { type: "string" },
+                isPublic: { type: "boolean" },
+                isCanon: { type: "boolean" },
+              },
             },
           },
         },

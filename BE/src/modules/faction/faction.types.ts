@@ -34,3 +34,14 @@ export type FactionNode = FactionInput & {
   createdAt: string;
   updatedAt: string;
 };
+
+export type FactionListQuery = {
+  limit?: number;
+  offset?: number;
+  name?: string;
+  tag?: string;
+  type?: string;
+  alignment?: string;
+  isPublic?: boolean;
+  isCanon?: boolean;
+};

@@ -29,3 +29,12 @@ export type TimelineLinkInput = {
   previousId?: string;
   nextId?: string;
 };
+
+export type TimelineListQuery = {
+  limit?: number;
+  offset?: number;
+  name?: string;
+  tag?: string;
+  code?: string;
+  isOngoing?: boolean;
+};

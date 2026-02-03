@@ -30,8 +30,8 @@ const getAllTimelines = async (
 ): Promise<void> => {
   try {
     const dbName = getDatabaseHeader(_req);
-    const timelines = await timelineService.getAll(dbName);
-    reply.status(200).send({ data: timelines });
+    const result = await timelineService.getAllWithQuery(dbName, _req.query);
+    reply.status(200).send(result);
   } catch (error) {
     const handled = handleError(error);
     reply.status(handled.statusCode).send({ message: handled.message });

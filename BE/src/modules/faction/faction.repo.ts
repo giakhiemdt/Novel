@@ -3,7 +3,7 @@ import { getSessionForDatabase } from "../../database";
 import { nodeLabels } from "../../shared/constants/node-labels";
 import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
-import { FactionNode } from "./faction.types";
+import { FactionListQuery, FactionNode } from "./faction.types";
 
 const CREATE_FACTION = `
 CREATE (f:${nodeLabels.faction} {
@@ -77,10 +77,19 @@ SET
 RETURN f
 `;
 
-const GET_ALL_FACTIONS = `
+const GET_FACTIONS = `
 MATCH (f:${nodeLabels.faction})
+WHERE
+  ($name IS NULL OR toLower(f.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(f.tags, []))
+  AND ($type IS NULL OR f.type = $type)
+  AND ($alignment IS NULL OR f.alignment = $alignment)
+  AND ($isPublic IS NULL OR f.isPublic = $isPublic)
+  AND ($isCanon IS NULL OR f.isCanon = $isCanon)
 RETURN f
 ORDER BY f.createdAt DESC
+SKIP $offset
+LIMIT $limit
 `;
 
 const DELETE_FACTION = `
@@ -163,12 +172,22 @@ export const updateFaction = async (
   }
 };
 
-export const getAllFactions = async (
-  database: string
+export const getFactions = async (
+  database: string,
+  query: FactionListQuery
 ): Promise<FactionNode[]> => {
   const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
-    const result = await session.run(GET_ALL_FACTIONS);
+    const result = await session.run(GET_FACTIONS, {
+      name: query.name ?? null,
+      tag: query.tag ?? null,
+      type: query.type ?? null,
+      alignment: query.alignment ?? null,
+      isPublic: typeof query.isPublic === "boolean" ? query.isPublic : null,
+      isCanon: typeof query.isCanon === "boolean" ? query.isCanon : null,
+      offset: query.offset ?? 0,
+      limit: query.limit ?? 50,
+    });
     return result.records.map((record) => {
       const node = record.get("f");
       return mapNode(node?.properties ?? {}) as FactionNode;

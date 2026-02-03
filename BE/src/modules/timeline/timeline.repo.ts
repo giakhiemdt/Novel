@@ -4,7 +4,7 @@ import { nodeLabels } from "../../shared/constants/node-labels";
 import { relationTypes } from "../../shared/constants/relation-types";
 import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
-import { TimelineNode } from "./timeline.types";
+import { TimelineListQuery, TimelineNode } from "./timeline.types";
 
 const CREATE_TIMELINE = `
 CREATE (t:${nodeLabels.timeline} {
@@ -29,12 +29,19 @@ CREATE (t:${nodeLabels.timeline} {
 RETURN t
 `;
 
-const GET_ALL_TIMELINES = `
+const GET_TIMELINES = `
 MATCH (t:${nodeLabels.timeline})
 OPTIONAL MATCH (t)-[:${relationTypes.timelinePrevious}]->(p:${nodeLabels.timeline})
 OPTIONAL MATCH (t)-[:${relationTypes.timelineNext}]->(n:${nodeLabels.timeline})
+WHERE
+  ($name IS NULL OR toLower(t.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(t.tags, []))
+  AND ($code IS NULL OR t.code = $code)
+  AND ($isOngoing IS NULL OR t.isOngoing = $isOngoing)
 RETURN t, p, n
 ORDER BY t.createdAt DESC
+SKIP $offset
+LIMIT $limit
 `;
 
 const TIMELINE_PARAMS = [
@@ -168,12 +175,21 @@ export const createTimeline = async (
   }
 };
 
-export const getAllTimelines = async (
-  database: string
+export const getTimelines = async (
+  database: string,
+  query: TimelineListQuery
 ): Promise<TimelineNode[]> => {
   const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
-    const result = await session.run(GET_ALL_TIMELINES);
+    const result = await session.run(GET_TIMELINES, {
+      name: query.name ?? null,
+      tag: query.tag ?? null,
+      code: query.code ?? null,
+      isOngoing:
+        typeof query.isOngoing === "boolean" ? query.isOngoing : null,
+      offset: query.offset ?? 0,
+      limit: query.limit ?? 50,
+    });
     return result.records.map((record) => {
       const node = record.get("t");
       const previous = record.get("p");
