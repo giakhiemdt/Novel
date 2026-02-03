@@ -506,9 +506,9 @@ h3 {
 }
 
 .card {
-  background: var(--surface-card);
+  background: transparent;
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft);
+  box-shadow: none;
   padding: var(--space-5);
   border: none;
 }
