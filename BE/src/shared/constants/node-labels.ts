@@ -9,4 +9,5 @@ export const nodeLabels = {
   arc: "Arc",
   chapter: "Chapter",
   scene: "Scene",
+  item: "Item",
 };

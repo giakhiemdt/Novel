@@ -1,0 +1,123 @@
+import { RouteConfig } from "../../routes";
+import { itemController } from "./item.controller";
+
+export const itemRoutes: RouteConfig[] = [
+  {
+    method: "GET",
+    path: "/items",
+    handler: itemController.getAllItems,
+    schema: {
+      tags: ["Item"],
+      summary: "Get all items",
+      querystring: {
+        type: "object",
+        properties: {
+          q: { type: "string" },
+          limit: { type: "number" },
+          offset: { type: "number" },
+          name: { type: "string" },
+          tag: { type: "string" },
+          status: { type: "string", enum: ["owned", "lost", "destroyed"] },
+          ownerId: { type: "string" },
+          ownerType: { type: "string", enum: ["character", "faction"] },
+        },
+      },
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            data: {
+              type: "array",
+              items: { type: "object", additionalProperties: true },
+            },
+            meta: {
+              type: "object",
+              properties: {
+                q: { type: "string" },
+                limit: { type: "number" },
+                offset: { type: "number" },
+                name: { type: "string" },
+                tag: { type: "string" },
+                status: { type: "string" },
+                ownerId: { type: "string" },
+                ownerType: { type: "string" },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  {
+    method: "POST",
+    path: "/items",
+    handler: itemController.createItem,
+    schema: {
+      tags: ["Item"],
+      summary: "Create item",
+      body: {
+        type: "object",
+        required: ["name"],
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          origin: { type: "string" },
+          ownerId: { type: "string" },
+          ownerType: { type: "string", enum: ["character", "faction"] },
+          status: { type: "string", enum: ["owned", "lost", "destroyed"] },
+          powerLevel: { type: "number" },
+          powerDescription: { type: "string" },
+          notes: { type: "string" },
+          tags: { type: "array", items: { type: "string" } },
+        },
+      },
+      response: {
+        201: { type: "object", properties: { data: { type: "object" } } },
+        400: { type: "object", properties: { message: { type: "string" } } },
+        404: { type: "object", properties: { message: { type: "string" } } },
+      },
+    },
+  },
+  {
+    method: "PUT",
+    path: "/items/:id",
+    handler: itemController.updateItem,
+    schema: {
+      tags: ["Item"],
+      summary: "Update item",
+      body: {
+        type: "object",
+        required: ["name"],
+        properties: {
+          name: { type: "string" },
+          origin: { type: "string" },
+          ownerId: { type: "string" },
+          ownerType: { type: "string", enum: ["character", "faction"] },
+          status: { type: "string", enum: ["owned", "lost", "destroyed"] },
+          powerLevel: { type: "number" },
+          powerDescription: { type: "string" },
+          notes: { type: "string" },
+          tags: { type: "array", items: { type: "string" } },
+        },
+      },
+      response: {
+        200: { type: "object", properties: { data: { type: "object" } } },
+        400: { type: "object", properties: { message: { type: "string" } } },
+        404: { type: "object", properties: { message: { type: "string" } } },
+      },
+    },
+  },
+  {
+    method: "DELETE",
+    path: "/items/:id",
+    handler: itemController.deleteItem,
+    schema: {
+      tags: ["Item"],
+      summary: "Delete item",
+      response: {
+        204: { type: "null" },
+        404: { type: "object", properties: { message: { type: "string" } } },
+      },
+    },
+  },
+];

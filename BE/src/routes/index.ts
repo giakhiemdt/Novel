@@ -10,6 +10,7 @@ import { arcRoutes } from "../modules/arc/arc.routes";
 import { chapterRoutes } from "../modules/chapter/chapter.routes";
 import { sceneRoutes } from "../modules/scene/scene.routes";
 import { conflictRoutes } from "../modules/conflict/conflict.routes";
+import { itemRoutes } from "../modules/item/item.routes";
 import { healthRoutes } from "./health.routes";
 
 export type RouteConfig = {
@@ -39,4 +40,5 @@ export const routes: RouteConfig[] = [
   ...chapterRoutes,
   ...sceneRoutes,
   ...conflictRoutes,
+  ...itemRoutes,
 ];
