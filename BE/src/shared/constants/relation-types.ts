@@ -6,4 +6,9 @@ export const relationTypes = {
   timelineNext: "NEXT",
   timelinePrevious: "PREVIOUS",
   contains: "CONTAINS",
+  arcHasChapter: "ARC_HAS_CHAPTER",
+  chapterHasScene: "CHAPTER_HAS_SCENE",
+  sceneReferencesEvent: "SCENE_REFERENCES_EVENT",
+  sceneFeaturesCharacter: "SCENE_FEATURES_CHARACTER",
+  sceneTakesPlaceIn: "SCENE_TAKES_PLACE_IN",
 };

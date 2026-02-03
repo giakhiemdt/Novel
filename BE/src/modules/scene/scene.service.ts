@@ -1,0 +1,322 @@
+import { AppError } from "../../shared/errors/app-error";
+import { generateId } from "../../shared/utils/generate-id";
+import {
+  checkChapterExists,
+  checkEventExists,
+  checkLocationExists,
+  createScene,
+  deleteScene,
+  getCharacterIds,
+  getScenes,
+  linkSceneChapter,
+  linkSceneEvent,
+  linkSceneLocation,
+  unlinkSceneChapter,
+  unlinkSceneEvent,
+  unlinkSceneLocation,
+  updateScene,
+  updateSceneCharacters,
+} from "./scene.repo";
+import { SceneInput, SceneNode } from "./scene.types";
+
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === "string");
+
+const assertRequiredString = (value: unknown, field: string): string => {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new AppError(`${field} is required`, 400);
+  }
+  return value.trim();
+};
+
+const assertOptionalString = (
+  value: unknown,
+  field: string
+): string | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "string") {
+    throw new AppError(`${field} must be a string`, 400);
+  }
+  return value.trim();
+};
+
+const assertOptionalNumber = (
+  value: unknown,
+  field: string
+): number | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    throw new AppError(`${field} must be a number`, 400);
+  }
+  return value;
+};
+
+const assertOptionalStringArray = (
+  value: unknown,
+  field: string
+): string[] | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!isStringArray(value)) {
+    throw new AppError(`${field} must be an array of strings`, 400);
+  }
+  return value;
+};
+
+const assertDatabaseName = (value: unknown): string => {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new AppError("dbName is required", 400);
+  }
+  const dbName = value.trim();
+  const isValid = /^[A-Za-z0-9_-]+$/.test(dbName);
+  if (!isValid) {
+    throw new AppError(
+      "dbName must contain only letters, numbers, underscores, or hyphens",
+      400
+    );
+  }
+  return dbName;
+};
+
+const addIfDefined = (
+  target: Record<string, unknown>,
+  key: string,
+  value: unknown
+): void => {
+  if (value !== undefined) {
+    target[key] = value;
+  }
+};
+
+const validateScenePayload = (payload: unknown): SceneInput => {
+  if (!payload || typeof payload !== "object") {
+    throw new AppError("payload must be an object", 400);
+  }
+
+  const data = payload as Record<string, unknown>;
+  const result: Record<string, unknown> = {
+    name: assertRequiredString(data.name, "name"),
+  };
+
+  addIfDefined(result, "id", assertOptionalString(data.id, "id"));
+  addIfDefined(result, "order", assertOptionalNumber(data.order, "order"));
+  addIfDefined(
+    result,
+    "summary",
+    assertOptionalString(data.summary, "summary")
+  );
+  addIfDefined(
+    result,
+    "content",
+    assertOptionalString(data.content, "content")
+  );
+  addIfDefined(result, "notes", assertOptionalString(data.notes, "notes"));
+  addIfDefined(result, "tags", assertOptionalStringArray(data.tags, "tags"));
+  addIfDefined(
+    result,
+    "chapterId",
+    assertOptionalString(data.chapterId, "chapterId")
+  );
+  addIfDefined(
+    result,
+    "eventId",
+    assertOptionalString(data.eventId, "eventId")
+  );
+  addIfDefined(
+    result,
+    "locationId",
+    assertOptionalString(data.locationId, "locationId")
+  );
+  addIfDefined(
+    result,
+    "characterIds",
+    assertOptionalStringArray(data.characterIds, "characterIds")
+  );
+
+  return result as SceneInput;
+};
+
+const buildSceneNode = (payload: SceneInput): SceneNode => {
+  const now = new Date().toISOString();
+  return {
+    ...payload,
+    id: payload.id ?? generateId(),
+    createdAt: now,
+    updatedAt: now,
+  };
+};
+
+const assertCharacterIds = async (
+  database: string,
+  characterIds: string[]
+): Promise<void> => {
+  const unique = new Set(characterIds);
+  if (unique.size !== characterIds.length) {
+    throw new AppError("characterIds must be unique", 400);
+  }
+  const found = await getCharacterIds(database, characterIds);
+  if (found.length !== characterIds.length) {
+    throw new AppError("character not found", 404);
+  }
+};
+
+export const sceneService = {
+  create: async (payload: unknown, dbName: unknown): Promise<SceneNode> => {
+    const database = assertDatabaseName(dbName);
+    const validated = validateScenePayload(payload);
+    const node = buildSceneNode(validated);
+
+    if (validated.chapterId) {
+      const exists = await checkChapterExists(database, validated.chapterId);
+      if (!exists) {
+        throw new AppError("chapter not found", 404);
+      }
+    }
+    if (validated.eventId) {
+      const exists = await checkEventExists(database, validated.eventId);
+      if (!exists) {
+        throw new AppError("event not found", 404);
+      }
+    }
+    if (validated.locationId) {
+      const exists = await checkLocationExists(database, validated.locationId);
+      if (!exists) {
+        throw new AppError("location not found", 404);
+      }
+    }
+    if (validated.characterIds) {
+      await assertCharacterIds(database, validated.characterIds);
+    }
+
+    const created = await createScene(node, database);
+
+    if (validated.chapterId) {
+      await linkSceneChapter(database, created.id, validated.chapterId);
+    }
+    if (validated.eventId) {
+      await linkSceneEvent(database, created.id, validated.eventId);
+    }
+    if (validated.locationId) {
+      await linkSceneLocation(database, created.id, validated.locationId);
+    }
+    if (validated.characterIds) {
+      await updateSceneCharacters(database, created.id, validated.characterIds);
+    }
+
+    return {
+      ...created,
+      chapterId: validated.chapterId,
+      eventId: validated.eventId,
+      locationId: validated.locationId,
+      characterIds: validated.characterIds ?? [],
+    };
+  },
+  update: async (
+    id: string,
+    payload: unknown,
+    dbName: unknown
+  ): Promise<SceneNode> => {
+    const database = assertDatabaseName(dbName);
+    if (!payload || typeof payload !== "object") {
+      throw new AppError("payload must be an object", 400);
+    }
+    const raw = payload as Record<string, unknown>;
+    const hasChapterId = Object.prototype.hasOwnProperty.call(raw, "chapterId");
+    const hasEventId = Object.prototype.hasOwnProperty.call(raw, "eventId");
+    const hasLocationId = Object.prototype.hasOwnProperty.call(raw, "locationId");
+    const hasCharacterIds = Object.prototype.hasOwnProperty.call(
+      raw,
+      "characterIds"
+    );
+
+    const validated = validateScenePayload(payload);
+    const now = new Date().toISOString();
+    const node: SceneNode = {
+      ...validated,
+      id,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    if (hasChapterId && validated.chapterId) {
+      const exists = await checkChapterExists(database, validated.chapterId);
+      if (!exists) {
+        throw new AppError("chapter not found", 404);
+      }
+    }
+    if (hasEventId && validated.eventId) {
+      const exists = await checkEventExists(database, validated.eventId);
+      if (!exists) {
+        throw new AppError("event not found", 404);
+      }
+    }
+    if (hasLocationId && validated.locationId) {
+      const exists = await checkLocationExists(database, validated.locationId);
+      if (!exists) {
+        throw new AppError("location not found", 404);
+      }
+    }
+    if (hasCharacterIds && validated.characterIds) {
+      await assertCharacterIds(database, validated.characterIds);
+    }
+
+    const updated = await updateScene(node, database);
+    if (!updated) {
+      throw new AppError("scene not found", 404);
+    }
+
+    if (hasChapterId) {
+      if (validated.chapterId) {
+        await linkSceneChapter(database, updated.id, validated.chapterId);
+      } else {
+        await unlinkSceneChapter(database, updated.id);
+      }
+    }
+    if (hasEventId) {
+      if (validated.eventId) {
+        await linkSceneEvent(database, updated.id, validated.eventId);
+      } else {
+        await unlinkSceneEvent(database, updated.id);
+      }
+    }
+    if (hasLocationId) {
+      if (validated.locationId) {
+        await linkSceneLocation(database, updated.id, validated.locationId);
+      } else {
+        await unlinkSceneLocation(database, updated.id);
+      }
+    }
+    if (hasCharacterIds) {
+      await updateSceneCharacters(
+        database,
+        updated.id,
+        validated.characterIds ?? []
+      );
+    }
+
+    return {
+      ...updated,
+      chapterId: hasChapterId ? validated.chapterId : updated.chapterId,
+      eventId: hasEventId ? validated.eventId : updated.eventId,
+      locationId: hasLocationId ? validated.locationId : updated.locationId,
+      characterIds:
+        hasCharacterIds ? validated.characterIds ?? [] : updated.characterIds,
+    };
+  },
+  getAll: async (dbName: unknown): Promise<SceneNode[]> => {
+    const database = assertDatabaseName(dbName);
+    return getScenes(database);
+  },
+  delete: async (id: string, dbName: unknown): Promise<void> => {
+    const database = assertDatabaseName(dbName);
+    const deleted = await deleteScene(database, id);
+    if (!deleted) {
+      throw new AppError("scene not found", 404);
+    }
+  },
+};

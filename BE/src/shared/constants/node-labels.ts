@@ -6,4 +6,7 @@ export const nodeLabels = {
   faction: "Faction",
   timeline: "Timeline",
   location: "Location",
+  arc: "Arc",
+  chapter: "Chapter",
+  scene: "Scene",
 };
