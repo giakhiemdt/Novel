@@ -9,6 +9,7 @@ import { useForm } from "../hooks/useForm";
 import { useProjectChange } from "../hooks/useProjectChange";
 import { useI18n } from "../i18n/I18nProvider";
 import { validateRequired } from "../utils/validation";
+import { HealthCheck } from "../features/health/HealthCheck";
 import {
   createOverview,
   getOverview,
@@ -169,6 +170,8 @@ export const Dashboard = () => {
           </Button>
         )}
       </div>
+
+      <HealthCheck />
     </div>
   );
 };
