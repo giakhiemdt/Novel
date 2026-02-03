@@ -49,6 +49,24 @@ export const itemRoutes: RouteConfig[] = [
     },
   },
   {
+    method: "GET",
+    path: "/events/:id/items",
+    handler: itemController.getItemsByEvent,
+    schema: {
+      tags: ["Item"],
+      summary: "Get items by event",
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            data: { type: "array", items: { type: "object", additionalProperties: true } },
+          },
+        },
+        404: { type: "object", properties: { message: { type: "string" } } },
+      },
+    },
+  },
+  {
     method: "POST",
     path: "/items",
     handler: itemController.createItem,
@@ -74,6 +92,24 @@ export const itemRoutes: RouteConfig[] = [
       response: {
         201: { type: "object", properties: { data: { type: "object" } } },
         400: { type: "object", properties: { message: { type: "string" } } },
+        404: { type: "object", properties: { message: { type: "string" } } },
+      },
+    },
+  },
+  {
+    method: "GET",
+    path: "/items/:id/events",
+    handler: itemController.getEventsByItem,
+    schema: {
+      tags: ["Item"],
+      summary: "Get events by item",
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            data: { type: "array", items: { type: "object", additionalProperties: true } },
+          },
+        },
         404: { type: "object", properties: { message: { type: "string" } } },
       },
     },

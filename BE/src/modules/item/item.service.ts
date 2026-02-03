@@ -6,7 +6,9 @@ import {
   checkOwnerExists,
   createItem,
   deleteItem,
+  getEventsByItem,
   getItems,
+  getItemsByEvent,
   linkItemEvent,
   linkOwner,
   unlinkItemEvent,
@@ -360,5 +362,27 @@ export const itemService = {
       throw new AppError("item not found", 404);
     }
     await unlinkItemEvent(database, id);
+  },
+  getItemsByEvent: async (
+    eventId: string,
+    dbName: unknown
+  ): Promise<ItemNode[]> => {
+    const database = assertDatabaseName(dbName);
+    const eventExists = await checkEventExists(database, eventId);
+    if (!eventExists) {
+      throw new AppError("event not found", 404);
+    }
+    return getItemsByEvent(database, eventId);
+  },
+  getEventsByItem: async (
+    itemId: string,
+    dbName: unknown
+  ): Promise<Record<string, unknown>[]> => {
+    const database = assertDatabaseName(dbName);
+    const itemExists = await checkItemExists(database, itemId);
+    if (!itemExists) {
+      throw new AppError("item not found", 404);
+    }
+    return getEventsByItem(database, itemId);
   },
 };

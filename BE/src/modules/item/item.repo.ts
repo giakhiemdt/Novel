@@ -127,6 +127,18 @@ MATCH (i:${nodeLabels.item} {id: $itemId})-[r:${relationTypes.itemAppearsIn}]->(
 DELETE r
 `;
 
+const GET_ITEMS_BY_EVENT = `
+MATCH (i:${nodeLabels.item})-[:${relationTypes.itemAppearsIn}]->(e:${nodeLabels.event} {id: $eventId})
+RETURN i
+ORDER BY i.createdAt DESC
+`;
+
+const GET_EVENTS_BY_ITEM = `
+MATCH (i:${nodeLabels.item} {id: $itemId})-[:${relationTypes.itemAppearsIn}]->(e:${nodeLabels.event})
+RETURN e
+ORDER BY e.createdAt DESC
+`;
+
 const ITEM_PARAMS = [
   "id",
   "name",
@@ -306,6 +318,38 @@ export const unlinkItemEvent = async (
   const session = getSessionForDatabase(database, neo4j.session.WRITE);
   try {
     await session.run(UNLINK_ITEM_EVENT, { itemId });
+  } finally {
+    await session.close();
+  }
+};
+
+export const getItemsByEvent = async (
+  database: string,
+  eventId: string
+): Promise<ItemNode[]> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const result = await session.run(GET_ITEMS_BY_EVENT, { eventId });
+    return result.records.map((record) => {
+      const node = record.get("i");
+      return mapNode(node?.properties ?? {}) as ItemNode;
+    });
+  } finally {
+    await session.close();
+  }
+};
+
+export const getEventsByItem = async (
+  database: string,
+  itemId: string
+): Promise<Record<string, unknown>[]> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const result = await session.run(GET_EVENTS_BY_ITEM, { itemId });
+    return result.records.map((record) => {
+      const node = record.get("e");
+      return mapNode(node?.properties ?? {}) as Record<string, unknown>;
+    });
   } finally {
     await session.close();
   }

@@ -68,6 +68,36 @@ const deleteItem = async (
   }
 };
 
+const getItemsByEvent = async (
+  req: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> => {
+  try {
+    const dbName = getDatabaseHeader(req);
+    const { id } = req.params as { id: string };
+    const items = await itemService.getItemsByEvent(id, dbName);
+    reply.status(200).send({ data: items });
+  } catch (error) {
+    const handled = handleError(error);
+    reply.status(handled.statusCode).send({ message: handled.message });
+  }
+};
+
+const getEventsByItem = async (
+  req: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> => {
+  try {
+    const dbName = getDatabaseHeader(req);
+    const { id } = req.params as { id: string };
+    const events = await itemService.getEventsByItem(id, dbName);
+    reply.status(200).send({ data: events });
+  } catch (error) {
+    const handled = handleError(error);
+    reply.status(handled.statusCode).send({ message: handled.message });
+  }
+};
+
 const linkItemEvent = async (
   req: FastifyRequest,
   reply: FastifyReply
@@ -105,5 +135,7 @@ export const itemController = {
   getAllItems,
   linkItemEvent,
   unlinkItemEvent,
+  getItemsByEvent,
+  getEventsByItem,
   deleteItem,
 };
