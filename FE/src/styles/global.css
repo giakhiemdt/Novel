@@ -151,7 +151,6 @@ h3 {
 }
 
 .sidebar__section-title {
-  font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.18em;
   color: var(--text-faint);
@@ -170,8 +169,6 @@ h3 {
 
 .sidebar__project-label {
   font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
   color: var(--color-ink-soft);
 }
 
@@ -355,7 +352,6 @@ h3 {
 
 .modal__subtitle {
   margin: var(--space-1) 0 0;
-  color: var(--color-ink-soft);
 }
 
 .modal__close,
@@ -416,7 +412,6 @@ h3 {
 }
 
 .header__subtitle {
-  color: var(--color-ink-soft);
   margin-top: var(--space-1);
 }
 
@@ -977,12 +972,31 @@ h3 {
   margin-bottom: 4px;
 }
 
+.sidebar__section-title,
+.table--clean th,
+.tree-header {
+  font-size: 0.7rem;
+}
+
+.sidebar__project-label,
 .table--clean th,
 .tree-header,
 .detail-item__label {
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+.table--clean th,
+.tree-header,
+.detail-item__label {
   color: var(--text-muted);
+}
+
+.header__subtitle,
+.modal__subtitle,
+.timeline-card p,
+.timeline-empty {
+  color: var(--color-ink-soft);
 }
 
 .detail-item__value {
@@ -1211,7 +1225,6 @@ h3 {
 
 .timeline-card p {
   margin: var(--space-1) 0 var(--space-2);
-  color: var(--color-ink-soft);
   font-size: 0.85rem;
 }
 
@@ -1234,7 +1247,6 @@ h3 {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  color: var(--color-ink-soft);
   font-size: 0.95rem;
   pointer-events: none;
 }
