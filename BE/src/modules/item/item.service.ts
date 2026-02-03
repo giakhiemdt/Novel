@@ -15,7 +15,13 @@ import {
   unlinkOwners,
   updateItem,
 } from "./item.repo";
-import { ItemInput, ItemListQuery, ItemNode, ItemOwnerType, ItemStatus } from "./item.types";
+import {
+  ItemInput,
+  ItemListQuery,
+  ItemNode,
+  ItemOwnerType,
+  ItemStatus,
+} from "./item.types";
 
 const STATUSES: ItemStatus[] = ["owned", "lost", "destroyed"];
 const OWNER_TYPES: ItemOwnerType[] = ["character", "faction"];
@@ -249,6 +255,69 @@ const parseItemListQuery = (query: unknown): ItemListQuery => {
   return result;
 };
 
+const parseEventListQuery = (query: unknown): {
+  q?: string;
+  name?: string;
+  tag?: string;
+  type?: string;
+  timelineId?: string;
+  locationId?: string;
+  offset?: number;
+  limit?: number;
+} => {
+  if (!query || typeof query !== "object") {
+    return { limit: 50, offset: 0 };
+  }
+
+  const data = query as Record<string, unknown>;
+  const limit = parseOptionalQueryNumber(data.limit, "limit");
+  const offset = parseOptionalQueryNumber(data.offset, "offset");
+
+  const normalizedLimit = limit ?? 50;
+  const normalizedOffset = offset ?? 0;
+
+  if (normalizedLimit <= 0) {
+    throw new AppError("limit must be > 0", 400);
+  }
+  if (normalizedLimit > 200) {
+    throw new AppError("limit must be <= 200", 400);
+  }
+  if (normalizedOffset < 0) {
+    throw new AppError("offset must be >= 0", 400);
+  }
+
+  const result: {
+    q?: string;
+    name?: string;
+    tag?: string;
+    type?: string;
+    timelineId?: string;
+    locationId?: string;
+    offset?: number;
+    limit?: number;
+  } = {
+    limit: normalizedLimit,
+    offset: normalizedOffset,
+  };
+
+  addIfDefined(result, "q", parseOptionalQueryString(data.q, "q"));
+  addIfDefined(result, "name", parseOptionalQueryString(data.name, "name"));
+  addIfDefined(result, "tag", parseOptionalQueryString(data.tag, "tag"));
+  addIfDefined(result, "type", parseOptionalQueryString(data.type, "type"));
+  addIfDefined(
+    result,
+    "timelineId",
+    parseOptionalQueryString(data.timelineId, "timelineId")
+  );
+  addIfDefined(
+    result,
+    "locationId",
+    parseOptionalQueryString(data.locationId, "locationId")
+  );
+
+  return result;
+};
+
 export const itemService = {
   create: async (payload: unknown, dbName: unknown): Promise<ItemNode> => {
     const database = assertDatabaseName(dbName);
@@ -365,24 +434,30 @@ export const itemService = {
   },
   getItemsByEvent: async (
     eventId: string,
+    query: unknown,
     dbName: unknown
-  ): Promise<ItemNode[]> => {
+  ): Promise<{ data: ItemNode[]; meta: ItemListQuery }> => {
     const database = assertDatabaseName(dbName);
     const eventExists = await checkEventExists(database, eventId);
     if (!eventExists) {
       throw new AppError("event not found", 404);
     }
-    return getItemsByEvent(database, eventId);
+    const parsedQuery = parseItemListQuery(query);
+    const data = await getItemsByEvent(database, eventId, parsedQuery);
+    return { data, meta: parsedQuery };
   },
   getEventsByItem: async (
     itemId: string,
+    query: unknown,
     dbName: unknown
-  ): Promise<Record<string, unknown>[]> => {
+  ): Promise<{ data: Record<string, unknown>[]; meta: Record<string, unknown> }> => {
     const database = assertDatabaseName(dbName);
     const itemExists = await checkItemExists(database, itemId);
     if (!itemExists) {
       throw new AppError("item not found", 404);
     }
-    return getEventsByItem(database, itemId);
+    const parsedQuery = parseEventListQuery(query);
+    const data = await getEventsByItem(database, itemId, parsedQuery);
+    return { data, meta: parsedQuery };
   },
 };

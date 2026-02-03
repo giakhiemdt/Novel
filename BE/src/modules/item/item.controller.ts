@@ -75,8 +75,8 @@ const getItemsByEvent = async (
   try {
     const dbName = getDatabaseHeader(req);
     const { id } = req.params as { id: string };
-    const items = await itemService.getItemsByEvent(id, dbName);
-    reply.status(200).send({ data: items });
+    const result = await itemService.getItemsByEvent(id, req.query, dbName);
+    reply.status(200).send(result);
   } catch (error) {
     const handled = handleError(error);
     reply.status(handled.statusCode).send({ message: handled.message });
@@ -90,8 +90,8 @@ const getEventsByItem = async (
   try {
     const dbName = getDatabaseHeader(req);
     const { id } = req.params as { id: string };
-    const events = await itemService.getEventsByItem(id, dbName);
-    reply.status(200).send({ data: events });
+    const result = await itemService.getEventsByItem(id, req.query, dbName);
+    reply.status(200).send(result);
   } catch (error) {
     const handled = handleError(error);
     reply.status(handled.statusCode).send({ message: handled.message });

@@ -55,11 +55,25 @@ export const itemRoutes: RouteConfig[] = [
     schema: {
       tags: ["Item"],
       summary: "Get items by event",
+      querystring: {
+        type: "object",
+        properties: {
+          q: { type: "string" },
+          limit: { type: "number" },
+          offset: { type: "number" },
+          name: { type: "string" },
+          tag: { type: "string" },
+          status: { type: "string", enum: ["owned", "lost", "destroyed"] },
+          ownerId: { type: "string" },
+          ownerType: { type: "string", enum: ["character", "faction"] },
+        },
+      },
       response: {
         200: {
           type: "object",
           properties: {
             data: { type: "array", items: { type: "object", additionalProperties: true } },
+            meta: { type: "object", additionalProperties: true },
           },
         },
         404: { type: "object", properties: { message: { type: "string" } } },
@@ -103,11 +117,25 @@ export const itemRoutes: RouteConfig[] = [
     schema: {
       tags: ["Item"],
       summary: "Get events by item",
+      querystring: {
+        type: "object",
+        properties: {
+          q: { type: "string" },
+          limit: { type: "number" },
+          offset: { type: "number" },
+          name: { type: "string" },
+          tag: { type: "string" },
+          type: { type: "string" },
+          timelineId: { type: "string" },
+          locationId: { type: "string" },
+        },
+      },
       response: {
         200: {
           type: "object",
           properties: {
             data: { type: "array", items: { type: "object", additionalProperties: true } },
+            meta: { type: "object", additionalProperties: true },
           },
         },
         404: { type: "object", properties: { message: { type: "string" } } },

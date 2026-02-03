@@ -129,14 +129,66 @@ DELETE r
 
 const GET_ITEMS_BY_EVENT = `
 MATCH (i:${nodeLabels.item})-[:${relationTypes.itemAppearsIn}]->(e:${nodeLabels.event} {id: $eventId})
+WHERE
+  ($name IS NULL OR toLower(i.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(i.tags, []))
+  AND ($status IS NULL OR i.status = $status)
+  AND ($ownerId IS NULL OR i.ownerId = $ownerId)
+  AND ($ownerType IS NULL OR i.ownerType = $ownerType)
 RETURN i
 ORDER BY i.createdAt DESC
+SKIP $offset
+LIMIT $limit
+`;
+
+const GET_ITEMS_BY_EVENT_SEARCH = `
+CALL db.index.fulltext.queryNodes("item_search", $q) YIELD node, score
+WITH node AS i, score
+MATCH (i)-[:${relationTypes.itemAppearsIn}]->(e:${nodeLabels.event} {id: $eventId})
+WHERE
+  ($name IS NULL OR toLower(i.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(i.tags, []))
+  AND ($status IS NULL OR i.status = $status)
+  AND ($ownerId IS NULL OR i.ownerId = $ownerId)
+  AND ($ownerType IS NULL OR i.ownerType = $ownerType)
+RETURN i
+ORDER BY score DESC, i.createdAt DESC
+SKIP $offset
+LIMIT $limit
 `;
 
 const GET_EVENTS_BY_ITEM = `
 MATCH (i:${nodeLabels.item} {id: $itemId})-[:${relationTypes.itemAppearsIn}]->(e:${nodeLabels.event})
+OPTIONAL MATCH (e)-[:${relationTypes.occursIn}]->(l:${nodeLabels.location})
+OPTIONAL MATCH (e)-[:${relationTypes.occursOn}]->(t:${nodeLabels.timeline})
+WHERE
+  ($name IS NULL OR toLower(e.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(e.tags, []))
+  AND ($type IS NULL OR e.type = $type)
+  AND ($timelineId IS NULL OR t.id = $timelineId)
+  AND ($locationId IS NULL OR l.id = $locationId OR e.locationId = $locationId)
 RETURN e
 ORDER BY e.createdAt DESC
+SKIP $offset
+LIMIT $limit
+`;
+
+const GET_EVENTS_BY_ITEM_SEARCH = `
+CALL db.index.fulltext.queryNodes("event_search", $q) YIELD node, score
+WITH node AS e, score
+MATCH (i:${nodeLabels.item} {id: $itemId})-[:${relationTypes.itemAppearsIn}]->(e)
+OPTIONAL MATCH (e)-[:${relationTypes.occursIn}]->(l:${nodeLabels.location})
+OPTIONAL MATCH (e)-[:${relationTypes.occursOn}]->(t:${nodeLabels.timeline})
+WHERE
+  ($name IS NULL OR toLower(e.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(e.tags, []))
+  AND ($type IS NULL OR e.type = $type)
+  AND ($timelineId IS NULL OR t.id = $timelineId)
+  AND ($locationId IS NULL OR l.id = $locationId OR e.locationId = $locationId)
+RETURN e
+ORDER BY score DESC, e.createdAt DESC
+SKIP $offset
+LIMIT $limit
 `;
 
 const ITEM_PARAMS = [
@@ -325,11 +377,23 @@ export const unlinkItemEvent = async (
 
 export const getItemsByEvent = async (
   database: string,
-  eventId: string
+  eventId: string,
+  query: ItemListQuery
 ): Promise<ItemNode[]> => {
   const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
-    const result = await session.run(GET_ITEMS_BY_EVENT, { eventId });
+    const statement = query.q ? GET_ITEMS_BY_EVENT_SEARCH : GET_ITEMS_BY_EVENT;
+    const result = await session.run(statement, {
+      eventId,
+      q: query.q ?? "",
+      name: query.name ?? null,
+      tag: query.tag ?? null,
+      status: query.status ?? null,
+      ownerId: query.ownerId ?? null,
+      ownerType: query.ownerType ?? null,
+      offset: query.offset ?? 0,
+      limit: query.limit ?? 50,
+    });
     return result.records.map((record) => {
       const node = record.get("i");
       return mapNode(node?.properties ?? {}) as ItemNode;
@@ -341,11 +405,32 @@ export const getItemsByEvent = async (
 
 export const getEventsByItem = async (
   database: string,
-  itemId: string
+  itemId: string,
+  query: {
+    q?: string;
+    name?: string;
+    tag?: string;
+    type?: string;
+    timelineId?: string;
+    locationId?: string;
+    offset?: number;
+    limit?: number;
+  }
 ): Promise<Record<string, unknown>[]> => {
   const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
-    const result = await session.run(GET_EVENTS_BY_ITEM, { itemId });
+    const statement = query.q ? GET_EVENTS_BY_ITEM_SEARCH : GET_EVENTS_BY_ITEM;
+    const result = await session.run(statement, {
+      itemId,
+      q: query.q ?? "",
+      name: query.name ?? null,
+      tag: query.tag ?? null,
+      type: query.type ?? null,
+      timelineId: query.timelineId ?? null,
+      locationId: query.locationId ?? null,
+      offset: query.offset ?? 0,
+      limit: query.limit ?? 50,
+    });
     return result.records.map((record) => {
       const node = record.get("e");
       return mapNode(node?.properties ?? {}) as Record<string, unknown>;
