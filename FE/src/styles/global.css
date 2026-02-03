@@ -506,11 +506,11 @@ h3 {
 }
 
 .card {
-  /* background: var(--color-panel);
+  background: var(--surface-card);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft); */
+  box-shadow: var(--shadow-soft);
   padding: var(--space-5);
-  /* border: none; */
+  border: none;
 }
 
 .card + .card {

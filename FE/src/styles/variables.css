@@ -24,6 +24,7 @@
   --surface-popover: rgba(16, 22, 32, 0.95);
   --surface-card-strong: rgba(14, 22, 33, 0.95);
   --surface-card-soft: rgba(10, 18, 28, 0.55);
+  --surface-card: var(--color-panel);
   --surface-ghost: rgba(24, 36, 52, 0.5);
   --surface-modal: var(--color-panel);
   --overlay-backdrop: rgba(8, 12, 18, 0.75);
@@ -115,6 +116,7 @@
   --surface-popover: #ffffff;
   --surface-card-strong: #ffffff;
   --surface-card-soft: #ffffff;
+  --surface-card: #ffffff;
   --surface-ghost: rgba(60, 90, 120, 0.12);
   --surface-modal: #ffffff;
   --overlay-backdrop: rgba(15, 25, 35, 0.45);
