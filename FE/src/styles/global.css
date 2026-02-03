@@ -363,7 +363,7 @@ h3 {
 
 .main {
   padding: var(--space-6) var(--space-6) var(--space-7);
-  max-width: 1200px;
+  /* max-width: 1200px; */
   width: 100%;
   margin: 0 auto;
 }
@@ -388,6 +388,12 @@ h3 {
 }
 
 .overview-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.settings-page {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
@@ -467,11 +473,11 @@ h3 {
 }
 
 .card {
-  background: var(--color-panel);
+  /* background: var(--color-panel);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft);
+  box-shadow: var(--shadow-soft); */
   padding: var(--space-5);
-  border: none;
+  /* border: none; */
 }
 
 .card + .card {

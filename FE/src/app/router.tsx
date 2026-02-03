@@ -11,6 +11,7 @@ import { ItemCreate } from "../features/item/ItemCreate";
 import { RelationshipCreate } from "../features/relationship/RelationshipCreate";
 import { ConflictCheck } from "../features/conflict/ConflictCheck";
 import { WorldRuleCreate } from "../features/worldrule/WorldRuleCreate";
+import { Settings } from "./Settings";
 import { Dashboard } from "./Dashboard";
 
 export const AppRouter = () => {
@@ -29,6 +30,7 @@ export const AppRouter = () => {
       <Route path="/relationships" element={<RelationshipCreate />} />
       <Route path="/world-rules" element={<WorldRuleCreate />} />
       <Route path="/conflicts" element={<ConflictCheck />} />
+      <Route path="/settings" element={<Settings />} />
     </Routes>
   );
 };

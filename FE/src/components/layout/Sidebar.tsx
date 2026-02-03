@@ -3,7 +3,6 @@ import { NavLink } from "react-router-dom";
 import { Button } from "../common/Button";
 import { useToast } from "../common/Toast";
 import { MultiSelect } from "../form/MultiSelect";
-import { Select } from "../form/Select";
 import { TextArea } from "../form/TextArea";
 import { TextInput } from "../form/TextInput";
 import { createProject, getProjects } from "../../features/project/project.api";
@@ -49,10 +48,9 @@ const navSections = [
 ];
 
 export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
-  const { language, setLanguage, t } = useI18n();
+  const { t } = useI18n();
   const { notify } = useToast();
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [projects, setProjects] = useState<ProjectNode[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState("");
@@ -103,7 +101,7 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
   }, [selectedDbName]);
 
   useEffect(() => {
-    if (!isProjectModalOpen && !isSettingsOpen) {
+    if (!isProjectModalOpen) {
       document.body.style.overflow = "";
       document.body.style.paddingRight = "";
       return;
@@ -120,7 +118,7 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
       document.body.style.overflow = "";
       document.body.style.paddingRight = "";
     };
-  }, [isProjectModalOpen, isSettingsOpen]);
+  }, [isProjectModalOpen]);
 
   const resetForm = () => {
     setForm({
@@ -139,16 +137,8 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
     setIsProjectModalOpen(true);
   };
 
-  const openSettings = () => {
-    setIsSettingsOpen(true);
-  };
-
   const closeModal = () => {
     setIsProjectModalOpen(false);
-  };
-
-  const closeSettings = () => {
-    setIsSettingsOpen(false);
   };
 
   const handleProjectChange = (event: ChangeEvent<HTMLSelectElement>) => {
@@ -267,15 +257,10 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
           </select>
         </div>
         <div className="sidebar__actions">
-          <Button
-            type="button"
-            variant="ghost"
-            className="sidebar__settings"
-            onClick={openSettings}
-          >
+          <NavLink to="/settings" className="button button--ghost sidebar__settings">
             <span className="sidebar__settings-icon">⚙</span>
             <span className="sidebar__settings-label">{t("Settings")}</span>
-          </Button>
+          </NavLink>
         </div>
       </aside>
       {isProjectModalOpen && (
@@ -363,42 +348,6 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
                 </Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-      {isSettingsOpen && (
-        <div className="modal__backdrop" onClick={closeSettings}>
-          <div className="modal" onClick={(event) => event.stopPropagation()}>
-            <div className="modal__header">
-              <div>
-                <h3>{t("Settings")}</h3>
-                <p className="modal__subtitle">{t("Display language")}</p>
-              </div>
-              <button
-                className="modal__close"
-                type="button"
-                onClick={closeSettings}
-                aria-label="Close modal"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="modal__body">
-              <Select
-                label="Display language"
-                value={language}
-                onChange={(value) => setLanguage(value as "en" | "vi")}
-                options={[
-                  { label: "English", value: "en" },
-                  { label: "Vietnamese", value: "vi" },
-                ]}
-              />
-            </div>
-            <div className="modal__footer">
-              <Button type="button" variant="ghost" onClick={closeSettings}>
-                {t("Cancel")}
-              </Button>
-            </div>
           </div>
         </div>
       )}
