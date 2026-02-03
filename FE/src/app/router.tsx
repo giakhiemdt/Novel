@@ -7,6 +7,7 @@ import { EventCreate } from "../features/event/EventCreate";
 import { ArcCreate } from "../features/arc/ArcCreate";
 import { ChapterCreate } from "../features/chapter/ChapterCreate";
 import { SceneCreate } from "../features/scene/SceneCreate";
+import { ItemCreate } from "../features/item/ItemCreate";
 import { Dashboard } from "./Dashboard";
 
 export const AppRouter = () => {
@@ -21,6 +22,7 @@ export const AppRouter = () => {
       <Route path="/arcs" element={<ArcCreate />} />
       <Route path="/chapters" element={<ChapterCreate />} />
       <Route path="/scenes" element={<SceneCreate />} />
+      <Route path="/items" element={<ItemCreate />} />
     </Routes>
   );
 };
