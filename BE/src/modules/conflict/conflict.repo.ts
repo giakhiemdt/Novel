@@ -12,8 +12,9 @@ import {
 const OVERLAP_QUERY = `
 MATCH (e1:${nodeLabels.event})-[r1:${relationTypes.occursOn}]->(t:${nodeLabels.timeline})<-[:${relationTypes.occursOn}]-(e2:${nodeLabels.event})
 WHERE id(e1) < id(e2)
-WITH e1, e2, t, r1, startYear1: r1.year,
-  endYear1: CASE r1.durationUnit WHEN 'YEAR' THEN r1.year + r1.durationValue - 1 ELSE r1.year END
+WITH e1, e2, t,
+  r1.year AS startYear1,
+  CASE r1.durationUnit WHEN 'YEAR' THEN r1.year + r1.durationValue - 1 ELSE r1.year END AS endYear1
 MATCH (e2)-[r2:${relationTypes.occursOn}]->(t)
 WITH e1, e2, t,
   startYear1 AS s1,
