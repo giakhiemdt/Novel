@@ -549,7 +549,7 @@ h3 {
 }
 
 .required {
-  color: #b63b2e;
+  color: var(--text-danger);
   margin-left: 4px;
   font-weight: 700;
 }
@@ -557,37 +557,21 @@ h3 {
 .input,
 .select,
 .textarea {
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--input-border);
   border-radius: var(--radius-sm);
   padding: 12px 14px;
-  background: var(--color-panel-2);
+  background: var(--input-bg);
   color: var(--color-ink);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-}
-
-:root[data-theme="light"] .input,
-:root[data-theme="light"] .select,
-:root[data-theme="light"] .textarea {
-  background: #ffffff;
-  border-color: rgba(60, 90, 120, 0.22);
-  color: var(--color-ink);
 }
 
 .input:focus,
 .select:focus,
 .textarea:focus {
   outline: none;
-  border-color: rgba(71, 183, 198, 0.6);
-  box-shadow: 0 0 0 3px rgba(71, 183, 198, 0.18);
-  background: rgba(15, 23, 33, 0.95);
-}
-
-:root[data-theme="light"] .input:focus,
-:root[data-theme="light"] .select:focus,
-:root[data-theme="light"] .textarea:focus {
-  border-color: rgba(31, 138, 158, 0.5);
-  box-shadow: 0 0 0 3px rgba(31, 138, 158, 0.18);
-  background: #ffffff;
+  border-color: var(--input-focus-border);
+  box-shadow: 0 0 0 3px var(--input-focus-ring);
+  background: var(--input-focus-bg);
 }
 
 .input::placeholder,
@@ -597,7 +581,7 @@ h3 {
 
 :root[data-theme="light"] .select option {
   color: var(--color-ink);
-  background: #ffffff;
+  background: var(--input-option-bg);
 }
 
 .textarea {
@@ -612,12 +596,12 @@ h3 {
 }
 
 .pill {
-  background: rgba(56, 130, 155, 0.25);
-  color: #e9f4ff;
+  background: var(--pill-bg);
+  color: var(--pill-text);
   border-radius: 999px;
   padding: 4px 10px;
   font-size: 0.85rem;
-  border: 1px solid rgba(120, 190, 210, 0.45);
+  border: 1px solid var(--pill-border);
 }
 
 .participant-picker {
@@ -637,7 +621,7 @@ h3 {
   border: none;
   border-radius: var(--radius-md);
   padding: var(--space-3);
-  background: rgba(10, 18, 28, 0.55);
+  background: var(--surface-card-soft);
 }
 
 .participant-card__header {
@@ -699,12 +683,7 @@ h3 {
   padding: 6px 10px;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
-  background: rgba(12, 18, 28, 0.85);
-}
-
-:root[data-theme="light"] .multi-select__control {
-  background: #ffffff;
-  border-color: rgba(60, 90, 120, 0.22);
+  background: var(--multi-select-bg);
 }
 
 .multi-select__input {
@@ -727,9 +706,9 @@ h3 {
 }
 
 .button--primary {
-  background: linear-gradient(120deg, #2c8e9c, #4fc2b4);
-  color: #f6fbff;
-  box-shadow: 0 12px 24px rgba(44, 142, 156, 0.35);
+  background: var(--button-primary-bg);
+  color: var(--button-primary-text);
+  box-shadow: var(--button-primary-shadow);
 }
 
 .button--ghost {
@@ -971,11 +950,11 @@ h3 {
   font-size: 0.9rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: rgba(170, 195, 220, 0.8);
+  color: var(--text-muted);
 }
 
 .detail-item {
-  background: rgba(10, 16, 26, 0.55);
+  background: var(--surface-card-soft);
   border-radius: 12px;
   padding: var(--space-2) var(--space-3);
   border: none;
@@ -994,7 +973,7 @@ h3 {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(170, 195, 220, 0.8);
+  color: var(--text-muted);
   margin-bottom: 4px;
 }
 
@@ -1020,7 +999,7 @@ h3 {
 .toggle__track {
   width: 46px;
   height: 24px;
-  background: rgba(120, 150, 180, 0.35);
+  background: var(--toggle-track);
   border-radius: 999px;
   position: relative;
   transition: background 0.2s ease;
@@ -1030,7 +1009,7 @@ h3 {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #f4f9ff;
+  background: var(--toggle-thumb);
   position: absolute;
   top: 3px;
   left: 3px;
@@ -1038,7 +1017,7 @@ h3 {
 }
 
 .toggle input:checked + .toggle__track {
-  background: rgba(72, 160, 190, 0.65);
+  background: var(--toggle-checked);
 }
 
 .toggle input:checked + .toggle__track .toggle__thumb {
@@ -1046,11 +1025,11 @@ h3 {
 }
 
 .table__row--main .character-name {
-  color: #72d0ff;
+  color: var(--character-main);
 }
 
 .table__row--supporting .character-name {
-  color: #f3b36b;
+  color: var(--character-support);
 }
 
 .page-toolbar {
@@ -1077,17 +1056,11 @@ h3 {
   position: relative;
   height: calc(100vh - 180px);
   border-radius: var(--radius-md);
-  border: 1px dashed rgba(120, 150, 180, 0.35);
-  background: linear-gradient(180deg, rgba(10, 16, 24, 0.9), rgba(11, 18, 28, 0.95));
-  box-shadow: inset 0 0 0 1px rgba(12, 20, 31, 0.6);
+  border: 1px dashed var(--timeline-board-border);
+  background: var(--timeline-board-bg);
+  box-shadow: var(--timeline-board-shadow);
   overflow: hidden;
   cursor: grab;
-}
-
-:root[data-theme="light"] .timeline-board {
-  border: 1px dashed rgba(60, 90, 120, 0.28);
-  background: linear-gradient(180deg, #f6f8fb, #eef2f7);
-  box-shadow: inset 0 0 0 1px rgba(60, 90, 120, 0.08);
 }
 
 .timeline-board:active {
@@ -1098,17 +1071,10 @@ h3 {
   content: "";
   position: absolute;
   inset: 0;
-  background-image: linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-image: var(--timeline-grid);
   background-size: 48px 48px;
   opacity: 0.4;
   pointer-events: none;
-}
-
-:root[data-theme="light"] .timeline-board::before {
-  background-image: linear-gradient(rgba(31, 55, 75, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(31, 55, 75, 0.08) 1px, transparent 1px);
-  opacity: 0.5;
 }
 
 .timeline-board__canvas {
@@ -1123,7 +1089,7 @@ h3 {
   height: 36px;
   border: none;
   background: transparent;
-  color: #f3f8ff;
+  color: var(--timeline-bar-text);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1133,16 +1099,12 @@ h3 {
   transition: box-shadow 0.2s ease;
 }
 
-:root[data-theme="light"] .timeline-bar {
-  color: #1d2a36;
-}
-
 .timeline-bar:active {
   cursor: grabbing;
 }
 
 .timeline-bar--active {
-  box-shadow: 0 8px 18px rgba(32, 111, 139, 0.4);
+  box-shadow: var(--timeline-bar-shadow);
 }
 
 .timeline-bar__label {
@@ -1198,12 +1160,8 @@ h3 {
   background: var(--timeline-color);
   transform: translateY(-50%);
   border-radius: 6px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--timeline-line-shadow);
   z-index: 0;
-}
-
-:root[data-theme="light"] .timeline-bar::before {
-  box-shadow: 0 4px 8px rgba(15, 25, 35, 0.12);
 }
 
 .timeline-bar__cap {
@@ -1235,18 +1193,12 @@ h3 {
 .timeline-card {
   position: absolute;
   width: 220px;
-  background: rgba(14, 22, 33, 0.95);
+  background: var(--timeline-card-bg);
   border-radius: 14px;
-  border: 1px solid rgba(120, 150, 180, 0.3);
+  border: 1px solid var(--timeline-card-border);
   padding: var(--space-2) var(--space-3);
   color: var(--color-ink);
-  box-shadow: 0 14px 24px rgba(0, 0, 0, 0.35);
-}
-
-:root[data-theme="light"] .timeline-card {
-  background: #ffffff;
-  border-color: rgba(60, 90, 120, 0.2);
-  box-shadow: 0 14px 24px rgba(15, 25, 35, 0.12);
+  box-shadow: var(--timeline-card-shadow);
 }
 
 .timeline-card p {
@@ -1260,7 +1212,7 @@ h3 {
   align-items: center;
   gap: var(--space-1);
   font-size: 0.8rem;
-  color: rgba(200, 220, 240, 0.8);
+  color: var(--timeline-meta);
 }
 
 .timeline-card__actions {
@@ -1297,18 +1249,18 @@ h3 {
   height: 56px;
   border-radius: 50%;
   border: none;
-  background: linear-gradient(120deg, #1f6f8b, #2f90b5);
-  color: #f4f9ff;
+  background: var(--fab-bg);
+  color: var(--fab-text);
   font-size: 1.8rem;
   line-height: 1;
   cursor: pointer;
-  box-shadow: 0 16px 30px rgba(32, 111, 139, 0.4);
+  box-shadow: var(--fab-shadow);
 }
 
 .timeline-modal__backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(8, 12, 18, 0.7);
+  background: var(--overlay-backdrop);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1320,10 +1272,10 @@ h3 {
   width: min(860px, 100%);
   max-height: calc(100vh - 2 * var(--space-4));
   overflow-y: auto;
-  background: var(--color-cream);
+  background: var(--surface-modal);
   border-radius: var(--radius-lg);
-  border: 1px solid rgba(120, 150, 180, 0.2);
-  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-modal);
   padding: var(--space-5);
 }
 
@@ -1341,7 +1293,7 @@ h3 {
 
 .timeline-modal__close {
   border: none;
-  background: rgba(45, 78, 124, 0.3);
+  background: var(--accent-soft);
   color: var(--color-ink);
   width: 36px;
   height: 36px;
