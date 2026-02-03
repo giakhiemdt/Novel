@@ -11,6 +11,7 @@ const vi: Dictionary = {
   "Events": "Sự kiện",
   "Project": "Dự án",
   "New Project": "Tạo dự án",
+  "Create new project": "Tạo dự án mới",
   "Create project": "Tạo dự án",
   "Create overview": "Tạo tổng quan",
   "Update overview": "Cập nhật tổng quan",

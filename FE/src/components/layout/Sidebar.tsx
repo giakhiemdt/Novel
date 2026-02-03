@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { Button } from "../common/Button";
 import { useToast } from "../common/Toast";
@@ -151,6 +151,22 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
     setIsSettingsOpen(false);
   };
 
+  const handleProjectChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const nextId = event.target.value;
+    if (nextId === "__create__") {
+      openModal();
+      return;
+    }
+    setSelectedProjectId(nextId);
+    const match = projects.find((project) => project.id === nextId);
+    const nextDbName = match?.dbName ?? "";
+    setSelectedDbName(nextDbName);
+    if (nextDbName) {
+      localStorage.setItem("novel-selected-project-db", nextDbName);
+    }
+    window.dispatchEvent(new Event("novel-project-changed"));
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSaving(true);
@@ -232,18 +248,8 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
           <select
             className="sidebar__project-select"
             value={selectedProjectId}
-            onChange={(event) => {
-              const nextId = event.target.value;
-              setSelectedProjectId(nextId);
-              const match = projects.find((project) => project.id === nextId);
-              const nextDbName = match?.dbName ?? "";
-              setSelectedDbName(nextDbName);
-              if (nextDbName) {
-                localStorage.setItem("novel-selected-project-db", nextDbName);
-              }
-              window.dispatchEvent(new Event("novel-project-changed"));
-            }}
-            disabled={isLoadingProjects || projects.length === 0}
+            onChange={handleProjectChange}
+            disabled={isLoadingProjects}
           >
             {projects.length === 0 && (
               <option value="">
@@ -257,19 +263,10 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
                 {project.name}
               </option>
             ))}
+            <option value="__create__">{t("Create new project")}</option>
           </select>
         </div>
         <div className="sidebar__actions">
-          <Button
-            type="button"
-            className="sidebar__new-project"
-            onClick={openModal}
-          >
-            <span className="sidebar__new-project-icon">+</span>
-            <span className="sidebar__new-project-label">
-              {t("New Project")}
-            </span>
-          </Button>
           <Button
             type="button"
             variant="ghost"
