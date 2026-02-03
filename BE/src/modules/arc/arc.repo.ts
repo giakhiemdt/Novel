@@ -168,15 +168,22 @@ export const getArcStructure = async (
       const arc = record.get("a");
       const chapter = record.get("c");
       const scene = record.get("s");
-      return {
+      const resultRow: {
+        arc: ArcNode;
+        chapter?: Record<string, unknown>;
+        scene?: Record<string, unknown>;
+      } = {
         arc: mapNode(arc?.properties ?? {}) as ArcNode,
-        chapter: chapter?.properties
-          ? (mapNode(chapter.properties) as Record<string, unknown>)
-          : undefined,
-        scene: scene?.properties
-          ? (mapNode(scene.properties) as Record<string, unknown>)
-          : undefined,
       };
+
+      if (chapter?.properties) {
+        resultRow.chapter = mapNode(chapter.properties) as Record<string, unknown>;
+      }
+      if (scene?.properties) {
+        resultRow.scene = mapNode(scene.properties) as Record<string, unknown>;
+      }
+
+      return resultRow;
     });
   } finally {
     await session.close();
