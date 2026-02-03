@@ -553,6 +553,10 @@ h3 {
   color: rgba(210, 225, 240, 0.85);
 }
 
+:root[data-theme="light"] .form-field label {
+  color: rgba(45, 60, 75, 0.75);
+}
+
 .required {
   color: #b63b2e;
   margin-left: 4px;
@@ -570,6 +574,14 @@ h3 {
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
+:root[data-theme="light"] .input,
+:root[data-theme="light"] .select,
+:root[data-theme="light"] .textarea {
+  background: #ffffff;
+  border-color: rgba(60, 90, 120, 0.22);
+  color: var(--color-ink);
+}
+
 .input:focus,
 .select:focus,
 .textarea:focus {
@@ -579,9 +591,27 @@ h3 {
   background: rgba(15, 23, 33, 0.95);
 }
 
+:root[data-theme="light"] .input:focus,
+:root[data-theme="light"] .select:focus,
+:root[data-theme="light"] .textarea:focus {
+  border-color: rgba(31, 138, 158, 0.5);
+  box-shadow: 0 0 0 3px rgba(31, 138, 158, 0.18);
+  background: #ffffff;
+}
+
 .input::placeholder,
 .textarea::placeholder {
   color: rgba(180, 195, 210, 0.7);
+}
+
+:root[data-theme="light"] .input::placeholder,
+:root[data-theme="light"] .textarea::placeholder {
+  color: rgba(85, 100, 115, 0.55);
+}
+
+:root[data-theme="light"] .select option {
+  color: var(--color-ink);
+  background: #ffffff;
 }
 
 .textarea {
@@ -684,6 +714,11 @@ h3 {
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   background: rgba(12, 18, 28, 0.85);
+}
+
+:root[data-theme="light"] .multi-select__control {
+  background: #ffffff;
+  border-color: rgba(60, 90, 120, 0.22);
 }
 
 .multi-select__input {
@@ -1059,6 +1094,12 @@ h3 {
   cursor: grab;
 }
 
+:root[data-theme="light"] .timeline-board {
+  border: 1px dashed rgba(60, 90, 120, 0.28);
+  background: linear-gradient(180deg, #f6f8fb, #eef2f7);
+  box-shadow: inset 0 0 0 1px rgba(60, 90, 120, 0.08);
+}
+
 .timeline-board:active {
   cursor: grabbing;
 }
@@ -1072,6 +1113,12 @@ h3 {
   background-size: 48px 48px;
   opacity: 0.4;
   pointer-events: none;
+}
+
+:root[data-theme="light"] .timeline-board::before {
+  background-image: linear-gradient(rgba(31, 55, 75, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(31, 55, 75, 0.08) 1px, transparent 1px);
+  opacity: 0.5;
 }
 
 .timeline-board__canvas {
@@ -1094,6 +1141,10 @@ h3 {
   gap: var(--space-2);
   cursor: grab;
   transition: box-shadow 0.2s ease;
+}
+
+:root[data-theme="light"] .timeline-bar {
+  color: #1d2a36;
 }
 
 .timeline-bar:active {
@@ -1161,6 +1212,10 @@ h3 {
   z-index: 0;
 }
 
+:root[data-theme="light"] .timeline-bar::before {
+  box-shadow: 0 4px 8px rgba(15, 25, 35, 0.12);
+}
+
 .timeline-bar__cap {
   position: absolute;
   top: 50%;
@@ -1196,6 +1251,12 @@ h3 {
   padding: var(--space-2) var(--space-3);
   color: var(--color-ink);
   box-shadow: 0 14px 24px rgba(0, 0, 0, 0.35);
+}
+
+:root[data-theme="light"] .timeline-card {
+  background: #ffffff;
+  border-color: rgba(60, 90, 120, 0.2);
+  box-shadow: 0 14px 24px rgba(15, 25, 35, 0.12);
 }
 
 .timeline-card p {
