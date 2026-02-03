@@ -2,19 +2,19 @@
   --font-sans: "Space Grotesk", "Segoe UI", sans-serif;
   --font-display: "Fraunces", "Times New Roman", serif;
 
-  --color-ink: #e7eef6;
-  --color-ink-soft: #9aa9ba;
-  --color-paper: #080d14;
-  --color-cream: #121b26;
-  --color-amber: #4db8ff;
-  --color-forest: #1f6f8b;
-  --color-sky: #223447;
-  --color-stone: #5f6e7c;
-  --color-shadow: rgba(0, 0, 0, 0.45);
+  --color-ink: #eef4fb;
+  --color-ink-soft: #9fb0c2;
+  --color-paper: #0a0f14;
+  --color-panel: #141c25;
+  --color-panel-2: #0f1721;
+  --color-accent: #47b7c6;
+  --color-accent-2: #7dd3c6;
+  --color-border: rgba(140, 170, 200, 0.28);
+  --color-shadow: rgba(0, 0, 0, 0.4);
 
   --radius-sm: 10px;
   --radius-md: 16px;
-  --radius-lg: 24px;
+  --radius-lg: 22px;
 
   --space-1: 6px;
   --space-2: 10px;
@@ -24,5 +24,5 @@
   --space-6: 36px;
   --space-7: 48px;
 
-  --shadow-soft: 0 12px 30px var(--color-shadow);
+  --shadow-soft: 0 16px 36px var(--color-shadow);
 }
