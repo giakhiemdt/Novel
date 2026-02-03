@@ -260,6 +260,7 @@ const parseCharacterListQuery = (query: unknown): CharacterListQuery => {
   return {
     limit: normalizedLimit,
     offset: normalizedOffset,
+    q: parseOptionalQueryString(data.q, "q"),
     name: parseOptionalQueryString(data.name, "name"),
     tag: parseOptionalQueryString(data.tag, "tag"),
     race: race as CharacterRace | undefined,

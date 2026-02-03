@@ -44,6 +44,7 @@ export type CharacterNode = CharacterInput & {
 export type CharacterListQuery = {
   limit?: number;
   offset?: number;
+  q?: string;
   name?: string;
   tag?: string;
   race?: CharacterRace;

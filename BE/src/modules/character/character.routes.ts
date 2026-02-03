@@ -12,6 +12,7 @@ export const characterRoutes: RouteConfig[] = [
       querystring: {
         type: "object",
         properties: {
+          q: { type: "string" },
           limit: { type: "number" },
           offset: { type: "number" },
           name: { type: "string" },
@@ -37,6 +38,7 @@ export const characterRoutes: RouteConfig[] = [
             meta: {
               type: "object",
               properties: {
+                q: { type: "string" },
                 limit: { type: "number" },
                 offset: { type: "number" },
                 name: { type: "string" },

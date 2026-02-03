@@ -307,6 +307,7 @@ const parseFactionListQuery = (query: unknown): FactionListQuery => {
   return {
     limit: normalizedLimit,
     offset: normalizedOffset,
+    q: parseOptionalQueryString(data.q, "q"),
     name: parseOptionalQueryString(data.name, "name"),
     tag: parseOptionalQueryString(data.tag, "tag"),
     type: parseOptionalQueryString(data.type, "type"),

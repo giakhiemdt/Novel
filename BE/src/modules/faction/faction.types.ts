@@ -38,6 +38,7 @@ export type FactionNode = FactionInput & {
 export type FactionListQuery = {
   limit?: number;
   offset?: number;
+  q?: string;
   name?: string;
   tag?: string;
   type?: string;

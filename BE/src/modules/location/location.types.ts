@@ -39,6 +39,7 @@ export type LocationNode = LocationInput & {
 export type LocationListQuery = {
   limit?: number;
   offset?: number;
+  q?: string;
   name?: string;
   tag?: string;
   type?: string;

@@ -15,6 +15,13 @@ const constraintStatements = [
   "CREATE CONSTRAINT event_id_unique IF NOT EXISTS FOR (n:Event) REQUIRE n.id IS UNIQUE",
   "CREATE CONSTRAINT event_name_unique IF NOT EXISTS FOR (n:Event) REQUIRE n.name IS UNIQUE",
   "CREATE CONSTRAINT overview_title_unique IF NOT EXISTS FOR (n:Overview) REQUIRE n.title IS UNIQUE",
+  "CREATE FULLTEXT INDEX character_search IF NOT EXISTS FOR (n:Character) ON EACH [n.name, n.alias, n.background, n.appearance, n.notes]",
+  "CREATE FULLTEXT INDEX event_search IF NOT EXISTS FOR (n:Event) ON EACH [n.name, n.summary, n.description, n.notes]",
+  "CREATE FULLTEXT INDEX location_search IF NOT EXISTS FOR (n:Location) ON EACH [n.name, n.historicalSummary, n.legend, n.notes]",
+  "CREATE FULLTEXT INDEX faction_search IF NOT EXISTS FOR (n:Faction) ON EACH [n.name, n.ideology, n.goal, n.reputation, n.notes]",
+  "CREATE FULLTEXT INDEX timeline_search IF NOT EXISTS FOR (n:Timeline) ON EACH [n.name, n.summary, n.description, n.notes]",
+  "CREATE FULLTEXT INDEX project_search IF NOT EXISTS FOR (n:Project) ON EACH [n.name, n.description, n.notes]",
+  "CREATE FULLTEXT INDEX overview_search IF NOT EXISTS FOR (n:Overview) ON EACH [n.title, n.shortSummary, n.worldOverview]",
 ];
 
 export const ensureConstraintsForDatabase = async (

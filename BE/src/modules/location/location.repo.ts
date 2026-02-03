@@ -85,6 +85,24 @@ SKIP $offset
 LIMIT $limit
 `;
 
+const GET_LOCATIONS_BY_SEARCH = `
+CALL db.index.fulltext.queryNodes("location_search", $q) YIELD node, score
+WITH node AS l, score
+OPTIONAL MATCH (parent:${nodeLabels.location})-[r:${relationTypes.contains}]->(l)
+WHERE
+  ($name IS NULL OR toLower(l.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(l.tags, []))
+  AND ($type IS NULL OR l.type = $type)
+  AND ($category IS NULL OR l.category = $category)
+  AND ($isSecret IS NULL OR l.isSecret = $isSecret)
+  AND ($isHabitable IS NULL OR l.isHabitable = $isHabitable)
+  AND ($parentId IS NULL OR parent.id = $parentId)
+RETURN l, parent, r
+ORDER BY score DESC, l.createdAt DESC
+SKIP $offset
+LIMIT $limit
+`;
+
 const DELETE_LOCATION = `
 MATCH (l:${nodeLabels.location} {id: $id})
 WITH l
@@ -198,7 +216,9 @@ export const getLocations = async (
 ): Promise<LocationNode[]> => {
   const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
-    const result = await session.run(GET_LOCATIONS, {
+    const statement = query.q ? GET_LOCATIONS_BY_SEARCH : GET_LOCATIONS;
+    const result = await session.run(statement, {
+      q: query.q ?? "",
       name: query.name ?? null,
       tag: query.tag ?? null,
       type: query.type ?? null,

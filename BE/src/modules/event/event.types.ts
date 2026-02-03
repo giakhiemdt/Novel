@@ -42,6 +42,7 @@ export type EventNode = EventInput & {
 export type EventListQuery = {
   limit?: number;
   offset?: number;
+  q?: string;
   timelineId?: string;
   locationId?: string;
   characterId?: string;

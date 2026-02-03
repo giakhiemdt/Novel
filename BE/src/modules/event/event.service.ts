@@ -384,6 +384,7 @@ const parseEventListQuery = (query: unknown): EventListQuery => {
 
   result.limit = normalizedLimit;
   result.offset = normalizedOffset;
+  result.q = parseOptionalQueryString(data.q, "q");
   result.timelineId = parseOptionalQueryString(data.timelineId, "timelineId");
   result.locationId = parseOptionalQueryString(data.locationId, "locationId");
   result.characterId = parseOptionalQueryString(data.characterId, "characterId");

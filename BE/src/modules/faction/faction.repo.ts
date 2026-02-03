@@ -92,6 +92,22 @@ SKIP $offset
 LIMIT $limit
 `;
 
+const GET_FACTIONS_BY_SEARCH = `
+CALL db.index.fulltext.queryNodes("faction_search", $q) YIELD node, score
+WITH node AS f, score
+WHERE
+  ($name IS NULL OR toLower(f.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(f.tags, []))
+  AND ($type IS NULL OR f.type = $type)
+  AND ($alignment IS NULL OR f.alignment = $alignment)
+  AND ($isPublic IS NULL OR f.isPublic = $isPublic)
+  AND ($isCanon IS NULL OR f.isCanon = $isCanon)
+RETURN f
+ORDER BY score DESC, f.createdAt DESC
+SKIP $offset
+LIMIT $limit
+`;
+
 const DELETE_FACTION = `
 MATCH (f:${nodeLabels.faction} {id: $id})
 WITH f
@@ -178,7 +194,9 @@ export const getFactions = async (
 ): Promise<FactionNode[]> => {
   const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
-    const result = await session.run(GET_FACTIONS, {
+    const statement = query.q ? GET_FACTIONS_BY_SEARCH : GET_FACTIONS;
+    const result = await session.run(statement, {
+      q: query.q ?? "",
       name: query.name ?? null,
       tag: query.tag ?? null,
       type: query.type ?? null,

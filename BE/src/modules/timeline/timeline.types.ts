@@ -33,6 +33,7 @@ export type TimelineLinkInput = {
 export type TimelineListQuery = {
   limit?: number;
   offset?: number;
+  q?: string;
   name?: string;
   tag?: string;
   code?: string;

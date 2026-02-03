@@ -151,6 +151,36 @@ SKIP $offset
 LIMIT $limit
 `;
 
+const GET_EVENTS_BY_SEARCH = `
+CALL db.index.fulltext.queryNodes("event_search", $q) YIELD node, score
+WITH node AS e, score
+OPTIONAL MATCH (e)-[:${relationTypes.occursIn}]->(l:${nodeLabels.location})
+OPTIONAL MATCH (e)-[on:${relationTypes.occursOn}]->(t:${nodeLabels.timeline})
+WITH e, l, t, on, score
+WHERE
+  ($timelineId IS NULL OR t.id = $timelineId)
+  AND ($locationId IS NULL OR l.id = $locationId OR e.locationId = $locationId)
+  AND ($characterId IS NULL OR EXISTS {
+    MATCH (c:${nodeLabels.character} {id: $characterId})-[:${relationTypes.participatesIn}]->(e)
+  })
+  AND ($tag IS NULL OR $tag IN coalesce(e.tags, []))
+  AND ($name IS NULL OR toLower(e.name) CONTAINS toLower($name))
+  AND ($type IS NULL OR e.type = $type)
+OPTIONAL MATCH (c:${nodeLabels.character})-[r:${relationTypes.participatesIn}]->(e)
+RETURN e, l, t, on, collect({
+  characterId: c.id,
+  characterName: c.name,
+  role: r.role,
+  participationType: r.participationType,
+  outcome: r.outcome,
+  statusChange: r.statusChange,
+  note: r.note
+}) AS participants
+ORDER BY score DESC, e.createdAt DESC
+SKIP $offset
+LIMIT $limit
+`;
+
 const EVENT_PARAMS = [
   "id",
   "name",
@@ -462,7 +492,9 @@ export const getEvents = async (
 ): Promise<EventNode[]> => {
   const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
-    const result = await session.run(GET_EVENTS, {
+    const statement = query.q ? GET_EVENTS_BY_SEARCH : GET_EVENTS;
+    const result = await session.run(statement, {
+      q: query.q ?? "",
       timelineId: query.timelineId ?? null,
       locationId: query.locationId ?? null,
       characterId: query.characterId ?? null,

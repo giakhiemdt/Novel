@@ -91,6 +91,23 @@ SKIP $offset
 LIMIT $limit
 `;
 
+const GET_CHARACTERS_BY_SEARCH = `
+CALL db.index.fulltext.queryNodes("character_search", $q) YIELD node, score
+WITH node AS c, score
+WHERE
+  ($name IS NULL OR toLower(c.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(c.tags, []))
+  AND ($race IS NULL OR c.race = $race)
+  AND ($gender IS NULL OR c.gender = $gender)
+  AND ($status IS NULL OR c.status = $status)
+  AND ($level IS NULL OR c.level = $level)
+  AND ($isMainCharacter IS NULL OR c.isMainCharacter = $isMainCharacter)
+RETURN c
+ORDER BY score DESC, c.createdAt DESC
+SKIP $offset
+LIMIT $limit
+`;
+
 const DELETE_CHARACTER = `
 MATCH (c:${nodeLabels.character} {id: $id})
 WITH c
@@ -176,7 +193,9 @@ export const getCharacters = async (
 ): Promise<CharacterNode[]> => {
   const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
-    const result = await session.run(GET_CHARACTERS, {
+    const statement = query.q ? GET_CHARACTERS_BY_SEARCH : GET_CHARACTERS;
+    const result = await session.run(statement, {
+      q: query.q ?? "",
       name: query.name ?? null,
       tag: query.tag ?? null,
       race: query.race ?? null,

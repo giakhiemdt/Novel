@@ -44,6 +44,22 @@ SKIP $offset
 LIMIT $limit
 `;
 
+const GET_TIMELINES_BY_SEARCH = `
+CALL db.index.fulltext.queryNodes("timeline_search", $q) YIELD node, score
+WITH node AS t, score
+OPTIONAL MATCH (t)-[:${relationTypes.timelinePrevious}]->(p:${nodeLabels.timeline})
+OPTIONAL MATCH (t)-[:${relationTypes.timelineNext}]->(n:${nodeLabels.timeline})
+WHERE
+  ($name IS NULL OR toLower(t.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(t.tags, []))
+  AND ($code IS NULL OR t.code = $code)
+  AND ($isOngoing IS NULL OR t.isOngoing = $isOngoing)
+RETURN t, p, n
+ORDER BY score DESC, t.createdAt DESC
+SKIP $offset
+LIMIT $limit
+`;
+
 const TIMELINE_PARAMS = [
   "id",
   "name",
@@ -181,7 +197,9 @@ export const getTimelines = async (
 ): Promise<TimelineNode[]> => {
   const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
-    const result = await session.run(GET_TIMELINES, {
+    const statement = query.q ? GET_TIMELINES_BY_SEARCH : GET_TIMELINES;
+    const result = await session.run(statement, {
+      q: query.q ?? "",
       name: query.name ?? null,
       tag: query.tag ?? null,
       code: query.code ?? null,

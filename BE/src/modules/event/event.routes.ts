@@ -12,6 +12,7 @@ export const eventRoutes: RouteConfig[] = [
       querystring: {
         type: "object",
         properties: {
+          q: { type: "string" },
           limit: { type: "number" },
           offset: { type: "number" },
           timelineId: { type: "string" },
@@ -33,6 +34,7 @@ export const eventRoutes: RouteConfig[] = [
             meta: {
               type: "object",
               properties: {
+                q: { type: "string" },
                 limit: { type: "number" },
                 offset: { type: "number" },
                 timelineId: { type: "string" },

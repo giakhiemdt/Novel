@@ -277,6 +277,7 @@ const parseTimelineListQuery = (query: unknown): TimelineListQuery => {
   return {
     limit: normalizedLimit,
     offset: normalizedOffset,
+    q: parseOptionalQueryString(data.q, "q"),
     name: parseOptionalQueryString(data.name, "name"),
     tag: parseOptionalQueryString(data.tag, "tag"),
     code: parseOptionalQueryString(data.code, "code"),

@@ -12,6 +12,7 @@ export const factionRoutes: RouteConfig[] = [
       querystring: {
         type: "object",
         properties: {
+          q: { type: "string" },
           limit: { type: "number" },
           offset: { type: "number" },
           name: { type: "string" },
@@ -33,6 +34,7 @@ export const factionRoutes: RouteConfig[] = [
             meta: {
               type: "object",
               properties: {
+                q: { type: "string" },
                 limit: { type: "number" },
                 offset: { type: "number" },
                 name: { type: "string" },
