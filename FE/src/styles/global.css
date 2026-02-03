@@ -846,10 +846,7 @@ h3 {
 }
 
 .table--clean th {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
   font-size: 0.7rem;
-  color: var(--text-muted);
 }
 
 .tree-list {
@@ -863,10 +860,7 @@ h3 {
   display: grid;
   grid-template-columns: 2fr 1.2fr 1.2fr 1fr 1fr 1fr;
   gap: var(--space-2);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
   font-size: 0.7rem;
-  color: var(--text-muted);
   padding: var(--space-2) var(--space-1);
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -980,10 +974,15 @@ h3 {
 .detail-item__label {
   display: block;
   font-size: 0.75rem;
+  margin-bottom: 4px;
+}
+
+.table--clean th,
+.tree-header,
+.detail-item__label {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);
-  margin-bottom: 4px;
 }
 
 .detail-item__value {
