@@ -108,8 +108,22 @@ h3 {
 .sidebar__nav {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: var(--space-3);
   width: 100%;
+}
+
+.sidebar__section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar__section-title {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: rgba(160, 190, 220, 0.7);
+  margin: 0 0 var(--space-1) var(--space-2);
 }
 
 .sidebar__project {
@@ -356,6 +370,8 @@ h3 {
   justify-content: space-between;
   align-items: center;
   margin-bottom: var(--space-6);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid rgba(140, 170, 200, 0.2);
 }
 
 .header__title {

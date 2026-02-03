@@ -19,20 +19,33 @@ type SidebarProps = {
   onToggle: () => void;
 };
 
-const navItems = [
-  { to: "/", label: "Overview", shortLabel: "O" },
-  { to: "/characters", label: "Characters", shortLabel: "C" },
-  { to: "/timelines", label: "Timelines", shortLabel: "T" },
-  { to: "/locations", label: "Locations", shortLabel: "L" },
-  { to: "/factions", label: "Factions", shortLabel: "F" },
-  { to: "/events", label: "Events", shortLabel: "E" },
-  { to: "/arcs", label: "Arcs", shortLabel: "A" },
-  { to: "/chapters", label: "Chapters", shortLabel: "H" },
-  { to: "/scenes", label: "Scenes", shortLabel: "S" },
-  { to: "/items", label: "Items", shortLabel: "I" },
-  { to: "/relationships", label: "Relationships", shortLabel: "R" },
-  { to: "/world-rules", label: "World Rules", shortLabel: "W" },
-  { to: "/conflicts", label: "Conflicts", shortLabel: "X" },
+const navSections = [
+  {
+    title: "Worldbuilding",
+    items: [
+      { to: "/", label: "Overview", shortLabel: "O" },
+      { to: "/characters", label: "Characters", shortLabel: "C" },
+      { to: "/locations", label: "Locations", shortLabel: "L" },
+      { to: "/factions", label: "Factions", shortLabel: "F" },
+      { to: "/items", label: "Items", shortLabel: "I" },
+      { to: "/world-rules", label: "World Rules", shortLabel: "W" },
+    ],
+  },
+  {
+    title: "Story",
+    items: [
+      { to: "/timelines", label: "Timelines", shortLabel: "T" },
+      { to: "/events", label: "Events", shortLabel: "E" },
+      { to: "/arcs", label: "Arcs", shortLabel: "A" },
+      { to: "/chapters", label: "Chapters", shortLabel: "H" },
+      { to: "/scenes", label: "Scenes", shortLabel: "S" },
+      { to: "/relationships", label: "Relationships", shortLabel: "R" },
+    ],
+  },
+  {
+    title: "System",
+    items: [{ to: "/conflicts", label: "Conflicts", shortLabel: "X" }],
+  },
 ];
 
 export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
@@ -192,17 +205,26 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
           </button>
         </div>
         <nav className="sidebar__nav">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                isActive ? "sidebar__link sidebar__link--active" : "sidebar__link"
-              }
-            >
-              <span className="sidebar__icon">{item.shortLabel}</span>
-              <span className="sidebar__label">{t(item.label)}</span>
-            </NavLink>
+          {navSections.map((section) => (
+            <div className="sidebar__section" key={section.title}>
+              {!collapsed && (
+                <span className="sidebar__section-title">
+                  {t(section.title)}
+                </span>
+              )}
+              {section.items.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    isActive ? "sidebar__link sidebar__link--active" : "sidebar__link"
+                  }
+                >
+                  <span className="sidebar__icon">{item.shortLabel}</span>
+                  <span className="sidebar__label">{t(item.label)}</span>
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="sidebar__project">

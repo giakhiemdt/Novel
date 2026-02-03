@@ -567,6 +567,9 @@ const vi: Dictionary = {
   "Event A": "Sự kiện A",
   "Event B": "Sự kiện B",
   "Period": "Khoảng thời gian",
+  "Worldbuilding": "Thế giới",
+  "Story": "Câu chuyện",
+  "System": "Hệ thống",
 };
 
 export const translations: Record<Language, Dictionary> = {
