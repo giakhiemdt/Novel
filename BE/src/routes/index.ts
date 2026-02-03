@@ -12,6 +12,7 @@ import { sceneRoutes } from "../modules/scene/scene.routes";
 import { conflictRoutes } from "../modules/conflict/conflict.routes";
 import { itemRoutes } from "../modules/item/item.routes";
 import { relationshipRoutes } from "../modules/relationship/relationship.routes";
+import { worldRuleRoutes } from "../modules/worldrule/worldrule.routes";
 import { healthRoutes } from "./health.routes";
 
 export type RouteConfig = {
@@ -43,4 +44,5 @@ export const routes: RouteConfig[] = [
   ...conflictRoutes,
   ...itemRoutes,
   ...relationshipRoutes,
+  ...worldRuleRoutes,
 ];

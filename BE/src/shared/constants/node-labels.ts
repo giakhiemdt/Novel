@@ -10,4 +10,5 @@ export const nodeLabels = {
   chapter: "Chapter",
   scene: "Scene",
   item: "Item",
+  worldRule: "WorldRule",
 };
