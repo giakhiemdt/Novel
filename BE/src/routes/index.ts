@@ -18,6 +18,7 @@ export type RouteConfig = {
   schema?: {
     body?: Record<string, unknown>;
     response?: Record<string, unknown>;
+    querystring?: Record<string, unknown>;
     tags?: string[];
     summary?: string;
     description?: string;
