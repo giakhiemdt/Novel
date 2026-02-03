@@ -704,21 +704,28 @@ h3 {
 }
 
 .button {
+  --btn-bg: transparent;
+  --btn-border: transparent;
+  --btn-text: var(--color-ink);
+  --btn-shadow: none;
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  color: var(--btn-text);
+  box-shadow: var(--btn-shadow);
   border-radius: 999px;
   padding: 10px 20px;
   font-weight: 600;
 }
 
 .button--primary {
-  background: var(--button-primary-bg);
-  color: var(--button-primary-text);
-  box-shadow: var(--button-primary-shadow);
+  --btn-bg: var(--button-primary-bg);
+  --btn-text: var(--button-primary-text);
+  --btn-shadow: var(--button-primary-shadow);
 }
 
 .button--ghost {
-  background: transparent;
-  border: 1px solid var(--color-border);
-  color: var(--color-ink);
+  --btn-border: var(--color-border);
+  --btn-text: var(--color-ink);
 }
 
 .button:hover,
@@ -1233,11 +1240,18 @@ h3 {
   margin-top: var(--space-2);
 }
 
+.action-row,
 .overview-actions,
 .table__actions,
 .timeline-card__actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.action-row,
+
+.table__actions {
+  gap: var(--space-1);
 }
 
 .overview-actions,
