@@ -73,8 +73,8 @@ WHERE
   AND ($arcId IS NULL OR a.id = $arcId)
 RETURN c, a
 ORDER BY c.order ASC, c.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const GET_CHAPTERS_BY_SEARCH = `
@@ -87,8 +87,8 @@ WHERE
   AND ($arcId IS NULL OR a.id = $arcId)
 RETURN c, a
 ORDER BY score DESC, c.order ASC, c.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const DELETE_CHAPTER = `

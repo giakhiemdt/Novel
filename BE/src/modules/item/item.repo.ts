@@ -50,8 +50,8 @@ WHERE
   AND ($ownerType IS NULL OR i.ownerType = $ownerType)
 RETURN i
 ORDER BY i.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const GET_ITEMS_BY_SEARCH = `
@@ -65,8 +65,8 @@ WHERE
   AND ($ownerType IS NULL OR i.ownerType = $ownerType)
 RETURN i
 ORDER BY score DESC, i.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const DELETE_ITEM = `
@@ -137,8 +137,8 @@ WHERE
   AND ($ownerType IS NULL OR i.ownerType = $ownerType)
 RETURN i
 ORDER BY i.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const GET_ITEMS_BY_EVENT_SEARCH = `
@@ -153,8 +153,8 @@ WHERE
   AND ($ownerType IS NULL OR i.ownerType = $ownerType)
 RETURN i
 ORDER BY score DESC, i.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const GET_EVENTS_BY_ITEM = `
@@ -169,8 +169,8 @@ WHERE
   AND ($locationId IS NULL OR l.id = $locationId OR e.locationId = $locationId)
 RETURN e
 ORDER BY e.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const GET_EVENTS_BY_ITEM_SEARCH = `
@@ -187,8 +187,8 @@ WHERE
   AND ($locationId IS NULL OR l.id = $locationId OR e.locationId = $locationId)
 RETURN e
 ORDER BY score DESC, e.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const ITEM_PARAMS = [

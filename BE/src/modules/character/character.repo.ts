@@ -87,8 +87,8 @@ WHERE
   AND ($isMainCharacter IS NULL OR c.isMainCharacter = $isMainCharacter)
 RETURN c
 ORDER BY c.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const GET_CHARACTERS_BY_SEARCH = `
@@ -104,8 +104,8 @@ WHERE
   AND ($isMainCharacter IS NULL OR c.isMainCharacter = $isMainCharacter)
 RETURN c
 ORDER BY score DESC, c.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const DELETE_CHARACTER = `

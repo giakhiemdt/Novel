@@ -81,8 +81,8 @@ WHERE
   AND ($parentId IS NULL OR parent.id = $parentId)
 RETURN l, parent, r
 ORDER BY l.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const GET_LOCATIONS_BY_SEARCH = `
@@ -99,8 +99,8 @@ WHERE
   AND ($parentId IS NULL OR parent.id = $parentId)
 RETURN l, parent, r
 ORDER BY score DESC, l.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const DELETE_LOCATION = `

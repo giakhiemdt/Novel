@@ -147,8 +147,8 @@ RETURN e, l, t, on, collect({
   note: r.note
 }) AS participants
 ORDER BY e.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const GET_EVENTS_BY_SEARCH = `
@@ -177,8 +177,8 @@ RETURN e, l, t, on, collect({
   note: r.note
 }) AS participants
 ORDER BY score DESC, e.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const EVENT_PARAMS = [

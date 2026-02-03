@@ -50,8 +50,8 @@ WHERE
   AND ($characterId IS NULL OR $characterId IN characterIds)
 RETURN s, c, e, l, characterIds
 ORDER BY s.order ASC, s.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const GET_SCENES_BY_SEARCH = `
@@ -71,8 +71,8 @@ WHERE
   AND ($characterId IS NULL OR $characterId IN characterIds)
 RETURN s, c, e, l, characterIds
 ORDER BY score DESC, s.order ASC, s.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const DELETE_SCENE = `

@@ -39,8 +39,8 @@ WHERE
   AND ($tag IS NULL OR $tag IN coalesce(a.tags, []))
 RETURN a
 ORDER BY a.order ASC, a.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const GET_ARCS_BY_SEARCH = `
@@ -51,8 +51,8 @@ WHERE
   AND ($tag IS NULL OR $tag IN coalesce(a.tags, []))
 RETURN a
 ORDER BY score DESC, a.order ASC, a.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const DELETE_ARC = `

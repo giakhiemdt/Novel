@@ -55,8 +55,8 @@ WHERE
   AND ($tag IS NULL OR $tag IN coalesce(r.tags, []))
 RETURN r
 ORDER BY r.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const GET_RULES_BY_SEARCH = `
@@ -70,8 +70,8 @@ WHERE
   AND ($tag IS NULL OR $tag IN coalesce(r.tags, []))
 RETURN r
 ORDER BY score DESC, r.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const DELETE_RULE = `

@@ -40,8 +40,8 @@ WHERE
   AND ($isOngoing IS NULL OR t.isOngoing = $isOngoing)
 RETURN t, p, n
 ORDER BY t.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const GET_TIMELINES_BY_SEARCH = `
@@ -56,8 +56,8 @@ WHERE
   AND ($isOngoing IS NULL OR t.isOngoing = $isOngoing)
 RETURN t, p, n
 ORDER BY score DESC, t.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const TIMELINE_PARAMS = [

@@ -88,8 +88,8 @@ WHERE
   AND ($isCanon IS NULL OR f.isCanon = $isCanon)
 RETURN f
 ORDER BY f.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const GET_FACTIONS_BY_SEARCH = `
@@ -104,8 +104,8 @@ WHERE
   AND ($isCanon IS NULL OR f.isCanon = $isCanon)
 RETURN f
 ORDER BY score DESC, f.createdAt DESC
-SKIP $offset
-LIMIT $limit
+SKIP toInteger($offset)
+LIMIT toInteger($limit)
 `;
 
 const DELETE_FACTION = `
