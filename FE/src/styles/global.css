@@ -740,6 +740,8 @@ h3 {
 .table {
   width: 100%;
   border-collapse: collapse;
+  --row-hover: var(--accent-soft);
+  --row-active: var(--accent-soft-strong);
 }
 
 .table th,
@@ -755,11 +757,11 @@ h3 {
 }
 
 .table__row:hover {
-  background: var(--accent-soft);
+  background: var(--row-hover);
 }
 
 .table__row--active {
-  background: var(--accent-soft-strong);
+  background: var(--row-active);
 }
 
 .card__header {
@@ -849,6 +851,7 @@ h3 {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  --row-hover: var(--surface-muted-hover);
 }
 
 .tree-header {
@@ -886,7 +889,7 @@ h3 {
 }
 
 .tree-row:hover {
-  background: var(--surface-muted-hover);
+  background: var(--row-hover);
 }
 
 .tree-row--drag-over {
