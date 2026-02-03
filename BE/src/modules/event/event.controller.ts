@@ -45,8 +45,8 @@ const getAllEvents = async (
 ): Promise<void> => {
   try {
     const dbName = getDatabaseHeader(_req);
-    const events = await eventService.getAll(dbName);
-    reply.status(200).send({ data: events });
+    const result = await eventService.getAll(dbName, _req.query);
+    reply.status(200).send(result);
   } catch (error) {
     const handled = handleError(error);
     reply.status(handled.statusCode).send({ message: handled.message });

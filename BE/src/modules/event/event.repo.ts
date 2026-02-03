@@ -4,7 +4,7 @@ import { nodeLabels } from "../../shared/constants/node-labels";
 import { relationTypes } from "../../shared/constants/relation-types";
 import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
-import { EventNode } from "./event.types";
+import { EventListQuery, EventNode } from "./event.types";
 
 const CREATE_EVENT = `
 CREATE (e:${nodeLabels.event} {
@@ -122,11 +122,20 @@ MATCH (e:${nodeLabels.event} {id: $eventId})-[r:${relationTypes.occursIn}]->(:${
 DELETE r
 `;
 
-const GET_ALL_EVENTS = `
+const GET_EVENTS = `
 MATCH (e:${nodeLabels.event})
 OPTIONAL MATCH (e)-[:${relationTypes.occursIn}]->(l:${nodeLabels.location})
 OPTIONAL MATCH (e)-[on:${relationTypes.occursOn}]->(t:${nodeLabels.timeline})
 WITH e, l, t, on
+WHERE
+  ($timelineId IS NULL OR t.id = $timelineId)
+  AND ($locationId IS NULL OR l.id = $locationId OR e.locationId = $locationId)
+  AND ($characterId IS NULL OR EXISTS {
+    MATCH (c:${nodeLabels.character} {id: $characterId})-[:${relationTypes.participatesIn}]->(e)
+  })
+  AND ($tag IS NULL OR $tag IN coalesce(e.tags, []))
+  AND ($name IS NULL OR toLower(e.name) CONTAINS toLower($name))
+  AND ($type IS NULL OR e.type = $type)
 OPTIONAL MATCH (c:${nodeLabels.character})-[r:${relationTypes.participatesIn}]->(e)
 RETURN e, l, t, on, collect({
   characterId: c.id,
@@ -138,6 +147,8 @@ RETURN e, l, t, on, collect({
   note: r.note
 }) AS participants
 ORDER BY e.createdAt DESC
+SKIP $offset
+LIMIT $limit
 `;
 
 const EVENT_PARAMS = [
@@ -445,10 +456,22 @@ export const deleteEventLocation = async (
   }
 };
 
-export const getAllEvents = async (database: string): Promise<EventNode[]> => {
+export const getEvents = async (
+  database: string,
+  query: EventListQuery
+): Promise<EventNode[]> => {
   const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
-    const result = await session.run(GET_ALL_EVENTS);
+    const result = await session.run(GET_EVENTS, {
+      timelineId: query.timelineId ?? null,
+      locationId: query.locationId ?? null,
+      characterId: query.characterId ?? null,
+      tag: query.tag ?? null,
+      name: query.name ?? null,
+      type: query.type ?? null,
+      offset: query.offset ?? 0,
+      limit: query.limit ?? 50,
+    });
     return result.records.map((record) => {
       const node = record.get("e");
       const location = record.get("l");

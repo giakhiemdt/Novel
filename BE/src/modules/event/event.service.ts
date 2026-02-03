@@ -10,13 +10,18 @@ import {
   getCharacterIds,
   getLocationName,
   getTimelineName,
-  getAllEvents,
+  getEvents,
   upsertEventTimeline,
   updateEvent,
   updateEventParticipants,
   updateEventWithLocation,
 } from "./event.repo";
-import { EventInput, EventNode, EventParticipantInput } from "./event.types";
+import {
+  EventInput,
+  EventListQuery,
+  EventNode,
+  EventParticipantInput,
+} from "./event.types";
 
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
@@ -52,6 +57,47 @@ const assertOptionalNumber = (
     throw new AppError(`${field} must be a number`, 400);
   }
   return value;
+};
+
+const parseOptionalQueryString = (
+  value: unknown,
+  field: string
+): string | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "string") {
+    throw new AppError(`${field} must be a string`, 400);
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const parseOptionalQueryNumber = (
+  value: unknown,
+  field: string
+): number | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      throw new AppError(`${field} must be a number`, 400);
+    }
+    return value;
+  }
+  if (typeof value !== "string") {
+    throw new AppError(`${field} must be a number`, 400);
+  }
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return undefined;
+  }
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) {
+    throw new AppError(`${field} must be a number`, 400);
+  }
+  return parsed;
 };
 
 const assertRequiredNumber = (value: unknown, field: string): number => {
@@ -313,6 +359,41 @@ const buildEventNode = (payload: EventInput): EventNode => {
   };
 };
 
+const parseEventListQuery = (query: unknown): EventListQuery => {
+  const result: EventListQuery = {};
+  if (!query || typeof query !== "object") {
+    return { limit: 50, offset: 0 };
+  }
+
+  const data = query as Record<string, unknown>;
+  const limit = parseOptionalQueryNumber(data.limit, "limit");
+  const offset = parseOptionalQueryNumber(data.offset, "offset");
+
+  const normalizedLimit = limit ?? 50;
+  const normalizedOffset = offset ?? 0;
+
+  if (normalizedLimit <= 0) {
+    throw new AppError("limit must be > 0", 400);
+  }
+  if (normalizedLimit > 200) {
+    throw new AppError("limit must be <= 200", 400);
+  }
+  if (normalizedOffset < 0) {
+    throw new AppError("offset must be >= 0", 400);
+  }
+
+  result.limit = normalizedLimit;
+  result.offset = normalizedOffset;
+  result.timelineId = parseOptionalQueryString(data.timelineId, "timelineId");
+  result.locationId = parseOptionalQueryString(data.locationId, "locationId");
+  result.characterId = parseOptionalQueryString(data.characterId, "characterId");
+  result.tag = parseOptionalQueryString(data.tag, "tag");
+  result.name = parseOptionalQueryString(data.name, "name");
+  result.type = parseOptionalQueryString(data.type, "type");
+
+  return result;
+};
+
 const syncParticipants = async (
   database: string,
   eventId: string,
@@ -479,9 +560,14 @@ export const eventService = {
     await syncParticipants(database, updated.id, validated.participants);
     return updated;
   },
-  getAll: async (dbName: unknown): Promise<EventNode[]> => {
+  getAll: async (
+    dbName: unknown,
+    query: unknown
+  ): Promise<{ data: EventNode[]; meta: EventListQuery }> => {
     const database = assertDatabaseName(dbName);
-    return getAllEvents(database);
+    const parsedQuery = parseEventListQuery(query);
+    const data = await getEvents(database, parsedQuery);
+    return { data, meta: parsedQuery };
   },
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);

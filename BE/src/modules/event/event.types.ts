@@ -38,3 +38,14 @@ export type EventNode = EventInput & {
   updatedAt: string;
   locationName?: string;
 };
+
+export type EventListQuery = {
+  limit?: number;
+  offset?: number;
+  timelineId?: string;
+  locationId?: string;
+  characterId?: string;
+  tag?: string;
+  name?: string;
+  type?: string;
+};

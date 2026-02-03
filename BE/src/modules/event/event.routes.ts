@@ -9,6 +9,19 @@ export const eventRoutes: RouteConfig[] = [
     schema: {
       tags: ["Event"],
       summary: "Get all events",
+      querystring: {
+        type: "object",
+        properties: {
+          limit: { type: "number" },
+          offset: { type: "number" },
+          timelineId: { type: "string" },
+          locationId: { type: "string" },
+          characterId: { type: "string" },
+          tag: { type: "string" },
+          name: { type: "string" },
+          type: { type: "string" },
+        },
+      },
       response: {
         200: {
           type: "object",
@@ -16,6 +29,19 @@ export const eventRoutes: RouteConfig[] = [
             data: {
               type: "array",
               items: { type: "object", additionalProperties: true },
+            },
+            meta: {
+              type: "object",
+              properties: {
+                limit: { type: "number" },
+                offset: { type: "number" },
+                timelineId: { type: "string" },
+                locationId: { type: "string" },
+                characterId: { type: "string" },
+                tag: { type: "string" },
+                name: { type: "string" },
+                type: { type: "string" },
+              },
             },
           },
         },
