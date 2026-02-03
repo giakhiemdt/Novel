@@ -8,6 +8,7 @@ import {
   deleteEventLocation,
   deleteEventTimeline,
   getCharacterIds,
+  getLocationName,
   getTimelineName,
   getAllEvents,
   upsertEventTimeline,
@@ -264,32 +265,24 @@ const validateEventPayload = (payload: unknown): EventInput => {
     addIfDefined(result, "durationValue", durationValue);
     addIfDefined(result, "durationUnit", durationUnit);
   } else {
+    const timelineYear = data.timelineYear;
+    const timelineMonth = data.timelineMonth;
+    const timelineDay = data.timelineDay;
+    const durationValue = data.durationValue;
+    const durationUnit = data.durationUnit;
+    const hasTimelineFields =
+      timelineYear !== undefined ||
+      timelineMonth !== undefined ||
+      timelineDay !== undefined ||
+      durationValue !== undefined ||
+      durationUnit !== undefined;
+    if (hasTimelineFields) {
+      throw new AppError(
+        "timelineId is required when timeline fields are provided",
+        400
+      );
+    }
     addIfDefined(result, "timelineId", timelineId);
-    addIfDefined(
-      result,
-      "timelineYear",
-      assertOptionalNumber(data.timelineYear, "timelineYear")
-    );
-    addIfDefined(
-      result,
-      "timelineMonth",
-      assertOptionalNumber(data.timelineMonth, "timelineMonth")
-    );
-    addIfDefined(
-      result,
-      "timelineDay",
-      assertOptionalNumber(data.timelineDay, "timelineDay")
-    );
-    addIfDefined(
-      result,
-      "durationValue",
-      assertOptionalNumber(data.durationValue, "durationValue")
-    );
-    addIfDefined(
-      result,
-      "durationUnit",
-      assertOptionalString(data.durationUnit, "durationUnit")
-    );
   }
   addIfDefined(result, "startYear", startYear);
   addIfDefined(result, "endYear", endYear);
@@ -428,6 +421,10 @@ export const eventService = {
     };
     let updated: EventNode | null = null;
     if (validated.locationId) {
+      const locationName = await getLocationName(database, validated.locationId);
+      if (!locationName) {
+        throw new AppError("location not found", 404);
+      }
       const updatedWithLocation = await updateEventWithLocation(
         node,
         validated.locationId,
@@ -439,7 +436,7 @@ export const eventService = {
           ...updatedWithLocation.event,
           ...(updatedWithLocation.locationName
             ? { locationName: updatedWithLocation.locationName }
-            : {}),
+            : { locationName }),
         };
       }
     } else {

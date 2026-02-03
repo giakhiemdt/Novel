@@ -165,6 +165,11 @@ MATCH (t:${nodeLabels.timeline} {id: $timelineId})
 RETURN t.name AS name
 `;
 
+const GET_LOCATION_NAME = `
+MATCH (l:${nodeLabels.location} {id: $locationId})
+RETURN l.name AS name
+`;
+
 const DELETE_EVENT = `
 MATCH (e:${nodeLabels.event} {id: $id})
 WITH e
@@ -363,6 +368,19 @@ export const getTimelineName = async (
   const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
     const result = await session.run(GET_TIMELINE_NAME, { timelineId });
+    return (result.records[0]?.get("name") as string | undefined) ?? null;
+  } finally {
+    await session.close();
+  }
+};
+
+export const getLocationName = async (
+  database: string,
+  locationId: string
+): Promise<string | null> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const result = await session.run(GET_LOCATION_NAME, { locationId });
     return (result.records[0]?.get("name") as string | undefined) ?? null;
   } finally {
     await session.close();
