@@ -47,7 +47,10 @@ const navSections = [
   },
   {
     title: "System",
-    items: [{ to: "/conflicts", label: "Conflicts", shortLabel: "X" }],
+    items: [
+      { to: "/conflicts", label: "Conflicts", shortLabel: "X" },
+      { to: "/schemas", label: "Schemas", shortLabel: "Y" },
+    ],
   },
 ];
 

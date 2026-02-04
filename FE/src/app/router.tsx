@@ -14,6 +14,7 @@ import { WorldRuleCreate } from "../features/worldrule/WorldRuleCreate";
 import { RaceCreate } from "../features/race/RaceCreate";
 import { RankCreate } from "../features/rank/RankCreate";
 import { SpecialAbilityCreate } from "../features/special-ability/SpecialAbilityCreate";
+import { SchemaManager } from "../features/schema/SchemaManager";
 import { Settings } from "./Settings";
 import { Dashboard } from "./Dashboard";
 
@@ -25,6 +26,7 @@ export const AppRouter = () => {
       <Route path="/races" element={<RaceCreate />} />
       <Route path="/ranks" element={<RankCreate />} />
       <Route path="/special-abilities" element={<SpecialAbilityCreate />} />
+      <Route path="/schemas" element={<SchemaManager />} />
       <Route path="/timelines" element={<TimelineCreate />} />
       <Route path="/locations" element={<LocationCreate />} />
       <Route path="/factions" element={<FactionCreate />} />
