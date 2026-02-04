@@ -34,6 +34,7 @@ export type CharacterInput = {
 };
 
 export type CharacterNode = CharacterInput & {
+  id: string;
   status: CharacterStatus;
   isMainCharacter: boolean;
   createdAt: string;
