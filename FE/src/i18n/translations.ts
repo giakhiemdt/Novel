@@ -110,6 +110,7 @@ const vi: Dictionary = {
   "Command": "T-code",
   "Type a T-code or name.": "Nhập T-code hoặc tên chức năng.",
   "No matches": "Không có kết quả",
+  "No favorites yet.": "Chưa có mục yêu thích.",
   "Schemas": "Schema",
   "Race nodes": "Danh sách chủng tộc",
   "Rank nodes": "Danh sách cấp bậc",

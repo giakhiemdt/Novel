@@ -53,11 +53,24 @@ export const CommandBar = () => {
   }, [open]);
 
   useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ query?: string }>).detail;
+      if (detail?.query !== undefined) {
+        setQuery(detail.query);
+      }
+      setOpen(true);
+    };
+    window.addEventListener("novel-command-open", handler);
+    return () => window.removeEventListener("novel-command-open", handler);
+  }, []);
+
+  useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 0);
     } else {
       setQuery("");
       setSelectedIndex(0);
+      window.dispatchEvent(new Event("novel-command-close"));
     }
   }, [open]);
 

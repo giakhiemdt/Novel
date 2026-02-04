@@ -20,41 +20,6 @@ type SidebarProps = {
   onToggle: () => void;
 };
 
-const navSections = [
-  {
-    title: "Worldbuilding",
-    items: [
-      { to: "/", label: "Overview", shortLabel: "O" },
-      { to: "/characters", label: "Characters", shortLabel: "C" },
-      { to: "/races", label: "Races", shortLabel: "R" },
-      { to: "/ranks", label: "Ranks", shortLabel: "K" },
-      { to: "/special-abilities", label: "Special Abilities", shortLabel: "N" },
-      { to: "/locations", label: "Locations", shortLabel: "L" },
-      { to: "/factions", label: "Factions", shortLabel: "F" },
-      { to: "/items", label: "Items", shortLabel: "I" },
-      { to: "/world-rules", label: "World Rules", shortLabel: "W" },
-    ],
-  },
-  {
-    title: "Story",
-    items: [
-      { to: "/timelines", label: "Timelines", shortLabel: "T" },
-      { to: "/events", label: "Events", shortLabel: "E" },
-      { to: "/arcs", label: "Arcs", shortLabel: "A" },
-      { to: "/chapters", label: "Chapters", shortLabel: "H" },
-      { to: "/scenes", label: "Scenes", shortLabel: "S" },
-      { to: "/relationships", label: "Relationships", shortLabel: "R" },
-    ],
-  },
-  {
-    title: "System",
-    items: [
-      { to: "/conflicts", label: "Conflicts", shortLabel: "X" },
-      { to: "/schemas", label: "Schemas", shortLabel: "Y" },
-    ],
-  },
-];
-
 export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
   const { t } = useI18n();
   const { notify } = useToast();
@@ -239,48 +204,26 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
           </button>
         </div>
         <nav className="sidebar__nav">
-          {favoriteCommands.length > 0 && (
-            <div className="sidebar__section">
-              {!collapsed && (
-                <span className="sidebar__section-title">
-                  {t("Favorites")}
-                </span>
-              )}
-              {favoriteCommands.map((item) => (
-                <NavLink
-                  key={`fav-${item?.code}`}
-                  to={item?.route ?? "/"}
-                  className={({ isActive }) =>
-                    isActive ? "sidebar__link sidebar__link--active" : "sidebar__link"
-                  }
-                >
-                  <span className="sidebar__icon">{item?.code}</span>
-                  <span className="sidebar__label">{t(item?.label ?? "")}</span>
-                </NavLink>
-              ))}
-            </div>
-          )}
-          {navSections.map((section) => (
-            <div className="sidebar__section" key={section.title}>
-              {!collapsed && (
-                <span className="sidebar__section-title">
-                  {t(section.title)}
-                </span>
-              )}
-              {section.items.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  className={({ isActive }) =>
-                    isActive ? "sidebar__link sidebar__link--active" : "sidebar__link"
-                  }
-                >
-                  <span className="sidebar__icon">{item.shortLabel}</span>
-                  <span className="sidebar__label">{t(item.label)}</span>
-                </NavLink>
-              ))}
-            </div>
-          ))}
+          <div className="sidebar__section">
+            {!collapsed && (
+              <span className="sidebar__section-title">{t("Favorites")}</span>
+            )}
+            {favoriteCommands.length === 0 && !collapsed && (
+              <span className="header__subtitle">{t("No favorites yet.")}</span>
+            )}
+            {favoriteCommands.map((item) => (
+              <NavLink
+                key={`fav-${item?.code}`}
+                to={item?.route ?? "/"}
+                className={({ isActive }) =>
+                  isActive ? "sidebar__link sidebar__link--active" : "sidebar__link"
+                }
+              >
+                <span className="sidebar__icon">{item?.code}</span>
+                <span className="sidebar__label">{t(item?.label ?? "")}</span>
+              </NavLink>
+            ))}
+          </div>
         </nav>
         <div className="sidebar__project">
           <span className="sidebar__project-label">{t("Project")}</span>

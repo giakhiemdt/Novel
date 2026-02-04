@@ -446,6 +446,18 @@ h3 {
   border-bottom: 1px solid var(--border-subtle);
 }
 
+.command-dock {
+  position: fixed;
+  top: var(--space-4);
+  left: calc(var(--sidebar-width) + var(--space-4));
+  z-index: 20;
+  width: min(360px, 60vw);
+}
+
+.command-dock__input {
+  width: 100%;
+}
+
 .header__title {
   font-size: var(--text-title-lg);
   letter-spacing: 0.01em;
