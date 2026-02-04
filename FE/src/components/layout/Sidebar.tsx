@@ -25,6 +25,7 @@ const navSections = [
     items: [
       { to: "/", label: "Overview", shortLabel: "O" },
       { to: "/characters", label: "Characters", shortLabel: "C" },
+      { to: "/races", label: "Races", shortLabel: "R" },
       { to: "/locations", label: "Locations", shortLabel: "L" },
       { to: "/factions", label: "Factions", shortLabel: "F" },
       { to: "/items", label: "Items", shortLabel: "I" },
