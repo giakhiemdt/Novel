@@ -8,7 +8,7 @@ export type CharacterPayload = {
   gender: "male" | "female" | "other";
   age: number;
   race?: string;
-  specialAbility?: string;
+  specialAbilities?: string[];
   appearance?: string;
   height?: number;
   distinctiveTraits?: string[];

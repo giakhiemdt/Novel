@@ -59,7 +59,7 @@ export const CharacterList = ({
         { label: t("Main"), value: item.isMainCharacter, size: "narrow" },
         {
           label: t("Special Ability"),
-          value: item.specialAbility ? t(item.specialAbility) : "-",
+          value: item.specialAbilities ?? [],
           size: "wide",
         },
       ],

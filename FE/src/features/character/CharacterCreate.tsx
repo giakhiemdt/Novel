@@ -35,7 +35,7 @@ const initialState = {
   gender: "",
   age: "",
   race: "",
-  specialAbility: "",
+  specialAbilities: [] as string[],
   appearance: "",
   height: "",
   distinctiveTraits: [] as string[],
@@ -164,7 +164,7 @@ export const CharacterCreate = () => {
     gender: item.gender ?? "",
     age: item.age !== undefined ? String(item.age) : "",
     race: item.race ?? "",
-    specialAbility: item.specialAbility ?? "",
+    specialAbilities: item.specialAbilities ?? [],
     appearance: item.appearance ?? "",
     height: item.height !== undefined ? String(item.height) : "",
     distinctiveTraits: item.distinctiveTraits ?? [],
@@ -194,7 +194,7 @@ export const CharacterCreate = () => {
     gender: values.gender as CharacterPayload["gender"],
     age: values.age === "" ? Number.NaN : Number(values.age),
     race: values.race || undefined,
-    specialAbility: values.specialAbility || undefined,
+    specialAbilities: values.specialAbilities,
     appearance: values.appearance || undefined,
     height: values.height === "" ? undefined : Number(values.height),
     distinctiveTraits: values.distinctiveTraits,
@@ -263,7 +263,7 @@ export const CharacterCreate = () => {
         gender: editValues.gender as Character["gender"],
         age: editValues.age === "" ? Number.NaN : Number(editValues.age),
         race: editValues.race || undefined,
-        specialAbility: editValues.specialAbility || undefined,
+        specialAbilities: editValues.specialAbilities,
         appearance: editValues.appearance || undefined,
         height: editValues.height === "" ? undefined : Number(editValues.height),
         distinctiveTraits: editValues.distinctiveTraits,
@@ -455,17 +455,35 @@ export const CharacterCreate = () => {
             <div className="form-field--narrow">
               <Select
                 label="Special Ability"
-                value={editValues.specialAbility}
+                value=""
                 onChange={(value) => {
                   if (value === "__create__") {
                     navigate("/special-abilities");
                     return;
                   }
-                  setEditValues((prev) => prev && { ...prev, specialAbility: value });
+                  setEditValues((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          specialAbilities: prev.specialAbilities.includes(value)
+                            ? prev.specialAbilities
+                            : [...prev.specialAbilities, value],
+                        }
+                      : prev
+                  );
                 }}
                 options={abilityOptions}
                 placeholder={
                   specialAbilities.length > 0 ? "Select" : "No special abilities yet."
+                }
+              />
+            </div>
+            <div className="form-field--wide">
+              <MultiSelect
+                label="Special Abilities"
+                values={editValues.specialAbilities}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, specialAbilities: value })
                 }
               />
             </div>
@@ -776,18 +794,30 @@ export const CharacterCreate = () => {
         <div className="form-field--narrow">
           <Select
             label="Special Ability"
-            value={values.specialAbility}
+            value=""
             onChange={(value) => {
               if (value === "__create__") {
                 navigate("/special-abilities");
                 return;
               }
-              setField("specialAbility", value);
+              setField(
+                "specialAbilities",
+                values.specialAbilities.includes(value)
+                  ? values.specialAbilities
+                  : [...values.specialAbilities, value]
+              );
             }}
             options={abilityOptions}
             placeholder={
               specialAbilities.length > 0 ? "Select" : "No special abilities yet."
             }
+          />
+        </div>
+        <div className="form-field--wide">
+          <MultiSelect
+            label="Special Abilities"
+            values={values.specialAbilities}
+            onChange={(value) => setField("specialAbilities", value)}
           />
         </div>
       </FormSection>
