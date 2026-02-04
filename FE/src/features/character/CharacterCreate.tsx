@@ -117,7 +117,11 @@ export const CharacterCreate = () => {
       const data = await getSchemaByEntity("character");
       setSchema(data ?? null);
     } catch (err) {
-      notify((err as Error).message, "error");
+      const message = (err as Error).message;
+      if (message !== "schema not found") {
+        notify(message, "error");
+      }
+      setSchema(null);
     }
   }, [getSchemaByEntity]);
 
