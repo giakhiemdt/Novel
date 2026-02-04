@@ -15,12 +15,7 @@ import type {
 import { useI18n } from "../../i18n/I18nProvider";
 import { commandMap, normalizeCommand } from "../../features/command/commandRegistry";
 
-type SidebarProps = {
-  collapsed: boolean;
-  onToggle: () => void;
-};
-
-export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
+export const Sidebar = () => {
   const { t } = useI18n();
   const { notify } = useToast();
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -192,23 +187,11 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
 
   return (
     <>
-      <aside className={`sidebar ${collapsed ? "sidebar--collapsed" : ""}`}>
-        <div className="sidebar__top">
-          <button
-            className="sidebar__toggle"
-            onClick={onToggle}
-            type="button"
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {collapsed ? ">" : "<"}
-          </button>
-        </div>
+      <aside className="sidebar">
         <nav className="sidebar__nav">
           <div className="sidebar__section">
-            {!collapsed && (
-              <span className="sidebar__section-title">{t("Favorites")}</span>
-            )}
-            {favoriteCommands.length === 0 && !collapsed && (
+            <span className="sidebar__section-title">{t("Favorites")}</span>
+            {favoriteCommands.length === 0 && (
               <span className="header__subtitle">{t("No favorites yet.")}</span>
             )}
             {favoriteCommands.map((item) => (
@@ -219,7 +202,6 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
                   isActive ? "sidebar__link sidebar__link--active" : "sidebar__link"
                 }
               >
-                <span className="sidebar__icon">★</span>
                 <span className="sidebar__label">{t(item?.label ?? "")}</span>
               </NavLink>
             ))}

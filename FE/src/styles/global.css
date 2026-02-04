@@ -45,10 +45,6 @@ h3 {
   transition: grid-template-columns 0.25s ease;
 }
 
-.page-shell--collapsed {
-  --sidebar-width: 84px;
-}
-
 .sidebar {
   background: var(--bg-sidebar);
   color: var(--color-ink);
@@ -69,10 +65,6 @@ h3 {
   border-right: 1px solid var(--border-subtle);
 }
 
-:root[data-theme="light"] .sidebar__toggle:hover {
-  background: var(--accent-soft);
-}
-
 :root[data-theme="light"] .sidebar__icon {
   background: var(--accent-soft);
 }
@@ -91,48 +83,6 @@ h3 {
 
 :root[data-theme="light"] .sidebar__section-title {
   color: var(--text-muted);
-}
-
-.sidebar--collapsed {
-  padding: var(--space-3) var(--space-2);
-  align-items: center;
-}
-
-.sidebar__top {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  width: 100%;
-}
-
-.sidebar__toggle {
-  flex-shrink: 0;
-  border: none;
-  background: transparent;
-  color: var(--color-ink);
-  border-radius: 8px;
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  cursor: pointer;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.sidebar__toggle:hover {
-  background: var(--accent-soft);
-}
-
-.sidebar--collapsed .sidebar__top {
-  justify-content: center;
-}
-
-.sidebar:not(.sidebar--collapsed) .sidebar__top {
-  justify-content: flex-end;
 }
 
 .sidebar__nav {
@@ -180,12 +130,6 @@ h3 {
 .sidebar__project-error {
   font-size: 0.75rem;
   color: var(--danger-text);
-}
-
-.sidebar--collapsed .sidebar__project {
-  opacity: 0;
-  transform: translateY(-6px);
-  pointer-events: none;
 }
 
 .sidebar__link {
@@ -236,25 +180,6 @@ h3 {
   overflow: hidden;
 }
 
-.sidebar--collapsed .sidebar__link {
-  padding: var(--space-2);
-}
-
-.sidebar--collapsed .sidebar__icon {
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.sidebar--collapsed .sidebar__label,
-.sidebar--collapsed .sidebar__new-project-label,
-.sidebar--collapsed .sidebar__settings-label {
-  max-width: 0;
-  opacity: 0;
-  transform: translateX(-6px);
-  pointer-events: none;
-  transition: opacity 0.12s ease, transform 0.12s ease, max-width 0.12s ease;
-}
-
 .sidebar__actions {
   margin-top: auto;
   width: 100%;
@@ -287,11 +212,6 @@ h3 {
   text-overflow: ellipsis;
 }
 
-.sidebar--collapsed .sidebar__new-project {
-  width: 44px;
-  padding: 10px;
-}
-
 .sidebar__settings {
   width: 100%;
   display: inline-flex;
@@ -302,11 +222,6 @@ h3 {
 
 .sidebar__settings-label {
   font-size: var(--text-body-xs);
-}
-
-.sidebar--collapsed .sidebar__settings {
-  width: 44px;
-  padding: 10px;
 }
 
 .modal__backdrop,
