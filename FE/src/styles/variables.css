@@ -44,6 +44,13 @@
   --shadow-2: 0 16px 30px rgba(32, 111, 139, 0.4);
   --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.45);
 
+  --text-title-lg: 2.35rem;
+  --text-title-md: 1.4rem;
+  --text-title-sm: 0.9rem;
+  --text-body-md: 0.95rem;
+  --text-body-sm: 0.85rem;
+  --text-body-xs: 0.8rem;
+
   --input-bg: var(--color-panel-2);
   --input-border: var(--color-border);
   --input-focus-border: var(--accent-focus-border);
@@ -135,6 +142,13 @@
   --shadow-1: 0 10px 24px rgba(15, 25, 35, 0.12);
   --shadow-2: 0 16px 30px rgba(15, 25, 35, 0.12);
   --shadow-modal: 0 20px 60px rgba(15, 25, 35, 0.18);
+
+  --text-title-lg: 2.35rem;
+  --text-title-md: 1.4rem;
+  --text-title-sm: 0.9rem;
+  --text-body-md: 0.95rem;
+  --text-body-sm: 0.85rem;
+  --text-body-xs: 0.8rem;
 
   --input-bg: #ffffff;
   --input-border: rgba(60, 90, 120, 0.22);

@@ -410,7 +410,7 @@ h3 {
 }
 
 .header__title {
-  font-size: 2.35rem;
+  font-size: var(--text-title-lg);
   letter-spacing: 0.01em;
 }
 
@@ -502,7 +502,7 @@ h3 {
 }
 
 .section-title {
-  font-size: 1.4rem;
+  font-size: var(--text-title-md);
   margin-bottom: var(--space-3);
 }
 
@@ -591,7 +591,7 @@ h3 {
   color: var(--pill-text);
   border-radius: 999px;
   padding: 4px 10px;
-  font-size: 0.85rem;
+  font-size: var(--text-body-sm);
   border: 1px solid var(--pill-border);
 }
 
@@ -777,7 +777,7 @@ h3 {
   color: var(--action-text);
   border-radius: 8px;
   padding: 8px 14px;
-  font-size: 0.85rem;
+  font-size: var(--text-body-sm);
 }
 
 .table__action:hover {
@@ -899,7 +899,7 @@ h3 {
   height: 22px;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: var(--text-body-xs);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -917,7 +917,7 @@ h3 {
 
 .tree-row__meta {
   color: var(--color-ink-soft);
-  font-size: 0.85rem;
+  font-size: var(--text-body-sm);
 }
 
 .tree-children {
@@ -934,7 +934,7 @@ h3 {
 
 .detail-section__title {
   margin: 0 0 var(--space-2);
-  font-size: 0.9rem;
+  font-size: var(--text-title-sm);
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--text-muted);
@@ -987,7 +987,7 @@ h3 {
 
 .detail-item__value {
   color: var(--color-ink);
-  font-size: 0.95rem;
+  font-size: var(--text-body-md);
 }
 
 .form-field--compact .input {
@@ -1112,7 +1112,7 @@ h3 {
 
 .timeline-bar__label {
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--text-title-sm);
   position: relative;
   z-index: 2;
   position: absolute;
@@ -1126,7 +1126,7 @@ h3 {
   position: absolute;
   top: 50%;
   transform: translateY(-20px);
-  font-size: 0.8rem;
+  font-size: var(--text-body-xs);
   opacity: 0.85;
   z-index: 2;
   white-space: nowrap;
@@ -1147,7 +1147,7 @@ h3 {
   left: 50%;
   top: 50%;
   transform: translate(-50%, 14px);
-  font-size: 0.8rem;
+  font-size: var(--text-body-xs);
   opacity: 0.75;
   z-index: 2;
   white-space: nowrap;
@@ -1206,14 +1206,14 @@ h3 {
 
 .timeline-card p {
   margin: var(--space-1) 0 var(--space-2);
-  font-size: 0.85rem;
+  font-size: var(--text-body-sm);
 }
 
 .timeline-card__meta {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  font-size: 0.8rem;
+  font-size: var(--text-body-xs);
   color: var(--timeline-meta);
 }
 
@@ -1245,7 +1245,7 @@ h3 {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  font-size: 0.95rem;
+  font-size: var(--text-body-md);
   pointer-events: none;
 }
 
