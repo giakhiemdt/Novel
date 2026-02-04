@@ -11,7 +11,7 @@ export type CharacterInput = {
   gender: CharacterGender;
   age: number;
   race?: string;
-  specialAbility?: string;
+  specialAbilities?: string[];
   appearance?: string;
   height?: number;
   distinctiveTraits?: string[];

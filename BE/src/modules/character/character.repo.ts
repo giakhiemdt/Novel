@@ -17,7 +17,7 @@ CREATE (c:${nodeLabels.character} {
   gender: $gender,
   age: $age,
   race: $race,
-  specialAbility: $specialAbility,
+  specialAbilities: $specialAbilities,
   appearance: $appearance,
   height: $height,
   distinctiveTraits: $distinctiveTraits,
@@ -53,7 +53,7 @@ SET
   c.gender = $gender,
   c.age = $age,
   c.race = $race,
-  c.specialAbility = $specialAbility,
+  c.specialAbilities = $specialAbilities,
   c.appearance = $appearance,
   c.height = $height,
   c.distinctiveTraits = $distinctiveTraits,
@@ -82,7 +82,7 @@ WHERE
   ($name IS NULL OR toLower(c.name) CONTAINS toLower($name))
   AND ($tag IS NULL OR $tag IN coalesce(c.tags, []))
   AND ($race IS NULL OR c.race = $race)
-  AND ($specialAbility IS NULL OR c.specialAbility = $specialAbility)
+  AND ($specialAbility IS NULL OR $specialAbility IN coalesce(c.specialAbilities, []))
   AND ($gender IS NULL OR c.gender = $gender)
   AND ($status IS NULL OR c.status = $status)
   AND ($level IS NULL OR c.level = $level)
@@ -100,7 +100,7 @@ WHERE
   ($name IS NULL OR toLower(c.name) CONTAINS toLower($name))
   AND ($tag IS NULL OR $tag IN coalesce(c.tags, []))
   AND ($race IS NULL OR c.race = $race)
-  AND ($specialAbility IS NULL OR c.specialAbility = $specialAbility)
+  AND ($specialAbility IS NULL OR $specialAbility IN coalesce(c.specialAbilities, []))
   AND ($gender IS NULL OR c.gender = $gender)
   AND ($status IS NULL OR c.status = $status)
   AND ($level IS NULL OR c.level = $level)
@@ -173,7 +173,7 @@ const CHARACTER_PARAMS = [
   "gender",
   "age",
   "race",
-  "specialAbility",
+  "specialAbilities",
   "appearance",
   "height",
   "distinctiveTraits",

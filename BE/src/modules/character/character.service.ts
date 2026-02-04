@@ -321,8 +321,8 @@ const validateCharacterPayload = (payload: unknown): CharacterInput => {
   addIfDefined(result, "alias", assertOptionalStringArray(data.alias, "alias"));
   addIfDefined(
     result,
-    "specialAbility",
-    assertOptionalTrimmedString(data.specialAbility, "specialAbility")
+    "specialAbilities",
+    assertOptionalStringArray(data.specialAbilities, "specialAbilities")
   );
   addIfDefined(result, "level", assertOptionalTrimmedString(data.level, "level"));
   addIfDefined(
@@ -428,8 +428,8 @@ export const characterService = {
         throw new AppError("rank not found", 400);
       }
     }
-    const abilityName = validated.specialAbility;
-    if (abilityName) {
+    const abilityNames = validated.specialAbilities ?? [];
+    for (const abilityName of abilityNames) {
       const abilityExists = await getSpecialAbilityByName(database, abilityName);
       if (!abilityExists) {
         throw new AppError("special ability not found", 400);
@@ -443,7 +443,7 @@ export const characterService = {
     if (rankName) {
       await linkCharacterRank(database, created.id, rankName);
     }
-    if (abilityName) {
+    for (const abilityName of abilityNames) {
       await linkCharacterSpecialAbility(database, created.id, abilityName);
     }
     return created;
@@ -469,8 +469,8 @@ export const characterService = {
         throw new AppError("rank not found", 400);
       }
     }
-    const abilityName = validated.specialAbility;
-    if (abilityName) {
+    const abilityNames = validated.specialAbilities ?? [];
+    for (const abilityName of abilityNames) {
       const abilityExists = await getSpecialAbilityByName(database, abilityName);
       if (!abilityExists) {
         throw new AppError("special ability not found", 400);
@@ -498,7 +498,7 @@ export const characterService = {
     if (rankName) {
       await linkCharacterRank(database, id, rankName);
     }
-    if (abilityName) {
+    for (const abilityName of abilityNames) {
       await linkCharacterSpecialAbility(database, id, abilityName);
     }
     return updated;
