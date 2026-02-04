@@ -395,6 +395,9 @@ export const characterService = {
     const database = assertDatabaseName(dbName);
     const validated = validateCharacterPayload(payload);
     const raceName = validated.race;
+    if (!raceName) {
+      throw new AppError("race is required", 400);
+    }
     const raceExists = await getRaceByName(database, raceName);
     if (!raceExists) {
       throw new AppError("race not found", 400);
@@ -412,6 +415,9 @@ export const characterService = {
     const database = assertDatabaseName(dbName);
     const validated = validateCharacterPayload(payload);
     const raceName = validated.race;
+    if (!raceName) {
+      throw new AppError("race is required", 400);
+    }
     const raceExists = await getRaceByName(database, raceName);
     if (!raceExists) {
       throw new AppError("race not found", 400);
