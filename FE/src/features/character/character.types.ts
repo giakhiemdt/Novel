@@ -9,6 +9,7 @@ export type CharacterPayload = {
   age: number;
   race?: string;
   specialAbilities?: string[];
+  extra?: Record<string, unknown>;
   appearance?: string;
   height?: number;
   distinctiveTraits?: string[];

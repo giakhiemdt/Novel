@@ -25,6 +25,8 @@ import type { Character, CharacterPayload } from "./character.types";
 import type { Race } from "../race/race.types";
 import type { Rank } from "../rank/rank.types";
 import type { SpecialAbility } from "../special-ability/special-ability.types";
+import { getSchemaByEntity } from "../schema/schema.api";
+import type { EntitySchema, SchemaField } from "../schema/schema.types";
 
 const initialState = {
   name: "",
@@ -54,6 +56,7 @@ const initialState = {
   powerState: "",
   notes: "",
   tags: [] as string[],
+  extra: {} as Record<string, unknown>,
 };
 
 type CharacterFormState = typeof initialState;
@@ -66,6 +69,7 @@ export const CharacterCreate = () => {
   const [races, setRaces] = useState<Race[]>([]);
   const [ranks, setRanks] = useState<Rank[]>([]);
   const [specialAbilities, setSpecialAbilities] = useState<SpecialAbility[]>([]);
+  const [schema, setSchema] = useState<EntitySchema | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<Character | null>(null);
   const [editValues, setEditValues] = useState<CharacterFormState | null>(null);
@@ -108,18 +112,29 @@ export const CharacterCreate = () => {
     }
   }, [getAllSpecialAbilities]);
 
+  const loadSchema = useCallback(async () => {
+    try {
+      const data = await getSchemaByEntity("character");
+      setSchema(data ?? null);
+    } catch (err) {
+      notify((err as Error).message, "error");
+    }
+  }, [getSchemaByEntity]);
+
   useEffect(() => {
     void loadItems();
     void loadRaces();
     void loadRanks();
     void loadSpecialAbilities();
-  }, [loadItems, loadRaces, loadRanks, loadSpecialAbilities]);
+    void loadSchema();
+  }, [loadItems, loadRaces, loadRanks, loadSpecialAbilities, loadSchema]);
 
   useProjectChange(() => {
     void loadItems();
     void loadRaces();
     void loadRanks();
     void loadSpecialAbilities();
+    void loadSchema();
   });
 
   const raceOptions = useMemo(() => {
@@ -155,6 +170,13 @@ export const CharacterCreate = () => {
     return [...options, { value: "__create__", label: t("Create special ability") }];
   }, [specialAbilities, t]);
 
+  const schemaFields = useMemo<SchemaField[]>(() => {
+    if (!schema?.fields?.length) {
+      return [];
+    }
+    return [...schema.fields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  }, [schema]);
+
   const mapCharacterToForm = (item: Character): CharacterFormState => ({
     name: item.name ?? "",
     alias: item.alias ?? [],
@@ -183,6 +205,7 @@ export const CharacterCreate = () => {
     powerState: item.powerState ?? "",
     notes: item.notes ?? "",
     tags: item.tags ?? [],
+    extra: item.extra ?? {},
   });
 
   const buildPayload = (): CharacterPayload => ({
@@ -213,6 +236,7 @@ export const CharacterCreate = () => {
     powerState: values.powerState || undefined,
     notes: values.notes || undefined,
     tags: values.tags,
+    extra: values.extra,
   });
 
   const handleSubmit = async () => {
@@ -282,6 +306,7 @@ export const CharacterCreate = () => {
         powerState: editValues.powerState || undefined,
         notes: editValues.notes || undefined,
         tags: editValues.tags,
+        extra: editValues.extra,
       });
       notify(t("Character updated successfully."), "success");
       await loadItems();
@@ -308,6 +333,101 @@ export const CharacterCreate = () => {
       await loadItems();
     } catch (err) {
       notify((err as Error).message, "error");
+    }
+  };
+
+  const updateExtraField = (
+    state: CharacterFormState,
+    key: string,
+    value: unknown
+  ): CharacterFormState => ({
+    ...state,
+    extra: {
+      ...state.extra,
+      [key]: value,
+    },
+  });
+
+  const renderDynamicField = (
+    field: SchemaField,
+    value: unknown,
+    onChange: (next: unknown) => void
+  ) => {
+    switch (field.type) {
+      case "textarea":
+        return (
+          <TextArea
+            label={field.label}
+            value={typeof value === "string" ? value : ""}
+            onChange={(nextValue) => onChange(nextValue)}
+            placeholder={field.placeholder}
+          />
+        );
+      case "number":
+        return (
+          <TextInput
+            label={field.label}
+            type="number"
+            value={value === undefined || value === null ? "" : String(value)}
+            onChange={(nextValue) =>
+              onChange(nextValue === "" ? undefined : Number(nextValue))
+            }
+          />
+        );
+      case "select":
+        return (
+          <Select
+            label={field.label}
+            value={typeof value === "string" ? value : ""}
+            onChange={(nextValue) => onChange(nextValue)}
+            options={(field.options ?? []).map((option) => ({
+              value: option,
+              label: option,
+            }))}
+            placeholder={field.placeholder}
+          />
+        );
+      case "multiselect":
+        return (
+          <MultiSelect
+            label={field.label}
+            values={Array.isArray(value) ? (value as string[]) : []}
+            onChange={(nextValue) => onChange(nextValue)}
+          />
+        );
+      case "boolean":
+        return (
+          <label className="toggle">
+            <span>{field.label}</span>
+            <input
+              type="checkbox"
+              checked={Boolean(value)}
+              onChange={(event) => onChange(event.target.checked)}
+            />
+            <span className="toggle__track" aria-hidden="true">
+              <span className="toggle__thumb" />
+            </span>
+          </label>
+        );
+      case "date":
+        return (
+          <TextInput
+            label={field.label}
+            type="date"
+            value={typeof value === "string" ? value : ""}
+            onChange={(nextValue) => onChange(nextValue)}
+          />
+        );
+      case "text":
+      default:
+        return (
+          <TextInput
+            label={field.label}
+            value={typeof value === "string" ? value : ""}
+            onChange={(nextValue) => onChange(nextValue)}
+            placeholder={field.placeholder}
+          />
+        );
     }
   };
 
@@ -669,6 +789,23 @@ export const CharacterCreate = () => {
             </div>
           </FormSection>
 
+          {schemaFields.length > 0 && (
+            <FormSection title={schema?.title ?? "Additional Fields"}>
+              {schemaFields.map((field) => (
+                <div key={field.key} className="form-field--wide">
+                  {renderDynamicField(
+                    field,
+                    editValues.extra?.[field.key],
+                    (nextValue) =>
+                      setEditValues((prev) =>
+                        prev ? updateExtraField(prev, field.key, nextValue) : prev
+                      )
+                  )}
+                </div>
+              ))}
+            </FormSection>
+          )}
+
           <div className="card">
             <Button onClick={handleEditSave} disabled={isSavingEdit}>
               {isSavingEdit ? t("Saving...") : t("Save changes")}
@@ -945,6 +1082,18 @@ export const CharacterCreate = () => {
           />
         </div>
       </FormSection>
+
+      {schemaFields.length > 0 && (
+        <FormSection title={schema?.title ?? "Additional Fields"}>
+          {schemaFields.map((field) => (
+            <div key={field.key} className="form-field--wide">
+              {renderDynamicField(field, values.extra?.[field.key], (nextValue) =>
+                setField("extra", { ...values.extra, [field.key]: nextValue })
+              )}
+            </div>
+          ))}
+        </FormSection>
+      )}
 
           <div className="card">
             <Button onClick={handleSubmit} variant="primary">
