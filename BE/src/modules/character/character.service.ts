@@ -4,21 +4,22 @@ import {
   createCharacter,
   deleteCharacter,
   getCharacters,
+  linkCharacterRank,
   linkCharacterRace,
+  unlinkCharacterRank,
   unlinkCharacterRace,
   updateCharacter,
 } from "./character.repo";
 import { getRaceByName } from "../race/race.repo";
+import { getRankByName } from "../rank/rank.repo";
 import {
   CharacterInput,
-  CharacterLevel,
   CharacterGender,
   CharacterListQuery,
   CharacterNode,
   CharacterStatus,
 } from "./character.types";
 
-const LEVELS: CharacterLevel[] = ["T1", "T2", "T3", "T4", "T5", "T6", "T7"];
 const STATUSES: CharacterStatus[] = ["Alive", "Dead"];
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
@@ -54,6 +55,20 @@ const assertOptionalString = (
     throw new AppError(`${field} must be a string`, 400);
   }
   return value;
+};
+
+const assertOptionalTrimmedString = (
+  value: unknown,
+  field: string
+): string | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "string") {
+    throw new AppError(`${field} must be a string`, 400);
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
 };
 
 const assertOptionalNumber = (
@@ -260,9 +275,6 @@ const parseCharacterListQuery = (query: unknown): CharacterListQuery => {
   if (status && !STATUSES.includes(status as CharacterStatus)) {
     throw new AppError(`status must be one of ${STATUSES.join(", ")}`, 400);
   }
-  if (level && !LEVELS.includes(level as CharacterLevel)) {
-    throw new AppError(`level must be one of ${LEVELS.join(", ")}`, 400);
-  }
 
   const result: CharacterListQuery = {
     limit: normalizedLimit,
@@ -275,7 +287,7 @@ const parseCharacterListQuery = (query: unknown): CharacterListQuery => {
   addIfDefined(result, "race", race);
   addIfDefined(result, "gender", gender as CharacterGender | undefined);
   addIfDefined(result, "status", status as CharacterStatus | undefined);
-  addIfDefined(result, "level", level as CharacterLevel | undefined);
+  addIfDefined(result, "level", level);
   addIfDefined(
     result,
     "isMainCharacter",
@@ -295,7 +307,6 @@ const validateCharacterPayload = (payload: unknown): CharacterInput => {
     name: assertRequiredString(data.name, "name"),
     gender: assertRequiredGender(data.gender),
     age: assertRequiredNumber(data.age, "age"),
-    race: assertRequiredString(data.race, "race"),
   };
 
   addIfDefined(result, "id", assertOptionalString(data.id, "id"));
@@ -305,7 +316,7 @@ const validateCharacterPayload = (payload: unknown): CharacterInput => {
     "soulArt",
     assertOptionalStringArray(data.soulArt, "soulArt")
   );
-  addIfDefined(result, "level", assertOptionalEnum(data.level, LEVELS, "level"));
+  addIfDefined(result, "level", assertOptionalTrimmedString(data.level, "level"));
   addIfDefined(
     result,
     "status",
@@ -322,6 +333,7 @@ const validateCharacterPayload = (payload: unknown): CharacterInput => {
     assertOptionalString(data.appearance, "appearance")
   );
   addIfDefined(result, "height", assertOptionalNumber(data.height, "height"));
+  addIfDefined(result, "race", assertOptionalTrimmedString(data.race, "race"));
   addIfDefined(
     result,
     "distinctiveTraits",
@@ -394,14 +406,28 @@ export const characterService = {
   create: async (payload: unknown, dbName: unknown): Promise<CharacterNode> => {
     const database = assertDatabaseName(dbName);
     const validated = validateCharacterPayload(payload);
-    const raceName: string = assertRequiredString(validated.race, "race");
-    const raceExists = await getRaceByName(database, raceName);
-    if (!raceExists) {
-      throw new AppError("race not found", 400);
+    const raceName = validated.race;
+    if (raceName) {
+      const raceExists = await getRaceByName(database, raceName);
+      if (!raceExists) {
+        throw new AppError("race not found", 400);
+      }
+    }
+    const rankName = validated.level;
+    if (rankName) {
+      const rankExists = await getRankByName(database, rankName);
+      if (!rankExists) {
+        throw new AppError("rank not found", 400);
+      }
     }
     const node = buildCharacterNode(validated);
     const created = await createCharacter(node, database);
-    await linkCharacterRace(database, created.id, raceName);
+    if (raceName) {
+      await linkCharacterRace(database, created.id, raceName);
+    }
+    if (rankName) {
+      await linkCharacterRank(database, created.id, rankName);
+    }
     return created;
   },
   update: async (
@@ -411,10 +437,19 @@ export const characterService = {
   ): Promise<CharacterNode> => {
     const database = assertDatabaseName(dbName);
     const validated = validateCharacterPayload(payload);
-    const raceName: string = assertRequiredString(validated.race, "race");
-    const raceExists = await getRaceByName(database, raceName);
-    if (!raceExists) {
-      throw new AppError("race not found", 400);
+    const raceName = validated.race;
+    if (raceName) {
+      const raceExists = await getRaceByName(database, raceName);
+      if (!raceExists) {
+        throw new AppError("race not found", 400);
+      }
+    }
+    const rankName = validated.level;
+    if (rankName) {
+      const rankExists = await getRankByName(database, rankName);
+      if (!rankExists) {
+        throw new AppError("rank not found", 400);
+      }
     }
     const now = new Date().toISOString();
     const node: CharacterNode = {
@@ -430,7 +465,13 @@ export const characterService = {
       throw new AppError("character not found", 404);
     }
     await unlinkCharacterRace(database, id);
-    await linkCharacterRace(database, id, raceName);
+    await unlinkCharacterRank(database, id);
+    if (raceName) {
+      await linkCharacterRace(database, id, raceName);
+    }
+    if (rankName) {
+      await linkCharacterRank(database, id, rankName);
+    }
     return updated;
   },
   getAll: async (dbName: unknown): Promise<CharacterNode[]> => {

@@ -1,4 +1,3 @@
-export type CharacterLevel = "T1" | "T2" | "T3" | "T4" | "T5" | "T6" | "T7";
 export type CharacterStatus = "Alive" | "Dead";
 export type CharacterGender = "male" | "female" | "other";
 
@@ -7,12 +6,12 @@ export type CharacterInput = {
   name: string;
   alias?: string[];
   soulArt?: string[];
-  level?: CharacterLevel;
+  level?: string;
   status?: CharacterStatus;
   isMainCharacter?: boolean;
   gender: CharacterGender;
   age: number;
-  race: string;
+  race?: string;
   appearance?: string;
   height?: number;
   distinctiveTraits?: string[];
@@ -50,6 +49,6 @@ export type CharacterListQuery = {
   race?: string;
   gender?: CharacterGender;
   status?: CharacterStatus;
-  level?: CharacterLevel;
+  level?: string;
   isMainCharacter?: boolean;
 };

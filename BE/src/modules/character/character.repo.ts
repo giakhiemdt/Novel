@@ -131,6 +131,21 @@ DELETE rel
 RETURN count(rel) AS deleted
 `;
 
+const LINK_CHARACTER_RANK = `
+MATCH (c:${nodeLabels.character} {id: $characterId})
+MATCH (r:${nodeLabels.rank})
+WHERE toLower(r.name) = toLower($rankName)
+MERGE (c)-[:${relationTypes.characterHasRank}]->(r)
+RETURN r
+`;
+
+const UNLINK_CHARACTER_RANK = `
+MATCH (c:${nodeLabels.character} {id: $characterId})
+MATCH (c)-[rel:${relationTypes.characterHasRank}]->(:${nodeLabels.rank})
+DELETE rel
+RETURN count(rel) AS deleted
+`;
+
 const CHARACTER_PARAMS = [
   "id",
   "name",
@@ -271,6 +286,41 @@ export const unlinkCharacterRace = async (
   const session = getSessionForDatabase(database, neo4j.session.WRITE);
   try {
     const result = await session.run(UNLINK_CHARACTER_RACE, { characterId });
+    const record = result.records[0];
+    const deleted = record?.get("deleted");
+    if (typeof deleted?.toNumber === "function") {
+      return deleted.toNumber();
+    }
+    return typeof deleted === "number" ? deleted : 0;
+  } finally {
+    await session.close();
+  }
+};
+
+export const linkCharacterRank = async (
+  database: string,
+  characterId: string,
+  rankName: string
+): Promise<boolean> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    const result = await session.run(LINK_CHARACTER_RANK, {
+      characterId,
+      rankName,
+    });
+    return result.records.length > 0;
+  } finally {
+    await session.close();
+  }
+};
+
+export const unlinkCharacterRank = async (
+  database: string,
+  characterId: string
+): Promise<number> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    const result = await session.run(UNLINK_CHARACTER_RANK, { characterId });
     const record = result.records[0];
     const deleted = record?.get("deleted");
     if (typeof deleted?.toNumber === "function") {

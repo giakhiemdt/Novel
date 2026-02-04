@@ -14,6 +14,7 @@ import { itemRoutes } from "../modules/item/item.routes";
 import { relationshipRoutes } from "../modules/relationship/relationship.routes";
 import { worldRuleRoutes } from "../modules/worldrule/worldrule.routes";
 import { raceRoutes } from "../modules/race/race.routes";
+import { rankRoutes } from "../modules/rank/rank.routes";
 import { healthRoutes } from "./health.routes";
 
 export type RouteConfig = {
@@ -36,6 +37,7 @@ export const routes: RouteConfig[] = [
   ...projectRoutes,
   ...characterRoutes,
   ...raceRoutes,
+  ...rankRoutes,
   ...timelineRoutes,
   ...locationRoutes,
   ...factionRoutes,
