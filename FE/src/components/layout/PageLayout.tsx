@@ -25,7 +25,7 @@ export const PageLayout = ({ title, subtitle, children }: PageLayoutProps) => {
   }, []);
 
   return (
-    <div className="page-shell">
+    <div className={`page-shell ${sidebarOpen ? "" : "page-shell--no-sidebar"}`}>
       {sidebarOpen && <Sidebar />}
       <main className="main">
         <Header title={title} subtitle={subtitle} />

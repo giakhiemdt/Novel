@@ -45,6 +45,10 @@ h3 {
   transition: grid-template-columns 0.25s ease;
 }
 
+.page-shell--no-sidebar {
+  --shell-columns: 1fr;
+}
+
 .sidebar {
   background: var(--bg-sidebar);
   color: var(--color-ink);
