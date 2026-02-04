@@ -6,5 +6,4 @@ export const validateCharacter = (payload: CharacterPayload) =>
     "name",
     "gender",
     "age",
-    "race",
   ]);

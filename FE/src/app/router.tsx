@@ -12,6 +12,7 @@ import { RelationshipCreate } from "../features/relationship/RelationshipCreate"
 import { ConflictCheck } from "../features/conflict/ConflictCheck";
 import { WorldRuleCreate } from "../features/worldrule/WorldRuleCreate";
 import { RaceCreate } from "../features/race/RaceCreate";
+import { RankCreate } from "../features/rank/RankCreate";
 import { Settings } from "./Settings";
 import { Dashboard } from "./Dashboard";
 
@@ -21,6 +22,7 @@ export const AppRouter = () => {
       <Route path="/" element={<Dashboard />} />
       <Route path="/characters" element={<CharacterCreate />} />
       <Route path="/races" element={<RaceCreate />} />
+      <Route path="/ranks" element={<RankCreate />} />
       <Route path="/timelines" element={<TimelineCreate />} />
       <Route path="/locations" element={<LocationCreate />} />
       <Route path="/factions" element={<FactionCreate />} />

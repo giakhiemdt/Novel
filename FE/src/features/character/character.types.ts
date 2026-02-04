@@ -3,12 +3,12 @@ export type CharacterPayload = {
   name: string;
   alias?: string[];
   soulArt?: string[];
-  level?: "T1" | "T2" | "T3" | "T4" | "T5" | "T6" | "T7";
+  level?: string;
   status?: "Alive" | "Dead";
   isMainCharacter?: boolean;
   gender: "male" | "female" | "other";
   age: number;
-  race: "human" | "elf" | "demon";
+  race?: string;
   appearance?: string;
   height?: number;
   distinctiveTraits?: string[];

@@ -17,10 +17,12 @@ import {
   updateCharacter,
 } from "./character.api";
 import { getAllRaces } from "../race/race.api";
+import { getAllRanks } from "../rank/rank.api";
 import { CharacterList } from "./CharacterList";
 import { validateCharacter } from "./character.schema";
 import type { Character, CharacterPayload } from "./character.types";
 import type { Race } from "../race/race.types";
+import type { Rank } from "../rank/rank.types";
 
 const initialState = {
   name: "",
@@ -60,6 +62,7 @@ export const CharacterCreate = () => {
   const { values, setField, reset } = useForm<CharacterFormState>(initialState);
   const [items, setItems] = useState<Character[]>([]);
   const [races, setRaces] = useState<Race[]>([]);
+  const [ranks, setRanks] = useState<Rank[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<Character | null>(null);
   const [editValues, setEditValues] = useState<CharacterFormState | null>(null);
@@ -84,14 +87,25 @@ export const CharacterCreate = () => {
     }
   }, [getAllRaces]);
 
+  const loadRanks = useCallback(async () => {
+    try {
+      const data = await getAllRanks();
+      setRanks(data ?? []);
+    } catch (err) {
+      notify((err as Error).message, "error");
+    }
+  }, [getAllRanks]);
+
   useEffect(() => {
     void loadItems();
     void loadRaces();
-  }, [loadItems, loadRaces]);
+    void loadRanks();
+  }, [loadItems, loadRaces, loadRanks]);
 
   useProjectChange(() => {
     void loadItems();
     void loadRaces();
+    void loadRanks();
   });
 
   const raceOptions = useMemo(() => {
@@ -104,6 +118,17 @@ export const CharacterCreate = () => {
         : [];
     return [...options, { value: "__create__", label: t("Create race") }];
   }, [races, t]);
+
+  const rankOptions = useMemo(() => {
+    const options =
+      ranks.length > 0
+        ? ranks
+            .map((rank) => rank.name?.trim() ?? "")
+            .filter((name) => name.length > 0)
+            .map((name) => ({ value: name, label: name }))
+        : [];
+    return [...options, { value: "__create__", label: t("Create rank") }];
+  }, [ranks, t]);
 
   const mapCharacterToForm = (item: Character): CharacterFormState => ({
     name: item.name ?? "",
@@ -139,12 +164,12 @@ export const CharacterCreate = () => {
     name: values.name,
     alias: values.alias,
     soulArt: values.soulArt,
-    level: values.level as CharacterPayload["level"],
+    level: values.level || undefined,
     status: values.status as CharacterPayload["status"],
     isMainCharacter: values.isMainCharacter,
     gender: values.gender as CharacterPayload["gender"],
     age: values.age === "" ? Number.NaN : Number(values.age),
-    race: values.race as CharacterPayload["race"],
+    race: values.race || undefined,
     appearance: values.appearance || undefined,
     height: values.height === "" ? undefined : Number(values.height),
     distinctiveTraits: values.distinctiveTraits,
@@ -213,7 +238,7 @@ export const CharacterCreate = () => {
         isMainCharacter: editValues.isMainCharacter,
         gender: editValues.gender as Character["gender"],
         age: editValues.age === "" ? Number.NaN : Number(editValues.age),
-        race: editValues.race as Character["race"],
+        race: editValues.race || undefined,
         appearance: editValues.appearance || undefined,
         height: editValues.height === "" ? undefined : Number(editValues.height),
         distinctiveTraits: editValues.distinctiveTraits,
@@ -342,19 +367,21 @@ export const CharacterCreate = () => {
                 }}
                 options={raceOptions}
                 placeholder={races.length > 0 ? "Select" : "No races yet."}
-                required
               />
             </div>
             <div className="form-field--narrow">
               <Select
-                label="Level"
+                label="Rank"
                 value={editValues.level}
-                onChange={(value) =>
-                  setEditValues((prev) => prev && { ...prev, level: value })
-                }
-                options={["T1", "T2", "T3", "T4", "T5", "T6", "T7"].map(
-                  (value) => ({ value, label: value })
-                )}
+                onChange={(value) => {
+                  if (value === "__create__") {
+                    navigate("/ranks");
+                    return;
+                  }
+                  setEditValues((prev) => prev && { ...prev, level: value });
+                }}
+                options={rankOptions}
+                placeholder={ranks.length > 0 ? "Select" : "No ranks yet."}
               />
             </div>
             <div className="form-field--narrow">
@@ -648,18 +675,21 @@ export const CharacterCreate = () => {
             }}
             options={raceOptions}
             placeholder={races.length > 0 ? "Select" : "No races yet."}
-            required
           />
         </div>
         <div className="form-field--narrow">
           <Select
-            label="Level"
+            label="Rank"
             value={values.level}
-            onChange={(value) => setField("level", value)}
-            options={["T1", "T2", "T3", "T4", "T5", "T6", "T7"].map((value) => ({
-              value,
-              label: value,
-            }))}
+            onChange={(value) => {
+              if (value === "__create__") {
+                navigate("/ranks");
+                return;
+              }
+              setField("level", value);
+            }}
+            options={rankOptions}
+            placeholder={ranks.length > 0 ? "Select" : "No ranks yet."}
           />
         </div>
         <div className="form-field--narrow">
