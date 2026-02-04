@@ -87,6 +87,19 @@ const assertOptionalNumber = (
   return value;
 };
 
+const assertOptionalObject = (
+  value: unknown,
+  field: string
+): Record<string, unknown> | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new AppError(`${field} must be an object`, 400);
+  }
+  return value as Record<string, unknown>;
+};
+
 const parseOptionalQueryString = (
   value: unknown,
   field: string
@@ -406,6 +419,7 @@ const validateCharacterPayload = (payload: unknown): CharacterInput => {
   );
   addIfDefined(result, "notes", assertOptionalString(data.notes, "notes"));
   addIfDefined(result, "tags", assertOptionalStringArray(data.tags, "tags"));
+  addIfDefined(result, "extra", assertOptionalObject(data.extra, "extra"));
 
   return result as CharacterInput;
 };
