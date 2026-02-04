@@ -14,4 +14,5 @@ export const relationTypes = {
   ownsItem: "OWNS_ITEM",
   itemAppearsIn: "ITEM_APPEARS_IN",
   characterRelatesTo: "CHARACTER_RELATES_TO",
+  characterHasRace: "CHARACTER_HAS_RACE",
 };

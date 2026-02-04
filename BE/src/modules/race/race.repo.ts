@@ -66,6 +66,13 @@ SKIP toInteger($offset)
 LIMIT toInteger($limit)
 `;
 
+const GET_RACE_BY_NAME = `
+MATCH (r:${nodeLabels.race})
+WHERE toLower(r.name) = toLower($name)
+RETURN r
+LIMIT 1
+`;
+
 const DELETE_RACE = `
 MATCH (r:${nodeLabels.race} {id: $id})
 WITH r
@@ -158,6 +165,24 @@ export const deleteRace = async (
   try {
     const result = await session.run(DELETE_RACE, { id });
     return result.records.length > 0;
+  } finally {
+    await session.close();
+  }
+};
+
+export const getRaceByName = async (
+  database: string,
+  name: string
+): Promise<RaceNode | null> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const result = await session.run(GET_RACE_BY_NAME, { name });
+    const record = result.records[0];
+    if (!record) {
+      return null;
+    }
+    const node = record.get("r");
+    return mapNode(node?.properties ?? {}) as RaceNode;
   } finally {
     await session.close();
   }

@@ -4,22 +4,22 @@ import {
   createCharacter,
   deleteCharacter,
   getCharacters,
+  linkCharacterRace,
+  unlinkCharacterRace,
   updateCharacter,
 } from "./character.repo";
+import { getRaceByName } from "../race/race.repo";
 import {
   CharacterInput,
   CharacterLevel,
   CharacterGender,
   CharacterListQuery,
   CharacterNode,
-  CharacterRace,
   CharacterStatus,
 } from "./character.types";
 
 const LEVELS: CharacterLevel[] = ["T1", "T2", "T3", "T4", "T5", "T6", "T7"];
 const STATUSES: CharacterStatus[] = ["Alive", "Dead"];
-const RACES: CharacterRace[] = ["human", "elf", "demon"];
-
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
 
@@ -254,9 +254,6 @@ const parseCharacterListQuery = (query: unknown): CharacterListQuery => {
   const status = parseOptionalQueryString(data.status, "status");
   const level = parseOptionalQueryString(data.level, "level");
 
-  if (race && !RACES.includes(race as CharacterRace)) {
-    throw new AppError(`race must be one of ${RACES.join(", ")}`, 400);
-  }
   if (gender && !["male", "female", "other"].includes(gender)) {
     throw new AppError("gender must be one of male, female, other", 400);
   }
@@ -275,7 +272,7 @@ const parseCharacterListQuery = (query: unknown): CharacterListQuery => {
   addIfDefined(result, "q", parseOptionalQueryString(data.q, "q"));
   addIfDefined(result, "name", parseOptionalQueryString(data.name, "name"));
   addIfDefined(result, "tag", parseOptionalQueryString(data.tag, "tag"));
-  addIfDefined(result, "race", race as CharacterRace | undefined);
+  addIfDefined(result, "race", race);
   addIfDefined(result, "gender", gender as CharacterGender | undefined);
   addIfDefined(result, "status", status as CharacterStatus | undefined);
   addIfDefined(result, "level", level as CharacterLevel | undefined);
@@ -298,7 +295,7 @@ const validateCharacterPayload = (payload: unknown): CharacterInput => {
     name: assertRequiredString(data.name, "name"),
     gender: assertRequiredGender(data.gender),
     age: assertRequiredNumber(data.age, "age"),
-    race: assertRequiredEnum(data.race, RACES, "race"),
+    race: assertRequiredString(data.race, "race"),
   };
 
   addIfDefined(result, "id", assertOptionalString(data.id, "id"));
@@ -397,8 +394,14 @@ export const characterService = {
   create: async (payload: unknown, dbName: unknown): Promise<CharacterNode> => {
     const database = assertDatabaseName(dbName);
     const validated = validateCharacterPayload(payload);
+    const raceExists = await getRaceByName(database, validated.race);
+    if (!raceExists) {
+      throw new AppError("race not found", 400);
+    }
     const node = buildCharacterNode(validated);
-    return createCharacter(node, database);
+    const created = await createCharacter(node, database);
+    await linkCharacterRace(database, created.id, validated.race);
+    return created;
   },
   update: async (
     id: string,
@@ -407,6 +410,10 @@ export const characterService = {
   ): Promise<CharacterNode> => {
     const database = assertDatabaseName(dbName);
     const validated = validateCharacterPayload(payload);
+    const raceExists = await getRaceByName(database, validated.race);
+    if (!raceExists) {
+      throw new AppError("race not found", 400);
+    }
     const now = new Date().toISOString();
     const node: CharacterNode = {
       ...validated,
@@ -420,6 +427,8 @@ export const characterService = {
     if (!updated) {
       throw new AppError("character not found", 404);
     }
+    await unlinkCharacterRace(database, id);
+    await linkCharacterRace(database, id, validated.race);
     return updated;
   },
   getAll: async (dbName: unknown): Promise<CharacterNode[]> => {

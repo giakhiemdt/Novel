@@ -1,6 +1,7 @@
 import neo4j from "neo4j-driver";
 import { getSessionForDatabase } from "../../database";
 import { nodeLabels } from "../../shared/constants/node-labels";
+import { relationTypes } from "../../shared/constants/relation-types";
 import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
 import { CharacterListQuery, CharacterNode } from "./character.types";
@@ -115,6 +116,21 @@ DETACH DELETE c
 RETURN 1 AS deleted
 `;
 
+const LINK_CHARACTER_RACE = `
+MATCH (c:${nodeLabels.character} {id: $characterId})
+MATCH (r:${nodeLabels.race})
+WHERE toLower(r.name) = toLower($raceName)
+MERGE (c)-[:${relationTypes.characterHasRace}]->(r)
+RETURN r
+`;
+
+const UNLINK_CHARACTER_RACE = `
+MATCH (c:${nodeLabels.character} {id: $characterId})
+MATCH (c)-[rel:${relationTypes.characterHasRace}]->(:${nodeLabels.race})
+DELETE rel
+RETURN count(rel) AS deleted
+`;
+
 const CHARACTER_PARAMS = [
   "id",
   "name",
@@ -226,6 +242,41 @@ export const deleteCharacter = async (
   try {
     const result = await session.run(DELETE_CHARACTER, { id });
     return result.records.length > 0;
+  } finally {
+    await session.close();
+  }
+};
+
+export const linkCharacterRace = async (
+  database: string,
+  characterId: string,
+  raceName: string
+): Promise<boolean> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    const result = await session.run(LINK_CHARACTER_RACE, {
+      characterId,
+      raceName,
+    });
+    return result.records.length > 0;
+  } finally {
+    await session.close();
+  }
+};
+
+export const unlinkCharacterRace = async (
+  database: string,
+  characterId: string
+): Promise<number> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    const result = await session.run(UNLINK_CHARACTER_RACE, { characterId });
+    const record = result.records[0];
+    const deleted = record?.get("deleted");
+    if (typeof deleted?.toNumber === "function") {
+      return deleted.toNumber();
+    }
+    return typeof deleted === "number" ? deleted : 0;
   } finally {
     await session.close();
   }

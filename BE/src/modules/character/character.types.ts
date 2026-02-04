@@ -1,7 +1,6 @@
 export type CharacterLevel = "T1" | "T2" | "T3" | "T4" | "T5" | "T6" | "T7";
 export type CharacterStatus = "Alive" | "Dead";
 export type CharacterGender = "male" | "female" | "other";
-export type CharacterRace = "human" | "elf" | "demon";
 
 export type CharacterInput = {
   id?: string;
@@ -13,7 +12,7 @@ export type CharacterInput = {
   isMainCharacter?: boolean;
   gender: CharacterGender;
   age: number;
-  race: CharacterRace;
+  race: string;
   appearance?: string;
   height?: number;
   distinctiveTraits?: string[];
@@ -47,7 +46,7 @@ export type CharacterListQuery = {
   q?: string;
   name?: string;
   tag?: string;
-  race?: CharacterRace;
+  race?: string;
   gender?: CharacterGender;
   status?: CharacterStatus;
   level?: CharacterLevel;
