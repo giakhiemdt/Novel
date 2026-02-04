@@ -152,9 +152,6 @@ h3 {
 }
 
 .sidebar__section-title {
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: var(--text-faint);
   margin: 0 0 var(--space-1) var(--space-2);
 }
 
@@ -169,8 +166,7 @@ h3 {
 }
 
 .sidebar__project-label {
-  font-size: 0.75rem;
-  color: var(--color-ink-soft);
+  font-size: var(--text-body-xs);
 }
 
 .sidebar__project-select {
@@ -916,7 +912,6 @@ h3 {
 }
 
 .tree-row__meta {
-  color: var(--color-ink-soft);
   font-size: var(--text-body-sm);
 }
 
@@ -954,34 +949,44 @@ h3 {
 
 .detail-item__label {
   display: block;
-  font-size: 0.75rem;
+  font-size: var(--text-body-xs);
   margin-bottom: 4px;
 }
 
 .sidebar__section-title,
 .table--clean th,
-.tree-header {
+.tree-header,
+.detail-item__label,
+.sidebar__project-label {
+  text-transform: uppercase;
+}
+
+.sidebar__section-title {
   font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  color: var(--text-faint);
+}
+
+.table--clean th,
+.tree-header,
+.detail-item__label {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
 }
 
 .sidebar__project-label,
-.table--clean th,
-.tree-header,
 .detail-item__label {
-  text-transform: uppercase;
   letter-spacing: 0.08em;
-}
-
-.table--clean th,
-.tree-header,
-.detail-item__label {
-  color: var(--text-muted);
+  color: var(--color-ink-soft);
 }
 
 .header__subtitle,
 .modal__subtitle,
 .timeline-card p,
-.timeline-empty {
+.timeline-empty,
+.tree-row__meta,
+.detail-list dt {
   color: var(--color-ink-soft);
 }
 
@@ -1307,7 +1312,6 @@ h3 {
 }
 
 .detail-list dt {
-  color: var(--color-ink-soft);
   font-weight: 600;
 }
 
