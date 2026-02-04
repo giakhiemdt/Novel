@@ -109,17 +109,38 @@ const normalizeField = (field: unknown, index: number): SchemaField => {
     throw new AppError(`fields[${index}].type is invalid`, 400);
   }
   const options = assertOptionalStringArray(data.options, `fields[${index}].options`);
-  return {
+  const result: SchemaField = {
     key,
     label,
     type: type as SchemaFieldType,
-    required: assertOptionalBoolean(data.required, `fields[${index}].required`),
-    options,
-    group: assertOptionalString(data.group, `fields[${index}].group`),
-    order: assertOptionalNumber(data.order, `fields[${index}].order`),
-    placeholder: assertOptionalString(data.placeholder, `fields[${index}].placeholder`),
-    help: assertOptionalString(data.help, `fields[${index}].help`),
   };
+  const required = assertOptionalBoolean(data.required, `fields[${index}].required`);
+  if (required !== undefined) {
+    result.required = required;
+  }
+  if (options !== undefined) {
+    result.options = options;
+  }
+  const group = assertOptionalString(data.group, `fields[${index}].group`);
+  if (group !== undefined) {
+    result.group = group;
+  }
+  const order = assertOptionalNumber(data.order, `fields[${index}].order`);
+  if (order !== undefined) {
+    result.order = order;
+  }
+  const placeholder = assertOptionalString(
+    data.placeholder,
+    `fields[${index}].placeholder`
+  );
+  if (placeholder !== undefined) {
+    result.placeholder = placeholder;
+  }
+  const help = assertOptionalString(data.help, `fields[${index}].help`);
+  if (help !== undefined) {
+    result.help = help;
+  }
+  return result;
 };
 
 const validateSchemaPayload = (payload: unknown): EntitySchemaInput => {
@@ -133,12 +154,19 @@ const validateSchemaPayload = (payload: unknown): EntitySchemaInput => {
   }
   const fields = fieldsRaw.map(normalizeField);
 
-  return {
-    id: assertOptionalString(data.id, "id"),
+  const result: EntitySchemaInput = {
     entity: assertRequiredString(data.entity, "entity"),
-    title: assertOptionalString(data.title, "title"),
     fields,
   };
+  const id = assertOptionalString(data.id, "id");
+  if (id !== undefined) {
+    result.id = id;
+  }
+  const title = assertOptionalString(data.title, "title");
+  if (title !== undefined) {
+    result.title = title;
+  }
+  return result;
 };
 
 const buildSchemaNode = (payload: EntitySchemaInput): EntitySchemaNode => {
