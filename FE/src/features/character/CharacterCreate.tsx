@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/common/Button";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
@@ -55,6 +56,7 @@ type CharacterFormState = typeof initialState;
 
 export const CharacterCreate = () => {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const { values, setField, reset } = useForm<CharacterFormState>(initialState);
   const [items, setItems] = useState<Character[]>([]);
   const [races, setRaces] = useState<Race[]>([]);
@@ -92,13 +94,16 @@ export const CharacterCreate = () => {
     void loadRaces();
   });
 
-  const raceOptions =
-    races.length > 0
-      ? races
-          .map((race) => race.name?.trim() ?? "")
-          .filter((name) => name.length > 0)
-          .map((name) => ({ value: name, label: name }))
-      : [];
+  const raceOptions = useMemo(() => {
+    const options =
+      races.length > 0
+        ? races
+            .map((race) => race.name?.trim() ?? "")
+            .filter((name) => name.length > 0)
+            .map((name) => ({ value: name, label: name }))
+        : [];
+    return [...options, { value: "__create__", label: t("Create race") }];
+  }, [races, t]);
 
   const mapCharacterToForm = (item: Character): CharacterFormState => ({
     name: item.name ?? "",
@@ -328,9 +333,13 @@ export const CharacterCreate = () => {
               <Select
                 label="Race"
                 value={editValues.race}
-                onChange={(value) =>
-                  setEditValues((prev) => prev && { ...prev, race: value })
-                }
+                onChange={(value) => {
+                  if (value === "__create__") {
+                    navigate("/races");
+                    return;
+                  }
+                  setEditValues((prev) => prev && { ...prev, race: value });
+                }}
                 options={raceOptions}
                 placeholder={races.length > 0 ? "Select" : "No races yet."}
                 required
@@ -630,7 +639,13 @@ export const CharacterCreate = () => {
           <Select
             label="Race"
             value={values.race}
-            onChange={(value) => setField("race", value)}
+            onChange={(value) => {
+              if (value === "__create__") {
+                navigate("/races");
+                return;
+              }
+              setField("race", value);
+            }}
             options={raceOptions}
             placeholder={races.length > 0 ? "Select" : "No races yet."}
             required
