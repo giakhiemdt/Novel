@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
 import { CommandBar } from "../../features/command/CommandBar";
+import { TopBar } from "./TopBar";
 
 export type PageLayoutProps = {
   title: string;
@@ -24,10 +25,21 @@ export const PageLayout = ({ title, subtitle, children }: PageLayoutProps) => {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
+  const openCommand = () => {
+    window.dispatchEvent(
+      new CustomEvent("novel-command-open", { detail: { query: "" } })
+    );
+  };
+
   return (
     <div className={`page-shell ${sidebarOpen ? "" : "page-shell--no-sidebar"}`}>
       {sidebarOpen && <Sidebar />}
       <main className="main">
+        <TopBar
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
+          onOpenCommand={openCommand}
+        />
         <Header title={title} subtitle={subtitle} />
         {children}
       </main>
