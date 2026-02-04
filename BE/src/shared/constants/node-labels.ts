@@ -2,6 +2,7 @@ export const nodeLabels = {
   project: "Project",
   overview: "Overview",
   character: "Character",
+  race: "Race",
   event: "Event",
   faction: "Faction",
   timeline: "Timeline",
