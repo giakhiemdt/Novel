@@ -219,7 +219,7 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
                   isActive ? "sidebar__link sidebar__link--active" : "sidebar__link"
                 }
               >
-                <span className="sidebar__icon">{item?.code}</span>
+                <span className="sidebar__icon">★</span>
                 <span className="sidebar__label">{t(item?.label ?? "")}</span>
               </NavLink>
             ))}
