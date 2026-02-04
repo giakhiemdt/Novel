@@ -394,13 +394,14 @@ export const characterService = {
   create: async (payload: unknown, dbName: unknown): Promise<CharacterNode> => {
     const database = assertDatabaseName(dbName);
     const validated = validateCharacterPayload(payload);
-    const raceExists = await getRaceByName(database, validated.race);
+    const raceName = validated.race;
+    const raceExists = await getRaceByName(database, raceName);
     if (!raceExists) {
       throw new AppError("race not found", 400);
     }
     const node = buildCharacterNode(validated);
     const created = await createCharacter(node, database);
-    await linkCharacterRace(database, created.id, validated.race);
+    await linkCharacterRace(database, created.id, raceName);
     return created;
   },
   update: async (
@@ -410,7 +411,8 @@ export const characterService = {
   ): Promise<CharacterNode> => {
     const database = assertDatabaseName(dbName);
     const validated = validateCharacterPayload(payload);
-    const raceExists = await getRaceByName(database, validated.race);
+    const raceName = validated.race;
+    const raceExists = await getRaceByName(database, raceName);
     if (!raceExists) {
       throw new AppError("race not found", 400);
     }
@@ -428,7 +430,7 @@ export const characterService = {
       throw new AppError("character not found", 404);
     }
     await unlinkCharacterRace(database, id);
-    await linkCharacterRace(database, id, validated.race);
+    await linkCharacterRace(database, id, raceName);
     return updated;
   },
   getAll: async (dbName: unknown): Promise<CharacterNode[]> => {
