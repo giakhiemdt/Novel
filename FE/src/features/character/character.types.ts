@@ -2,13 +2,13 @@ export type CharacterPayload = {
   id?: string;
   name: string;
   alias?: string[];
-  soulArt?: string[];
   level?: string;
   status?: "Alive" | "Dead";
   isMainCharacter?: boolean;
   gender: "male" | "female" | "other";
   age: number;
   race?: string;
+  specialAbility?: string;
   appearance?: string;
   height?: number;
   distinctiveTraits?: string[];

@@ -18,22 +18,24 @@ import {
 } from "./character.api";
 import { getAllRaces } from "../race/race.api";
 import { getAllRanks } from "../rank/rank.api";
+import { getAllSpecialAbilities } from "../special-ability/special-ability.api";
 import { CharacterList } from "./CharacterList";
 import { validateCharacter } from "./character.schema";
 import type { Character, CharacterPayload } from "./character.types";
 import type { Race } from "../race/race.types";
 import type { Rank } from "../rank/rank.types";
+import type { SpecialAbility } from "../special-ability/special-ability.types";
 
 const initialState = {
   name: "",
   alias: [] as string[],
-  soulArt: [] as string[],
   level: "",
   status: "",
   isMainCharacter: false,
   gender: "",
   age: "",
   race: "",
+  specialAbility: "",
   appearance: "",
   height: "",
   distinctiveTraits: [] as string[],
@@ -63,6 +65,7 @@ export const CharacterCreate = () => {
   const [items, setItems] = useState<Character[]>([]);
   const [races, setRaces] = useState<Race[]>([]);
   const [ranks, setRanks] = useState<Rank[]>([]);
+  const [specialAbilities, setSpecialAbilities] = useState<SpecialAbility[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<Character | null>(null);
   const [editValues, setEditValues] = useState<CharacterFormState | null>(null);
@@ -96,16 +99,27 @@ export const CharacterCreate = () => {
     }
   }, [getAllRanks]);
 
+  const loadSpecialAbilities = useCallback(async () => {
+    try {
+      const data = await getAllSpecialAbilities();
+      setSpecialAbilities(data ?? []);
+    } catch (err) {
+      notify((err as Error).message, "error");
+    }
+  }, [getAllSpecialAbilities]);
+
   useEffect(() => {
     void loadItems();
     void loadRaces();
     void loadRanks();
-  }, [loadItems, loadRaces, loadRanks]);
+    void loadSpecialAbilities();
+  }, [loadItems, loadRaces, loadRanks, loadSpecialAbilities]);
 
   useProjectChange(() => {
     void loadItems();
     void loadRaces();
     void loadRanks();
+    void loadSpecialAbilities();
   });
 
   const raceOptions = useMemo(() => {
@@ -130,16 +144,27 @@ export const CharacterCreate = () => {
     return [...options, { value: "__create__", label: t("Create rank") }];
   }, [ranks, t]);
 
+  const abilityOptions = useMemo(() => {
+    const options =
+      specialAbilities.length > 0
+        ? specialAbilities
+            .map((ability) => ability.name?.trim() ?? "")
+            .filter((name) => name.length > 0)
+            .map((name) => ({ value: name, label: name }))
+        : [];
+    return [...options, { value: "__create__", label: t("Create special ability") }];
+  }, [specialAbilities, t]);
+
   const mapCharacterToForm = (item: Character): CharacterFormState => ({
     name: item.name ?? "",
     alias: item.alias ?? [],
-    soulArt: item.soulArt ?? [],
     level: item.level ?? "",
     status: item.status ?? "",
     isMainCharacter: item.isMainCharacter ?? false,
     gender: item.gender ?? "",
     age: item.age !== undefined ? String(item.age) : "",
     race: item.race ?? "",
+    specialAbility: item.specialAbility ?? "",
     appearance: item.appearance ?? "",
     height: item.height !== undefined ? String(item.height) : "",
     distinctiveTraits: item.distinctiveTraits ?? [],
@@ -163,13 +188,13 @@ export const CharacterCreate = () => {
   const buildPayload = (): CharacterPayload => ({
     name: values.name,
     alias: values.alias,
-    soulArt: values.soulArt,
     level: values.level || undefined,
     status: values.status as CharacterPayload["status"],
     isMainCharacter: values.isMainCharacter,
     gender: values.gender as CharacterPayload["gender"],
     age: values.age === "" ? Number.NaN : Number(values.age),
     race: values.race || undefined,
+    specialAbility: values.specialAbility || undefined,
     appearance: values.appearance || undefined,
     height: values.height === "" ? undefined : Number(values.height),
     distinctiveTraits: values.distinctiveTraits,
@@ -232,13 +257,13 @@ export const CharacterCreate = () => {
       await updateCharacter(editItem.id, {
         name: editValues.name,
         alias: editValues.alias,
-        soulArt: editValues.soulArt,
         level: editValues.level || undefined,
         status: editValues.status || undefined,
         isMainCharacter: editValues.isMainCharacter,
         gender: editValues.gender as Character["gender"],
         age: editValues.age === "" ? Number.NaN : Number(editValues.age),
         race: editValues.race || undefined,
+        specialAbility: editValues.specialAbility || undefined,
         appearance: editValues.appearance || undefined,
         height: editValues.height === "" ? undefined : Number(editValues.height),
         distinctiveTraits: editValues.distinctiveTraits,
@@ -427,12 +452,20 @@ export const CharacterCreate = () => {
                 }
               />
             </div>
-            <div className="form-field--wide">
-              <MultiSelect
-                label="Soul Art"
-                values={editValues.soulArt}
-                onChange={(value) =>
-                  setEditValues((prev) => prev && { ...prev, soulArt: value })
+            <div className="form-field--narrow">
+              <Select
+                label="Special Ability"
+                value={editValues.specialAbility}
+                onChange={(value) => {
+                  if (value === "__create__") {
+                    navigate("/special-abilities");
+                    return;
+                  }
+                  setEditValues((prev) => prev && { ...prev, specialAbility: value });
+                }}
+                options={abilityOptions}
+                placeholder={
+                  specialAbilities.length > 0 ? "Select" : "No special abilities yet."
                 }
               />
             </div>
@@ -740,11 +773,21 @@ export const CharacterCreate = () => {
             onChange={(value) => setField("alias", value)}
           />
         </div>
-        <div className="form-field--wide">
-          <MultiSelect
-            label="Soul Art"
-            values={values.soulArt}
-            onChange={(value) => setField("soulArt", value)}
+        <div className="form-field--narrow">
+          <Select
+            label="Special Ability"
+            value={values.specialAbility}
+            onChange={(value) => {
+              if (value === "__create__") {
+                navigate("/special-abilities");
+                return;
+              }
+              setField("specialAbility", value);
+            }}
+            options={abilityOptions}
+            placeholder={
+              specialAbilities.length > 0 ? "Select" : "No special abilities yet."
+            }
           />
         </div>
       </FormSection>

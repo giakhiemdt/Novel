@@ -57,7 +57,11 @@ export const CharacterList = ({
         { label: t("Age"), value: item.age, size: "narrow" },
         { label: t("Race"), value: item.race ? t(item.race) : "-", size: "narrow" },
         { label: t("Main"), value: item.isMainCharacter, size: "narrow" },
-        { label: t("Soul Art"), value: item.soulArt, size: "wide" },
+        {
+          label: t("Special Ability"),
+          value: item.specialAbility ? t(item.specialAbility) : "-",
+          size: "wide",
+        },
       ],
     },
     {

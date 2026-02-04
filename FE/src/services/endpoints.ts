@@ -5,6 +5,7 @@ export const endpoints = {
   characters: "/characters",
   races: "/races",
   ranks: "/ranks",
+  specialAbilities: "/special-abilities",
   timelines: "/timelines",
   timelineLink: "/timelines/link",
   timelineUnlink: "/timelines/unlink",
