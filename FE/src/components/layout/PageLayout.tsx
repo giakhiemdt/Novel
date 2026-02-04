@@ -1,6 +1,7 @@
 import { ReactNode, useState } from "react";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
+import { CommandBar } from "../../features/command/CommandBar";
 
 export type PageLayoutProps = {
   title: string;
@@ -18,6 +19,7 @@ export const PageLayout = ({ title, subtitle, children }: PageLayoutProps) => {
         <Header title={title} subtitle={subtitle} />
         {children}
       </main>
+      <CommandBar />
     </div>
   );
 };

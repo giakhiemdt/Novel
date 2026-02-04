@@ -391,6 +391,45 @@ h3 {
   max-height: 80vh;
 }
 
+.modal--command {
+  width: min(680px, 90vw);
+  max-height: 80vh;
+}
+
+.command-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.command-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: 16px;
+  background: var(--surface-muted);
+  cursor: pointer;
+}
+
+.command-item--active {
+  background: var(--surface-card);
+}
+
+.command-item__label {
+  margin-left: var(--space-2);
+  color: var(--text-muted);
+}
+
+.command-fav {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
 .main {
   padding: var(--space-6) var(--space-6) var(--space-7);
   /* max-width: 1200px; */

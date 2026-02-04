@@ -13,6 +13,7 @@ import type {
   ProjectStatus,
 } from "../../features/project/project.types";
 import { useI18n } from "../../i18n/I18nProvider";
+import { commandMap, normalizeCommand } from "../../features/command/commandRegistry";
 
 type SidebarProps = {
   collapsed: boolean;
@@ -63,6 +64,7 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [selectedDbName, setSelectedDbName] = useState("");
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+  const [favorites, setFavorites] = useState<string[]>([]);
   const [form, setForm] = useState({
     id: "",
     name: "",
@@ -99,6 +101,25 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
   useEffect(() => {
     void loadProjects();
   }, []);
+
+  useEffect(() => {
+    const readFavorites = () => {
+      try {
+        const raw = localStorage.getItem("novel-favorites");
+        const parsed = raw ? JSON.parse(raw) : [];
+        setFavorites(Array.isArray(parsed) ? parsed : []);
+      } catch {
+        setFavorites([]);
+      }
+    };
+    readFavorites();
+    window.addEventListener("novel-favorites-changed", readFavorites);
+    return () => window.removeEventListener("novel-favorites-changed", readFavorites);
+  }, []);
+
+  const favoriteCommands = favorites
+    .map((code) => commandMap.get(normalizeCommand(code)))
+    .filter(Boolean);
 
   useEffect(() => {
     if (!selectedDbName) {
@@ -218,6 +239,27 @@ export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
           </button>
         </div>
         <nav className="sidebar__nav">
+          {favoriteCommands.length > 0 && (
+            <div className="sidebar__section">
+              {!collapsed && (
+                <span className="sidebar__section-title">
+                  {t("Favorites")}
+                </span>
+              )}
+              {favoriteCommands.map((item) => (
+                <NavLink
+                  key={`fav-${item?.code}`}
+                  to={item?.route ?? "/"}
+                  className={({ isActive }) =>
+                    isActive ? "sidebar__link sidebar__link--active" : "sidebar__link"
+                  }
+                >
+                  <span className="sidebar__icon">{item?.code}</span>
+                  <span className="sidebar__label">{t(item?.label ?? "")}</span>
+                </NavLink>
+              ))}
+            </div>
+          )}
           {navSections.map((section) => (
             <div className="sidebar__section" key={section.title}>
               {!collapsed && (
