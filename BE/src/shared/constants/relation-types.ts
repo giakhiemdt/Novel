@@ -16,4 +16,5 @@ export const relationTypes = {
   characterRelatesTo: "CHARACTER_RELATES_TO",
   characterHasRace: "CHARACTER_HAS_RACE",
   characterHasRank: "CHARACTER_HAS_RANK",
+  characterHasSpecialAbility: "CHARACTER_HAS_SPECIAL_ABILITY",
 };

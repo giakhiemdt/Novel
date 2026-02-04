@@ -4,6 +4,7 @@ export const nodeLabels = {
   character: "Character",
   race: "Race",
   rank: "Rank",
+  specialAbility: "SpecialAbility",
   event: "Event",
   faction: "Faction",
   timeline: "Timeline",

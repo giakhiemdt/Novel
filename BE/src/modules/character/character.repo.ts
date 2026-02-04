@@ -11,13 +11,13 @@ CREATE (c:${nodeLabels.character} {
   id: $id,
   name: $name,
   alias: $alias,
-  soulArt: $soulArt,
   level: $level,
   status: $status,
   isMainCharacter: $isMainCharacter,
   gender: $gender,
   age: $age,
   race: $race,
+  specialAbility: $specialAbility,
   appearance: $appearance,
   height: $height,
   distinctiveTraits: $distinctiveTraits,
@@ -47,13 +47,13 @@ MATCH (c:${nodeLabels.character} {id: $id})
 SET
   c.name = $name,
   c.alias = $alias,
-  c.soulArt = $soulArt,
   c.level = $level,
   c.status = $status,
   c.isMainCharacter = $isMainCharacter,
   c.gender = $gender,
   c.age = $age,
   c.race = $race,
+  c.specialAbility = $specialAbility,
   c.appearance = $appearance,
   c.height = $height,
   c.distinctiveTraits = $distinctiveTraits,
@@ -82,6 +82,7 @@ WHERE
   ($name IS NULL OR toLower(c.name) CONTAINS toLower($name))
   AND ($tag IS NULL OR $tag IN coalesce(c.tags, []))
   AND ($race IS NULL OR c.race = $race)
+  AND ($specialAbility IS NULL OR c.specialAbility = $specialAbility)
   AND ($gender IS NULL OR c.gender = $gender)
   AND ($status IS NULL OR c.status = $status)
   AND ($level IS NULL OR c.level = $level)
@@ -99,6 +100,7 @@ WHERE
   ($name IS NULL OR toLower(c.name) CONTAINS toLower($name))
   AND ($tag IS NULL OR $tag IN coalesce(c.tags, []))
   AND ($race IS NULL OR c.race = $race)
+  AND ($specialAbility IS NULL OR c.specialAbility = $specialAbility)
   AND ($gender IS NULL OR c.gender = $gender)
   AND ($status IS NULL OR c.status = $status)
   AND ($level IS NULL OR c.level = $level)
@@ -146,17 +148,32 @@ DELETE rel
 RETURN count(rel) AS deleted
 `;
 
+const LINK_CHARACTER_SPECIAL_ABILITY = `
+MATCH (c:${nodeLabels.character} {id: $characterId})
+MATCH (a:${nodeLabels.specialAbility})
+WHERE toLower(a.name) = toLower($abilityName)
+MERGE (c)-[:${relationTypes.characterHasSpecialAbility}]->(a)
+RETURN a
+`;
+
+const UNLINK_CHARACTER_SPECIAL_ABILITY = `
+MATCH (c:${nodeLabels.character} {id: $characterId})
+MATCH (c)-[rel:${relationTypes.characterHasSpecialAbility}]->(:${nodeLabels.specialAbility})
+DELETE rel
+RETURN count(rel) AS deleted
+`;
+
 const CHARACTER_PARAMS = [
   "id",
   "name",
   "alias",
-  "soulArt",
   "level",
   "status",
   "isMainCharacter",
   "gender",
   "age",
   "race",
+  "specialAbility",
   "appearance",
   "height",
   "distinctiveTraits",
@@ -230,6 +247,7 @@ export const getCharacters = async (
       name: query.name ?? null,
       tag: query.tag ?? null,
       race: query.race ?? null,
+      specialAbility: query.specialAbility ?? null,
       gender: query.gender ?? null,
       status: query.status ?? null,
       level: query.level ?? null,
@@ -321,6 +339,43 @@ export const unlinkCharacterRank = async (
   const session = getSessionForDatabase(database, neo4j.session.WRITE);
   try {
     const result = await session.run(UNLINK_CHARACTER_RANK, { characterId });
+    const record = result.records[0];
+    const deleted = record?.get("deleted");
+    if (typeof deleted?.toNumber === "function") {
+      return deleted.toNumber();
+    }
+    return typeof deleted === "number" ? deleted : 0;
+  } finally {
+    await session.close();
+  }
+};
+
+export const linkCharacterSpecialAbility = async (
+  database: string,
+  characterId: string,
+  abilityName: string
+): Promise<boolean> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    const result = await session.run(LINK_CHARACTER_SPECIAL_ABILITY, {
+      characterId,
+      abilityName,
+    });
+    return result.records.length > 0;
+  } finally {
+    await session.close();
+  }
+};
+
+export const unlinkCharacterSpecialAbility = async (
+  database: string,
+  characterId: string
+): Promise<number> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    const result = await session.run(UNLINK_CHARACTER_SPECIAL_ABILITY, {
+      characterId,
+    });
     const record = result.records[0];
     const deleted = record?.get("deleted");
     if (typeof deleted?.toNumber === "function") {

@@ -6,12 +6,15 @@ import {
   getCharacters,
   linkCharacterRank,
   linkCharacterRace,
+  linkCharacterSpecialAbility,
   unlinkCharacterRank,
   unlinkCharacterRace,
+  unlinkCharacterSpecialAbility,
   updateCharacter,
 } from "./character.repo";
 import { getRaceByName } from "../race/race.repo";
 import { getRankByName } from "../rank/rank.repo";
+import { getSpecialAbilityByName } from "../special-ability/special-ability.repo";
 import {
   CharacterInput,
   CharacterGender,
@@ -265,6 +268,10 @@ const parseCharacterListQuery = (query: unknown): CharacterListQuery => {
   }
 
   const race = parseOptionalQueryString(data.race, "race");
+  const specialAbility = parseOptionalQueryString(
+    data.specialAbility,
+    "specialAbility"
+  );
   const gender = parseOptionalQueryString(data.gender, "gender");
   const status = parseOptionalQueryString(data.status, "status");
   const level = parseOptionalQueryString(data.level, "level");
@@ -285,6 +292,7 @@ const parseCharacterListQuery = (query: unknown): CharacterListQuery => {
   addIfDefined(result, "name", parseOptionalQueryString(data.name, "name"));
   addIfDefined(result, "tag", parseOptionalQueryString(data.tag, "tag"));
   addIfDefined(result, "race", race);
+  addIfDefined(result, "specialAbility", specialAbility);
   addIfDefined(result, "gender", gender as CharacterGender | undefined);
   addIfDefined(result, "status", status as CharacterStatus | undefined);
   addIfDefined(result, "level", level);
@@ -313,8 +321,8 @@ const validateCharacterPayload = (payload: unknown): CharacterInput => {
   addIfDefined(result, "alias", assertOptionalStringArray(data.alias, "alias"));
   addIfDefined(
     result,
-    "soulArt",
-    assertOptionalStringArray(data.soulArt, "soulArt")
+    "specialAbility",
+    assertOptionalTrimmedString(data.specialAbility, "specialAbility")
   );
   addIfDefined(result, "level", assertOptionalTrimmedString(data.level, "level"));
   addIfDefined(
@@ -420,6 +428,13 @@ export const characterService = {
         throw new AppError("rank not found", 400);
       }
     }
+    const abilityName = validated.specialAbility;
+    if (abilityName) {
+      const abilityExists = await getSpecialAbilityByName(database, abilityName);
+      if (!abilityExists) {
+        throw new AppError("special ability not found", 400);
+      }
+    }
     const node = buildCharacterNode(validated);
     const created = await createCharacter(node, database);
     if (raceName) {
@@ -427,6 +442,9 @@ export const characterService = {
     }
     if (rankName) {
       await linkCharacterRank(database, created.id, rankName);
+    }
+    if (abilityName) {
+      await linkCharacterSpecialAbility(database, created.id, abilityName);
     }
     return created;
   },
@@ -451,6 +469,13 @@ export const characterService = {
         throw new AppError("rank not found", 400);
       }
     }
+    const abilityName = validated.specialAbility;
+    if (abilityName) {
+      const abilityExists = await getSpecialAbilityByName(database, abilityName);
+      if (!abilityExists) {
+        throw new AppError("special ability not found", 400);
+      }
+    }
     const now = new Date().toISOString();
     const node: CharacterNode = {
       ...validated,
@@ -466,11 +491,15 @@ export const characterService = {
     }
     await unlinkCharacterRace(database, id);
     await unlinkCharacterRank(database, id);
+    await unlinkCharacterSpecialAbility(database, id);
     if (raceName) {
       await linkCharacterRace(database, id, raceName);
     }
     if (rankName) {
       await linkCharacterRank(database, id, rankName);
+    }
+    if (abilityName) {
+      await linkCharacterSpecialAbility(database, id, abilityName);
     }
     return updated;
   },

@@ -5,13 +5,13 @@ export type CharacterInput = {
   id?: string;
   name: string;
   alias?: string[];
-  soulArt?: string[];
   level?: string;
   status?: CharacterStatus;
   isMainCharacter?: boolean;
   gender: CharacterGender;
   age: number;
   race?: string;
+  specialAbility?: string;
   appearance?: string;
   height?: number;
   distinctiveTraits?: string[];
@@ -47,6 +47,7 @@ export type CharacterListQuery = {
   name?: string;
   tag?: string;
   race?: string;
+  specialAbility?: string;
   gender?: CharacterGender;
   status?: CharacterStatus;
   level?: string;
