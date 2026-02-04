@@ -15,9 +15,11 @@ import {
   getAllCharacters,
   updateCharacter,
 } from "./character.api";
+import { getAllRaces } from "../race/race.api";
 import { CharacterList } from "./CharacterList";
 import { validateCharacter } from "./character.schema";
 import type { Character, CharacterPayload } from "./character.types";
+import type { Race } from "../race/race.types";
 
 const initialState = {
   name: "",
@@ -55,6 +57,7 @@ export const CharacterCreate = () => {
   const { t } = useI18n();
   const { values, setField, reset } = useForm<CharacterFormState>(initialState);
   const [items, setItems] = useState<Character[]>([]);
+  const [races, setRaces] = useState<Race[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<Character | null>(null);
   const [editValues, setEditValues] = useState<CharacterFormState | null>(null);
@@ -70,13 +73,33 @@ export const CharacterCreate = () => {
     }
   }, [getAllCharacters]);
 
+  const loadRaces = useCallback(async () => {
+    try {
+      const data = await getAllRaces();
+      setRaces(data ?? []);
+    } catch (err) {
+      notify((err as Error).message, "error");
+    }
+  }, [getAllRaces]);
+
   useEffect(() => {
     void loadItems();
-  }, [loadItems]);
+    void loadRaces();
+  }, [loadItems, loadRaces]);
 
   useProjectChange(() => {
     void loadItems();
+    void loadRaces();
   });
+
+  const raceOptions =
+    races.length > 0
+      ? races.map((race) => ({ value: race.name ?? "", label: race.name ?? "" }))
+      : [
+          { value: "human", label: "Human" },
+          { value: "elf", label: "Elf" },
+          { value: "demon", label: "Demon" },
+        ];
 
   const mapCharacterToForm = (item: Character): CharacterFormState => ({
     name: item.name ?? "",
@@ -309,11 +332,7 @@ export const CharacterCreate = () => {
                 onChange={(value) =>
                   setEditValues((prev) => prev && { ...prev, race: value })
                 }
-                options={[
-                  { value: "human", label: "Human" },
-                  { value: "elf", label: "Elf" },
-                  { value: "demon", label: "Demon" },
-                ]}
+                options={raceOptions}
                 required
               />
             </div>
@@ -612,11 +631,7 @@ export const CharacterCreate = () => {
             label="Race"
             value={values.race}
             onChange={(value) => setField("race", value)}
-            options={[
-              { value: "human", label: "Human" },
-              { value: "elf", label: "Elf" },
-              { value: "demon", label: "Demon" },
-            ]}
+            options={raceOptions}
             required
           />
         </div>
