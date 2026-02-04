@@ -232,7 +232,9 @@ h3 {
   transition: left 0.2s ease, transform 0.2s ease;
 }
 
-.sidebar__label {
+.sidebar__label,
+.sidebar__new-project-label,
+.sidebar__settings-label {
   display: block;
   max-width: 160px;
   opacity: 1;
@@ -283,6 +285,7 @@ h3 {
 }
 
 .sidebar__new-project-label {
+  font-size: var(--text-body-xs);
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -304,6 +307,10 @@ h3 {
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
+}
+
+.sidebar__settings-label {
+  font-size: var(--text-body-xs);
 }
 
 .sidebar--collapsed .sidebar__settings {
@@ -1127,14 +1134,18 @@ h3 {
   white-space: nowrap;
 }
 
-.timeline-bar__time {
+.timeline-bar__time,
+.timeline-bar__duration {
   position: absolute;
   top: 50%;
-  transform: translateY(-20px);
   font-size: var(--text-body-xs);
-  opacity: 0.85;
   z-index: 2;
   white-space: nowrap;
+}
+
+.timeline-bar__time {
+  transform: translateY(-20px);
+  opacity: 0.85;
 }
 
 .timeline-bar__time--start {
@@ -1148,14 +1159,9 @@ h3 {
 }
 
 .timeline-bar__duration {
-  position: absolute;
   left: 50%;
-  top: 50%;
   transform: translate(-50%, 14px);
-  font-size: var(--text-body-xs);
   opacity: 0.75;
-  z-index: 2;
-  white-space: nowrap;
 }
 
 .timeline-bar::before {
