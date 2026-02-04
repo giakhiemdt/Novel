@@ -94,12 +94,11 @@ export const CharacterCreate = () => {
 
   const raceOptions =
     races.length > 0
-      ? races.map((race) => ({ value: race.name ?? "", label: race.name ?? "" }))
-      : [
-          { value: "human", label: "Human" },
-          { value: "elf", label: "Elf" },
-          { value: "demon", label: "Demon" },
-        ];
+      ? races
+          .map((race) => race.name?.trim() ?? "")
+          .filter((name) => name.length > 0)
+          .map((name) => ({ value: name, label: name }))
+      : [];
 
   const mapCharacterToForm = (item: Character): CharacterFormState => ({
     name: item.name ?? "",
@@ -333,6 +332,7 @@ export const CharacterCreate = () => {
                   setEditValues((prev) => prev && { ...prev, race: value })
                 }
                 options={raceOptions}
+                placeholder={races.length > 0 ? "Select" : "No races yet."}
                 required
               />
             </div>
@@ -632,6 +632,7 @@ export const CharacterCreate = () => {
             value={values.race}
             onChange={(value) => setField("race", value)}
             options={raceOptions}
+            placeholder={races.length > 0 ? "Select" : "No races yet."}
             required
           />
         </div>
