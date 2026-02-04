@@ -12,6 +12,8 @@ const constraintStatements = [
   "CREATE CONSTRAINT rank_name_unique IF NOT EXISTS FOR (n:Rank) REQUIRE n.name IS UNIQUE",
   "CREATE CONSTRAINT special_ability_id_unique IF NOT EXISTS FOR (n:SpecialAbility) REQUIRE n.id IS UNIQUE",
   "CREATE CONSTRAINT special_ability_name_unique IF NOT EXISTS FOR (n:SpecialAbility) REQUIRE n.name IS UNIQUE",
+  "CREATE CONSTRAINT schema_id_unique IF NOT EXISTS FOR (n:EntitySchema) REQUIRE n.id IS UNIQUE",
+  "CREATE CONSTRAINT schema_entity_unique IF NOT EXISTS FOR (n:EntitySchema) REQUIRE n.entity IS UNIQUE",
   "CREATE CONSTRAINT timeline_id_unique IF NOT EXISTS FOR (n:Timeline) REQUIRE n.id IS UNIQUE",
   "CREATE CONSTRAINT timeline_name_unique IF NOT EXISTS FOR (n:Timeline) REQUIRE n.name IS UNIQUE",
   "CREATE CONSTRAINT location_id_unique IF NOT EXISTS FOR (n:Location) REQUIRE n.id IS UNIQUE",

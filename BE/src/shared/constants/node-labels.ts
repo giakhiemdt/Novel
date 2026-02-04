@@ -5,6 +5,7 @@ export const nodeLabels = {
   race: "Race",
   rank: "Rank",
   specialAbility: "SpecialAbility",
+  entitySchema: "EntitySchema",
   event: "Event",
   faction: "Faction",
   timeline: "Timeline",
