@@ -250,7 +250,7 @@ export const TimelineBoard = ({
       const itemsById = new Map(itemsWithId.map((item) => [item.id, item]));
       let index = 0;
 
-      const placeRoot = (item: Timeline) => {
+      const placeRoot = (item: Timeline & { id: string }) => {
         if (next[item.id]) {
           return;
         }
