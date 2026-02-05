@@ -626,7 +626,7 @@ export const TimelineBoard = ({
       byTimeline.get(event.timelineId)!.push(event);
     });
 
-    const positions: Array<{
+    const eventPins: Array<{
       id: string;
       name: string;
       x: number;
@@ -662,7 +662,7 @@ export const TimelineBoard = ({
           row += 1;
         }
         rows[row] = x;
-        positions.push({
+        eventPins.push({
           id: event.id ?? `${timelineId}-${year}-${row}`,
           name: event.name,
           x,
@@ -674,7 +674,7 @@ export const TimelineBoard = ({
       });
     });
 
-    return positions;
+    return eventPins;
   }, [events, itemsWithId, positions, startYears, getWidth]);
 
   return (
