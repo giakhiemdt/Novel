@@ -7,10 +7,12 @@ import {
   useState,
 } from "react";
 import { useI18n } from "../../i18n/I18nProvider";
+import type { Event } from "../event/event.types";
 import type { Timeline } from "./timeline.types";
 
 type TimelineBoardProps = {
   items: Timeline[];
+  events?: Event[];
   selectedId?: string;
   onSelect: (item: Timeline | null) => void;
   links: Record<string, { previousId?: string }>;
@@ -28,6 +30,9 @@ const BAR_HEIGHT = 34;
 const SNAP_DISTANCE = 12;
 const ROW_GAP = 18;
 const COL_GAP = 22;
+const EVENT_ROW_GAP = 16;
+const EVENT_OFFSET_Y = 22;
+const EVENT_DOT = 8;
 const PALETTE = [
   "#3d8fa6",
   "#c28a35",
@@ -46,6 +51,7 @@ const hashString = (value: string) =>
 
 export const TimelineBoard = ({
   items,
+  events = [],
   selectedId,
   onSelect,
   links,
@@ -605,6 +611,72 @@ export const TimelineBoard = ({
   const selectedWidth = selected ? getWidth(selected) : 0;
   const detailScale = Math.min(1.3, Math.max(0.7, 1 / scale));
 
+  const eventPositions = useMemo(() => {
+    if (!events.length) {
+      return [];
+    }
+    const byTimeline = new Map<string, Event[]>();
+    events.forEach((event) => {
+      if (!event.timelineId || typeof event.timelineYear !== "number") {
+        return;
+      }
+      if (!byTimeline.has(event.timelineId)) {
+        byTimeline.set(event.timelineId, []);
+      }
+      byTimeline.get(event.timelineId)!.push(event);
+    });
+
+    const positions: Array<{
+      id: string;
+      name: string;
+      x: number;
+      y: number;
+      timelineId: string;
+      year: number;
+      type?: string;
+    }> = [];
+
+    const timelineById = new Map(itemsWithId.map((item) => [item.id, item]));
+    byTimeline.forEach((list, timelineId) => {
+      const timeline = timelineById.get(timelineId);
+      const timelinePos = positions[timelineId];
+      if (!timeline || !timelinePos) {
+        return;
+      }
+      const startYear = startYears[timelineId] ?? 0;
+      const duration = Math.max(1, timeline.durationYears || 1);
+      const width = getWidth(timeline);
+      const baseX = timelinePos.x;
+      const baseY = timelinePos.y + BAR_HEIGHT + EVENT_OFFSET_Y;
+
+      const sorted = [...list].sort(
+        (a, b) => (a.timelineYear ?? 0) - (b.timelineYear ?? 0)
+      );
+      const rows: number[] = [];
+      sorted.forEach((event) => {
+        const year = event.timelineYear ?? 0;
+        const ratio = Math.min(1, Math.max(0, (year - startYear) / duration));
+        const x = baseX + ratio * width;
+        let row = 0;
+        while (rows[row] !== undefined && Math.abs(rows[row] - x) < 32) {
+          row += 1;
+        }
+        rows[row] = x;
+        positions.push({
+          id: event.id ?? `${timelineId}-${year}-${row}`,
+          name: event.name,
+          x,
+          y: baseY + row * EVENT_ROW_GAP,
+          timelineId,
+          year,
+          type: event.type,
+        });
+      });
+    });
+
+    return positions;
+  }, [events, itemsWithId, positions, startYears, getWidth]);
+
   return (
     <div
       className="timeline-board"
@@ -671,6 +743,22 @@ export const TimelineBoard = ({
             </button>
           );
         })}
+        {eventPositions.map((event) => (
+          <div
+            key={event.id}
+            className="timeline-event"
+            style={{
+              transform: `translate(${event.x}px, ${event.y}px)`,
+              ["--timeline-event-color" as string]:
+                PALETTE[hashString(event.timelineId) % PALETTE.length],
+            }}
+            title={`${event.name} (${event.year})`}
+          >
+            <span className="timeline-event__dot" />
+            <span className="timeline-event__label">{event.name}</span>
+            <span className="timeline-event__year">{event.year}</span>
+          </div>
+        ))}
         {selected && selectedPos && (
         <div
           className="timeline-card"

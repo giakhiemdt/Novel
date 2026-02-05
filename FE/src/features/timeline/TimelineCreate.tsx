@@ -11,6 +11,8 @@ import {
   relinkTimeline,
   unlinkTimeline,
 } from "./timeline.api";
+import { getAllEvents } from "../event/event.api";
+import type { Event } from "../event/event.types";
 import { TimelineBoard } from "./TimelineBoard";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
@@ -45,6 +47,7 @@ export const TimelineCreate = () => {
   const { t } = useI18n();
   const { values, setField, reset } = useForm<TimelineFormState>(initialState);
   const [items, setItems] = useState<Timeline[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
   const [selected, setSelected] = useState<Timeline | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -54,8 +57,12 @@ export const TimelineCreate = () => {
   const loadItems = useCallback(async (selectId?: string) => {
     setLoading(true);
     try {
-      const data = await getAllTimelines();
+      const [data, eventData] = await Promise.all([
+        getAllTimelines(),
+        getAllEvents(),
+      ]);
       setItems(data ?? []);
+      setEvents(eventData ?? []);
       if (!data || data.length === 0) {
         setSelected(null);
         return;
@@ -191,6 +198,7 @@ export const TimelineCreate = () => {
       <>
         <TimelineBoard
           items={items}
+          events={events}
           selectedId={selected?.id}
           onSelect={setSelected}
           links={links}
