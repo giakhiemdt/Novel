@@ -481,9 +481,9 @@ const seedEvents = async (
       characters[(i + 3) % characters.length]!,
     ].map((character) => ({
       characterId: character.id,
-      role: "participant",
-      participationType: "direct",
-      outcome: "Sống sót",
+      role: "PARTICIPANT",
+      participationType: "ACTIVE",
+      outcome: "SURVIVED",
       note: "Tham gia trực tiếp",
       characterName: character.name,
     }));
