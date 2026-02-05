@@ -1,6 +1,7 @@
-import { ensureConstraintsForDatabase } from "../../database";
+import { ensureConstraintsForDatabase, getSessionForDatabase } from "../../database";
+import neo4j from "neo4j-driver";
+import { createProjectDatabase } from "../../modules/project/project.repo";
 import { overviewService } from "../../modules/overview/overview.service";
-import { projectService } from "../../modules/project/project.service";
 import { raceService } from "../../modules/race/race.service";
 import { rankService } from "../../modules/rank/rank.service";
 import { specialAbilityService } from "../../modules/special-ability/special-ability.service";
@@ -19,6 +20,8 @@ import type { CharacterNode } from "../../modules/character/character.types";
 import type { LocationNode } from "../../modules/location/location.types";
 import type { FactionNode } from "../../modules/faction/faction.types";
 import type { EventNode } from "../../modules/event/event.types";
+import { generateId } from "../../shared/utils/generate-id";
+import { buildParams } from "../../shared/utils/build-params";
 
 const DB_NAME = "datainit";
 
@@ -113,19 +116,39 @@ const genderList: Array<"male" | "female" | "other"> = [
 
 const timelineUnits = ["YEAR", "MONTH", "DAY"]; 
 
-const createProjectIfNeeded = async () => {
-  const projects = await projectService.getAll();
-  if (projects.some((item) => item.dbName === DB_NAME)) {
-    return;
+const createProjectInDatabase = async () => {
+  const session = getSessionForDatabase(DB_NAME, neo4j.session.WRITE);
+  try {
+    const now = new Date().toISOString();
+    const data = {
+      id: generateId(),
+      name: "NoeM Data Init",
+      description: "Dữ liệu mẫu cho hệ thống quản lý novel.",
+      dbName: DB_NAME,
+      status: "active",
+      notes: "Tạo tự động cho mục đích demo.",
+      tags: ["demo", "datainit"],
+      createdAt: now,
+      updatedAt: now,
+    };
+    const params = buildParams(data, [
+      "id",
+      "name",
+      "description",
+      "dbName",
+      "status",
+      "notes",
+      "tags",
+      "createdAt",
+      "updatedAt",
+    ]);
+    await session.run(
+      `CREATE (p:Project {id: $id, name: $name, description: $description, dbName: $dbName, status: $status, notes: $notes, tags: $tags, createdAt: $createdAt, updatedAt: $updatedAt})`,
+      params
+    );
+  } finally {
+    await session.close();
   }
-  await projectService.create({
-    name: "NoeM Data Init",
-    dbName: DB_NAME,
-    description: "Dữ liệu mẫu cho hệ thống quản lý novel.",
-    notes: "Tạo tự động cho mục đích demo.",
-    status: "active",
-    tags: ["demo", "datainit"],
-  });
 };
 
 const seedOverview = async () => {
@@ -528,8 +551,9 @@ const seedRelationships = async (characters: CharacterNode[]) => {
 };
 
 const run = async () => {
-  await createProjectIfNeeded();
+  await createProjectDatabase(`\`${DB_NAME}\``);
   await ensureConstraintsForDatabase(DB_NAME);
+  await createProjectInDatabase();
   await seedOverview();
   await seedMasterData();
   const locations = await seedLocations();
