@@ -755,12 +755,12 @@ export const TimelineBoard = ({
               transform: `translate(${event.x}px, ${event.y}px)`,
               ["--timeline-event-color" as string]:
                 PALETTE[hashString(event.timelineId) % PALETTE.length],
+              ["--timeline-event-year" as string]: `"${event.year}"`,
             }}
-            title={`${event.name} (${event.year})`}
+            title={event.name}
           >
             <span className="timeline-event__dot" />
             <span className="timeline-event__label">{event.name}</span>
-            <span className="timeline-event__year">{event.year}</span>
           </div>
         ))}
         {selected && selectedPos && (
