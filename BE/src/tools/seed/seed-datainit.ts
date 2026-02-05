@@ -343,30 +343,45 @@ const seedLocations = async (): Promise<LocationNode[]> => {
   };
 
   for (const territory of territories) {
+    if (!world.id || !territory.id) {
+      continue;
+    }
     await linkContains(world.id, territory.id);
   }
 
   for (let i = 0; i < regions.length; i += 1) {
     const region = regions[i]!;
     const parent = territories[i % territories.length]!;
+    if (!parent.id || !region.id) {
+      continue;
+    }
     await linkContains(parent.id, region.id);
   }
 
   for (let i = 0; i < settlements.length; i += 1) {
     const settlement = settlements[i]!;
     const parent = regions[i % regions.length]!;
+    if (!parent.id || !settlement.id) {
+      continue;
+    }
     await linkContains(parent.id, settlement.id);
   }
 
   for (let i = 0; i < complexes.length; i += 1) {
     const complex = complexes[i]!;
     const parent = settlements[i % settlements.length]!;
+    if (!parent.id || !complex.id) {
+      continue;
+    }
     await linkContains(parent.id, complex.id);
   }
 
   for (let i = 0; i < structures.length; i += 1) {
     const structure = structures[i]!;
     const parent = complexes[i % complexes.length]!;
+    if (!parent.id || !structure.id) {
+      continue;
+    }
     await linkContains(parent.id, structure.id);
   }
 
