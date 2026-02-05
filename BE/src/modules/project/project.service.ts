@@ -5,6 +5,7 @@ import {
   createProjectDatabase,
   dropProjectDatabase,
   getAllProjects,
+  listDatabases,
 } from "./project.repo";
 import { ensureConstraintsForDatabase } from "../../database";
 import { ProjectInput, ProjectNode, ProjectStatus } from "./project.types";
@@ -158,6 +159,25 @@ export const projectService = {
     }
   },
   getAll: async (): Promise<ProjectNode[]> => {
-    return getAllProjects();
+    const [projects, databases] = await Promise.all([
+      getAllProjects(),
+      listDatabases(),
+    ]);
+    const now = new Date().toISOString();
+    const projectByDb = new Map(projects.map((project) => [project.dbName, project]));
+    return databases.map((dbName) => {
+      const existing = projectByDb.get(dbName);
+      if (existing) {
+        return existing;
+      }
+      return {
+        id: `db:${dbName}`,
+        name: dbName,
+        dbName,
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      };
+    });
   },
 };

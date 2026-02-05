@@ -87,3 +87,21 @@ export const dropProjectDatabase = async (
     await session.close();
   }
 };
+
+export const listDatabases = async (): Promise<string[]> => {
+  const session = getSystemSession(neo4j.session.READ);
+  try {
+    const result = await session.run(
+      "SHOW DATABASES YIELD name, currentStatus RETURN name, currentStatus"
+    );
+    return result.records
+      .map((record) => ({
+        name: record.get("name") as string,
+        status: record.get("currentStatus") as string,
+      }))
+      .filter(({ name, status }) => name !== "system" && status === "online")
+      .map(({ name }) => name);
+  } finally {
+    await session.close();
+  }
+};
