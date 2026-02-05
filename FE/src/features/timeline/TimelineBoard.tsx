@@ -128,22 +128,34 @@ export const TimelineBoard = ({
     return cache;
   }, [items, links]);
 
+  const prevById = useMemo(() => {
+    const prevMap: Record<string, string | undefined> = {};
+    items.forEach((item) => {
+      const prevId = links[item.id]?.previousId ?? item.previousId;
+      if (prevId) {
+        prevMap[item.id] = prevId;
+      }
+    });
+    return prevMap;
+  }, [items, links]);
+
   const nextById = useMemo(() => {
     const nextMap: Record<string, string> = {};
-    Object.entries(links).forEach(([currentId, link]) => {
-      if (link.previousId) {
-        nextMap[link.previousId] = currentId;
+    items.forEach((item) => {
+      const prevId = links[item.id]?.previousId ?? item.previousId;
+      if (prevId) {
+        nextMap[prevId] = item.id;
       }
     });
     return nextMap;
-  }, [links]);
+  }, [items, links]);
 
   const getChainIds = (startId: string): string[] => {
     const visited = new Set<string>();
     let head = startId;
-    while (links[head]?.previousId && !visited.has(links[head]!.previousId!)) {
+    while (prevById[head] && !visited.has(prevById[head]!)) {
       visited.add(head);
-      head = links[head]!.previousId!;
+      head = prevById[head]!;
     }
     const chain: string[] = [];
     let current: string | undefined = head;
