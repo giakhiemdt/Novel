@@ -258,6 +258,30 @@ const addIfDefined = (
   }
 };
 
+const serializeExtra = (extra?: Record<string, unknown>): string | undefined => {
+  if (!extra || Object.keys(extra).length === 0) {
+    return undefined;
+  }
+  return JSON.stringify(extra);
+};
+
+const parseExtra = (value: unknown): Record<string, unknown> | undefined => {
+  if (!value || typeof value !== "string") {
+    return undefined;
+  }
+  try {
+    const parsed = JSON.parse(value) as Record<string, unknown>;
+    return parsed;
+  } catch {
+    return undefined;
+  }
+};
+
+const withParsedExtra = (node: CharacterNode): CharacterNode => {
+  const parsed = parseExtra(node.extra as unknown);
+  return parsed ? { ...node, extra: parsed } : node;
+};
+
 const parseCharacterListQuery = (query: unknown): CharacterListQuery => {
   if (!query || typeof query !== "object") {
     return { limit: 50, offset: 0 };
@@ -449,7 +473,10 @@ export const characterService = {
         throw new AppError("special ability not found", 400);
       }
     }
-    const node = buildCharacterNode(validated);
+    const node = buildCharacterNode({
+      ...validated,
+      extra: serializeExtra(validated.extra) as unknown as Record<string, unknown>,
+    });
     const created = await createCharacter(node, database);
     if (raceName) {
       await linkCharacterRace(database, created.id, raceName);
@@ -460,7 +487,7 @@ export const characterService = {
     for (const abilityName of abilityNames) {
       await linkCharacterSpecialAbility(database, created.id, abilityName);
     }
-    return created;
+    return withParsedExtra(created);
   },
   update: async (
     id: string,
@@ -498,6 +525,7 @@ export const characterService = {
       isMainCharacter: validated.isMainCharacter ?? false,
       createdAt: now,
       updatedAt: now,
+      extra: serializeExtra(validated.extra) as unknown as Record<string, unknown>,
     };
     const updated = await updateCharacter(node, database);
     if (!updated) {
@@ -515,11 +543,12 @@ export const characterService = {
     for (const abilityName of abilityNames) {
       await linkCharacterSpecialAbility(database, id, abilityName);
     }
-    return updated;
+    return withParsedExtra(updated);
   },
   getAll: async (dbName: unknown): Promise<CharacterNode[]> => {
     const database = assertDatabaseName(dbName);
-    return getCharacters(database, { limit: 50, offset: 0 });
+    const data = await getCharacters(database, { limit: 50, offset: 0 });
+    return data.map(withParsedExtra);
   },
   getAllWithQuery: async (
     dbName: unknown,
@@ -528,7 +557,7 @@ export const characterService = {
     const database = assertDatabaseName(dbName);
     const parsedQuery = parseCharacterListQuery(query);
     const data = await getCharacters(database, parsedQuery);
-    return { data, meta: parsedQuery };
+    return { data: data.map(withParsedExtra), meta: parsedQuery };
   },
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);
