@@ -131,7 +131,8 @@ export const TimelineBoard = ({
   const prevById = useMemo(() => {
     const prevMap: Record<string, string | undefined> = {};
     items.forEach((item) => {
-      const prevId = links[item.id]?.previousId ?? item.previousId;
+      const hasLinkOverride = Object.prototype.hasOwnProperty.call(links, item.id);
+      const prevId = hasLinkOverride ? links[item.id]?.previousId : item.previousId;
       if (prevId) {
         prevMap[item.id] = prevId;
       }
@@ -142,7 +143,8 @@ export const TimelineBoard = ({
   const nextById = useMemo(() => {
     const nextMap: Record<string, string> = {};
     items.forEach((item) => {
-      const prevId = links[item.id]?.previousId ?? item.previousId;
+      const hasLinkOverride = Object.prototype.hasOwnProperty.call(links, item.id);
+      const prevId = hasLinkOverride ? links[item.id]?.previousId : item.previousId;
       if (prevId) {
         nextMap[prevId] = item.id;
       }
