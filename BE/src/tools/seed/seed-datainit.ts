@@ -24,12 +24,28 @@ import { buildParams } from "../../shared/utils/build-params";
 
 const DB_NAME = "datainit";
 const SEED_PREFIX = "DI";
+const SEED_MARKER = `${SEED_PREFIX}-`;
 
 const pick = <T>(arr: readonly T[], index: number): T =>
   arr[index % arr.length] as T;
 
 const buildName = (prefix: string, index: number) => `${prefix} ${index + 1}`;
 const seedName = (name: string) => `${SEED_PREFIX}-${name}`;
+
+const cleanupSeedData = async () => {
+  const session = getSessionForDatabase(DB_NAME, neo4j.session.WRITE);
+  try {
+    await session.run(
+      `MATCH (n)
+       WHERE (n.name IS NOT NULL AND n.name STARTS WITH $prefix)
+          OR (n.title IS NOT NULL AND n.title STARTS WITH $prefix)
+       DETACH DELETE n`,
+      { prefix: SEED_MARKER }
+    );
+  } finally {
+    await session.close();
+  }
+};
 
 const characterNames = [
   "Aiden Black", "Luna Hart", "Ethan Crow", "Nova Vale", "Ryan Storm",
@@ -552,6 +568,7 @@ const seedRelationships = async (characters: CharacterNode[]) => {
 };
 
 const run = async () => {
+  await cleanupSeedData();
   await ensureConstraintsForDatabase(DB_NAME);
   try {
     await createProjectInDatabase();
