@@ -22,6 +22,7 @@ export const commandRegistry: CommandDefinition[] = [
   { code: "RL01", label: "Relationships", route: "/relationships" },
   { code: "CF01", label: "Conflicts", route: "/conflicts" },
   { code: "SM01", label: "Schemas", route: "/schemas" },
+  { code: "TD01", label: "T-code Documentation", route: "/tcode-docs" },
   { code: "ST01", label: "Settings", route: "/settings" },
 ];
 

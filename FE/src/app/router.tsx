@@ -15,6 +15,7 @@ import { RaceCreate } from "../features/race/RaceCreate";
 import { RankCreate } from "../features/rank/RankCreate";
 import { SpecialAbilityCreate } from "../features/special-ability/SpecialAbilityCreate";
 import { SchemaManager } from "../features/schema/SchemaManager";
+import { CommandDocs } from "../features/command/CommandDocs";
 import { Settings } from "./Settings";
 import { Dashboard } from "./Dashboard";
 
@@ -27,6 +28,7 @@ export const AppRouter = () => {
       <Route path="/ranks" element={<RankCreate />} />
       <Route path="/special-abilities" element={<SpecialAbilityCreate />} />
       <Route path="/schemas" element={<SchemaManager />} />
+      <Route path="/tcode-docs" element={<CommandDocs />} />
       <Route path="/timelines" element={<TimelineCreate />} />
       <Route path="/locations" element={<LocationCreate />} />
       <Route path="/factions" element={<FactionCreate />} />

@@ -61,6 +61,13 @@ export const TopBar = ({ sidebarOpen, onToggleSidebar }: TopBarProps) => {
       <div className="topbar__right">
         <Button
           variant="ghost"
+          onClick={() => navigate("/tcode-docs")}
+          className="topbar__button"
+        >
+          {t("Docs")}
+        </Button>
+        <Button
+          variant="ghost"
           onClick={() => navigate("/settings")}
           className="topbar__button"
         >
