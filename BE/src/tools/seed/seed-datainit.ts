@@ -47,6 +47,23 @@ const cleanupSeedData = async () => {
   }
 };
 
+const findLocationByName = async (
+  name: string
+): Promise<LocationNode | null> => {
+  const session = getSessionForDatabase(DB_NAME, neo4j.session.READ);
+  try {
+    const result = await session.run(
+      "MATCH (l:Location {name: $name}) RETURN l LIMIT 1",
+      { name }
+    );
+    const record = result.records[0];
+    const node = record?.get("l");
+    return (node?.properties ?? null) as LocationNode | null;
+  } finally {
+    await session.close();
+  }
+};
+
 const characterNames = [
   "Aiden Black", "Luna Hart", "Ethan Crow", "Nova Vale", "Ryan Storm",
   "Mia Frost", "Leo Kane", "Zara Bloom", "Orion Drake", "Ivy Steele",
@@ -236,9 +253,16 @@ const seedLocations = async (): Promise<LocationNode[]> => {
   let nameIndex = 0;
 
   const createLocation = async (type: string) => {
+    const name = seedName(pick(locationNames, nameIndex));
+    const existing = await findLocationByName(name);
+    if (existing) {
+      nameIndex += 1;
+      locations.push(existing);
+      return existing;
+    }
     const created = await locationService.create(
       {
-        name: seedName(pick(locationNames, nameIndex)),
+        name,
         type,
         category: "Realm",
         terrain: "Đa dạng",
