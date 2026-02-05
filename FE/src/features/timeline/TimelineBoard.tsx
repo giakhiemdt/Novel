@@ -190,6 +190,22 @@ export const TimelineBoard = ({
     return Array.from(visited);
   };
 
+  const getOrderedChain = (startId: string): string[] => {
+    let head = startId;
+    const seen = new Set<string>();
+    while (prevById[head] && !seen.has(prevById[head]!)) {
+      seen.add(head);
+      head = prevById[head]!;
+    }
+    const ordered: string[] = [];
+    let current: string | undefined = head;
+    while (current && !ordered.includes(current)) {
+      ordered.push(current);
+      current = nextById[current];
+    }
+    return ordered.length ? ordered : [startId];
+  };
+
   const getWidth = (item: Timeline) => {
     if (!boardWidth) {
       return MIN_WIDTH;
@@ -419,7 +435,7 @@ export const TimelineBoard = ({
         ? getChainIds(draggingId)
         : null;
     if (chain && chain.length > 1) {
-      setSnapTarget(null);
+      setSnapTarget(target);
       setPositions((prev) => {
         const anchorId = draggingId;
         const anchorPrev = prev[anchorId] ?? { x: 0, y: 0 };
@@ -491,18 +507,16 @@ export const TimelineBoard = ({
       return;
     }
     if (hasDragged && snapTarget && !shiftSplit) {
+      const chain = getOrderedChain(currentId);
+      const chainHead = chain[0];
+      const chainTail = chain[chain.length - 1];
       if (snapTarget.mode === "previous") {
-        if (previousId && previousId !== snapTarget.targetId) {
-          onRelink(currentId, snapTarget.targetId);
-        } else if (!previousId) {
-          onLink(currentId, snapTarget.targetId);
+        if (chainHead && snapTarget.targetId) {
+          onLink(chainHead, snapTarget.targetId);
         }
       } else if (snapTarget.mode === "next") {
-        const targetPrev = links[snapTarget.targetId]?.previousId;
-        if (targetPrev && targetPrev !== currentId) {
-          onRelink(snapTarget.targetId, currentId);
-        } else if (!targetPrev) {
-          onLink(snapTarget.targetId, currentId);
+        if (chainTail && snapTarget.targetId) {
+          onLink(snapTarget.targetId, chainTail);
         }
       }
     } else if (hasDragged && (!releaseChain || releaseChain.length <= 1)) {
