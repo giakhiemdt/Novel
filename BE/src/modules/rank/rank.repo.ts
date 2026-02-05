@@ -1,4 +1,4 @@
-import neo4j from "neo4j-driver";
+import neo4j, { type Integer } from "neo4j-driver";
 import { getSessionForDatabase } from "../../database";
 import { nodeLabels } from "../../shared/constants/node-labels";
 import { buildParams } from "../../shared/utils/build-params";
@@ -233,7 +233,7 @@ export const linkRank = async (
       const prevCheck = await tx.run(CHECK_NEXT, { id: previousId });
       const prevExists = prevCheck.records[0]?.get("exists") as boolean | undefined;
       const prevNextCount = prevCheck.records[0]?.get("nextCount") as
-        | neo4j.Integer
+        | Integer
         | undefined;
       if (!prevExists) {
         throw new Error("PREVIOUS rank not found");
@@ -244,7 +244,7 @@ export const linkRank = async (
 
       const currentPrevCheck = await tx.run(CHECK_PREVIOUS, { id: currentId });
       const currentPrevCount = currentPrevCheck.records[0]?.get("prevCount") as
-        | neo4j.Integer
+        | Integer
         | undefined;
       if (currentPrevCount && currentPrevCount.toNumber() > 0) {
         throw new Error("CURRENT rank already has PREVIOUS");
