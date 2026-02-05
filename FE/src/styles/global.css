@@ -380,6 +380,7 @@ h3 {
   border: none;
   background: var(--surface-muted);
   box-shadow: none;
+  padding: 7px 10px;
 }
 
 .topbar__button {
