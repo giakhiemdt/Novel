@@ -339,7 +339,7 @@ export const TimelineBoard = ({
     setDragStart({ x: pointerX, y: pointerY });
     setHasDragged(false);
     setDraggingId(item.id);
-    if (!event.altKey) {
+    if (!event.shiftKey) {
       const chain = getChainIds(item.id);
       const hasLink = Boolean(prevById[item.id] || nextById[item.id]);
       setDragChain(hasLink && chain.length > 1 ? chain : null);
@@ -415,7 +415,7 @@ export const TimelineBoard = ({
     });
 
     const chain =
-      !event.altKey && draggingId && (prevById[draggingId] || nextById[draggingId])
+      !event.shiftKey && draggingId && (prevById[draggingId] || nextById[draggingId])
         ? getChainIds(draggingId)
         : null;
     if (chain && chain.length > 1) {
@@ -462,7 +462,7 @@ export const TimelineBoard = ({
     const currentId = draggingId;
     const previousId = links[currentId]?.previousId;
     const nextId = nextById[currentId];
-    const altSplit = event.altKey;
+    const shiftSplit = event.shiftKey;
 
     const releaseChain =
       prevById[currentId] || nextById[currentId] ? getChainIds(currentId) : null;
@@ -473,7 +473,7 @@ export const TimelineBoard = ({
       setDragChain(null);
       return;
     }
-    if (hasDragged && snapTarget && !altSplit) {
+    if (hasDragged && snapTarget && !shiftSplit) {
       if (snapTarget.mode === "previous") {
         if (previousId && previousId !== snapTarget.targetId) {
           onRelink(currentId, snapTarget.targetId);
@@ -497,7 +497,7 @@ export const TimelineBoard = ({
       }
     }
 
-    if (hasDragged && altSplit) {
+    if (hasDragged && shiftSplit) {
       if (previousId) {
         onUnlink(currentId, previousId);
       }
