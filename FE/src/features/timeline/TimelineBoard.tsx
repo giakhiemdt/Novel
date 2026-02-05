@@ -657,8 +657,12 @@ export const TimelineBoard = ({
         const year = event.timelineYear ?? 0;
         const ratio = Math.min(1, Math.max(0, (year - startYear) / duration));
         const x = baseX + ratio * width;
+        const labelWidth = Math.max(60, event.name.length * 7 + 36);
         let row = 0;
-        while (rows[row] !== undefined && Math.abs(rows[row] - x) < 32) {
+        while (
+          rows[row] !== undefined &&
+          Math.abs(rows[row] - x) < labelWidth
+        ) {
           row += 1;
         }
         rows[row] = x;
