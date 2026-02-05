@@ -435,6 +435,23 @@ export const TimelineBoard = ({
       return;
     }
 
+    if (dragChain && dragChain.length > 1 && snapTarget) {
+      setSnapTarget(null);
+      setPositions((prev) => {
+        const anchorId = draggingId;
+        const anchorPrev = prev[anchorId] ?? { x: 0, y: 0 };
+        const deltaX = nextX - anchorPrev.x;
+        const deltaY = nextY - anchorPrev.y;
+        const next = { ...prev };
+        dragChain.forEach((id) => {
+          const currentPos = prev[id] ?? { x: 0, y: 0 };
+          next[id] = { x: currentPos.x + deltaX, y: currentPos.y + deltaY };
+        });
+        return next;
+      });
+      return;
+    }
+
     setSnapTarget(target);
     setPositions((prev) => ({
       ...prev,
