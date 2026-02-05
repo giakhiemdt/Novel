@@ -15,15 +15,19 @@ export const TopBar = ({ sidebarOpen, onToggleSidebar, onOpenCommand }: TopBarPr
   return (
     <div className="topbar">
       <div className="topbar__left">
-        <Button variant="ghost" onClick={onToggleSidebar}>
+        <Button variant="ghost" onClick={onToggleSidebar} className="topbar__button">
           {sidebarOpen ? t("Hide sidebar") : t("Show sidebar")}
         </Button>
-        <Button variant="ghost" onClick={onOpenCommand}>
+        <Button variant="ghost" onClick={onOpenCommand} className="topbar__button">
           {t("Open T-code")}
         </Button>
       </div>
       <div className="topbar__right">
-        <Button variant="ghost" onClick={() => navigate("/settings")}> 
+        <Button
+          variant="ghost"
+          onClick={() => navigate("/settings")}
+          className="topbar__button"
+        >
           {t("Settings")}
         </Button>
       </div>
