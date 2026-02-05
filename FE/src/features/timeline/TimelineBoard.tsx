@@ -634,6 +634,7 @@ export const TimelineBoard = ({
       timelineId: string;
       year: number;
       type?: string;
+      rise: number;
     }> = [];
 
     const timelineById = new Map(itemsWithId.map((item) => [item.id, item]));
@@ -674,6 +675,7 @@ export const TimelineBoard = ({
           timelineId,
           year,
           type: event.type,
+          rise: baseY + row * EVENT_ROW_GAP - timelinePos.y,
         });
       });
     });
@@ -756,6 +758,7 @@ export const TimelineBoard = ({
               ["--timeline-event-color" as string]:
                 PALETTE[hashString(event.timelineId) % PALETTE.length],
               ["--timeline-event-year" as string]: `"${event.year}"`,
+              ["--timeline-event-rise" as string]: `${event.rise}px`,
             }}
             title={event.name}
           >

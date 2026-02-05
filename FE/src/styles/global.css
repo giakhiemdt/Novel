@@ -1178,7 +1178,7 @@ h3 {
   content: var(--timeline-event-year);
   position: absolute;
   left: 0;
-  bottom: calc(100% + 42px);
+  bottom: calc(100% + var(--timeline-event-rise) + 12px);
   transform: translateX(-10%);
   font-size: 11px;
   color: var(--color-muted);
