@@ -42,6 +42,22 @@ const cleanupSeedData = async () => {
        DETACH DELETE n`,
       { prefix: SEED_MARKER }
     );
+    const check = await session.run(
+      `MATCH (l:Location)
+       WHERE l.name STARTS WITH $prefix
+       RETURN count(l) AS total, collect(l.name)[0..5] AS samples`,
+      { prefix: SEED_MARKER }
+    );
+    const record = check.records[0];
+    const total = record?.get("total")?.toNumber?.() ?? 0;
+    const samples = record?.get("samples") ?? [];
+    if (total > 0) {
+      console.warn(
+        `Seed cleanup: còn ${total} Location có prefix '${SEED_MARKER}', mẫu: ${samples.join(
+          ", "
+        )}`
+      );
+    }
   } finally {
     await session.close();
   }
@@ -260,21 +276,35 @@ const seedLocations = async (): Promise<LocationNode[]> => {
       locations.push(existing);
       return existing;
     }
-    const created = await locationService.create(
-      {
-        name,
-        type,
-        category: "Realm",
-        terrain: "Đa dạng",
-        climate: "Ôn hòa",
-        historicalSummary: "Lịch sử địa điểm được ghi chép qua nhiều thời kỳ.",
-        legend: "Truyền thuyết bản địa về các anh hùng cổ xưa.",
-        currentStatus: "Đang biến động",
-        notes: "Dữ liệu mẫu bằng tiếng Việt.",
-        tags: ["location"],
-      },
-      DB_NAME
-    );
+    let created: LocationNode;
+    try {
+      created = (await locationService.create(
+        {
+          name,
+          type,
+          category: "Realm",
+          terrain: "Đa dạng",
+          climate: "Ôn hòa",
+          historicalSummary: "Lịch sử địa điểm được ghi chép qua nhiều thời kỳ.",
+          legend: "Truyền thuyết bản địa về các anh hùng cổ xưa.",
+          currentStatus: "Đang biến động",
+          notes: "Dữ liệu mẫu bằng tiếng Việt.",
+          tags: ["location"],
+        },
+        DB_NAME
+      )) as LocationNode;
+    } catch (error) {
+      const code = (error as { code?: string })?.code;
+      if (code === "Neo.ClientError.Schema.ConstraintValidationFailed") {
+        const retry = await findLocationByName(name);
+        if (retry) {
+          nameIndex += 1;
+          locations.push(retry);
+          return retry;
+        }
+      }
+      throw error;
+    }
     nameIndex += 1;
     locations.push(created as LocationNode);
     return created as LocationNode;
