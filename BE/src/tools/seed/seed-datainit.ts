@@ -1,6 +1,5 @@
 import { ensureConstraintsForDatabase, getSessionForDatabase } from "../../database";
 import neo4j from "neo4j-driver";
-import { createProjectDatabase } from "../../modules/project/project.repo";
 import { overviewService } from "../../modules/overview/overview.service";
 import { raceService } from "../../modules/race/race.service";
 import { rankService } from "../../modules/rank/rank.service";
@@ -24,11 +23,13 @@ import { generateId } from "../../shared/utils/generate-id";
 import { buildParams } from "../../shared/utils/build-params";
 
 const DB_NAME = "datainit";
+const SEED_PREFIX = "DI";
 
 const pick = <T>(arr: readonly T[], index: number): T =>
   arr[index % arr.length] as T;
 
 const buildName = (prefix: string, index: number) => `${prefix} ${index + 1}`;
+const seedName = (name: string) => `${SEED_PREFIX}-${name}`;
 
 const characterNames = [
   "Aiden Black", "Luna Hart", "Ethan Crow", "Nova Vale", "Ryan Storm",
@@ -122,7 +123,7 @@ const createProjectInDatabase = async () => {
     const now = new Date().toISOString();
     const data = {
       id: generateId(),
-      name: "NoeM Data Init",
+      name: seedName("NoeM Data Init"),
       description: "Dữ liệu mẫu cho hệ thống quản lý novel.",
       dbName: DB_NAME,
       status: "active",
@@ -155,7 +156,7 @@ const seedOverview = async () => {
   try {
     await overviewService.create(
       {
-        title: "NoeM Chronicle",
+        title: seedName("NoeM Chronicle"),
         subtitle: "Hành trình của những lời thề",
         genre: ["Fantasy", "Mystery"],
         shortSummary: "Tổng quan câu chuyện về sự trỗi dậy của các thế lực mới.",
@@ -173,7 +174,7 @@ const seedMasterData = async () => {
   for (const name of races) {
     await raceService.create(
       {
-        name,
+        name: seedName(name),
         description: `Mô tả chủng tộc ${name} bằng tiếng Việt.`,
         origin: "Ancient Realm",
         traits: ["tự tôn", "khả năng thích nghi"],
@@ -189,7 +190,7 @@ const seedMasterData = async () => {
   for (const name of ranks) {
     await rankService.create(
       {
-        name,
+        name: seedName(name),
         tier: "Core",
         system: "Aether Path",
         description: `Cấp bậc ${name} trong hệ thống tu luyện.`,
@@ -203,7 +204,7 @@ const seedMasterData = async () => {
   for (const name of abilities) {
     await specialAbilityService.create(
       {
-        name,
+        name: seedName(name),
         type: Math.random() > 0.5 ? "innate" : "acquired",
         description: `Năng lực ${name} mô tả bằng tiếng Việt.`,
         notes: "Dữ liệu mẫu.",
@@ -221,7 +222,7 @@ const seedLocations = async (): Promise<LocationNode[]> => {
   const createLocation = async (type: string) => {
     const created = await locationService.create(
       {
-        name: locationNames[nameIndex % locationNames.length],
+        name: seedName(pick(locationNames, nameIndex)),
         type,
         category: "Realm",
         terrain: "Đa dạng",
@@ -307,7 +308,7 @@ const seedFactions = async (): Promise<FactionNode[]> => {
   for (let i = 0; i < 20; i += 1) {
     const created = await factionService.create(
       {
-        name: factionNames[i % factionNames.length],
+        name: seedName(pick(factionNames, i)),
         type: "Guild",
         alignment: i % 2 === 0 ? "Neutral" : "Chaotic",
         ideology: "Bảo vệ cân bằng",
@@ -332,7 +333,7 @@ const seedTimelines = async () => {
   for (let i = 0; i < 5; i += 1) {
     const created = await timelineService.create(
       {
-        name: `Era ${i + 1}`,
+        name: seedName(`Era ${i + 1}`),
         code: `ERA-${i + 1}`,
         durationYears: 120 + i * 30,
         summary: "Giai đoạn phát triển của thế giới.",
@@ -358,7 +359,7 @@ const seedCharacters = async (): Promise<CharacterNode[]> => {
   for (let i = 0; i < 24; i += 1) {
     const created = await characterService.create(
       {
-        name: characterNames[i % characterNames.length],
+        name: seedName(pick(characterNames, i)),
         gender: pick(genderList, i),
         age: 18 + (i % 20),
         race: pick(races, i),
@@ -403,7 +404,7 @@ const seedEvents = async (
 
     const created = await eventService.create(
       {
-        name: eventNames[i % eventNames.length],
+        name: seedName(pick(eventNames, i)),
         type: "Battle",
         scope: "Regional",
         locationId: location.id,
@@ -431,7 +432,7 @@ const seedArcs = async () => {
   for (let i = 0; i < 4; i += 1) {
     const created = await arcService.create(
       {
-        name: arcNames[i],
+        name: seedName(pick(arcNames, i)),
         order: i + 1,
         summary: "Tóm tắt mạch truyện bằng tiếng Việt.",
         notes: "Dữ liệu mẫu.",
@@ -449,7 +450,7 @@ const seedChapters = async (arcs: any[]) => {
   for (let i = 0; i < 12; i += 1) {
     const created = await chapterService.create(
       {
-        name: chapterNames[i % chapterNames.length],
+        name: seedName(pick(chapterNames, i)),
         order: i + 1,
         summary: "Tóm tắt chương bằng tiếng Việt.",
         notes: "Dữ liệu mẫu.",
@@ -473,7 +474,7 @@ const seedScenes = async (
   for (let i = 0; i < 24; i += 1) {
     const created = await sceneService.create(
       {
-        name: sceneNames[i % sceneNames.length],
+        name: seedName(pick(sceneNames, i)),
         order: i + 1,
         summary: "Tóm tắt cảnh bằng tiếng Việt.",
         content: "Nội dung cảnh mô tả diễn biến chính.",
@@ -499,7 +500,7 @@ const seedItems = async () => {
   for (let i = 0; i < 6; i += 1) {
     const created = await itemService.create(
       {
-        name: itemNames[i % itemNames.length],
+        name: seedName(pick(itemNames, i)),
         type: "Artifact",
         rarity: "Rare",
         origin: "Ancient Vault",
@@ -518,7 +519,7 @@ const seedWorldRules = async () => {
   for (const title of worldRuleTitles) {
     await worldRuleService.create(
       {
-        title,
+        title: seedName(title),
         category: "Cosmology",
         description: "Mô tả luật thế giới bằng tiếng Việt.",
         constraints: "Giới hạn áp dụng luật.",
@@ -551,9 +552,12 @@ const seedRelationships = async (characters: CharacterNode[]) => {
 };
 
 const run = async () => {
-  await createProjectDatabase(`\`${DB_NAME}\``);
   await ensureConstraintsForDatabase(DB_NAME);
-  await createProjectInDatabase();
+  try {
+    await createProjectInDatabase();
+  } catch {
+    // ignore duplicate project in datainit db
+  }
   await seedOverview();
   await seedMasterData();
   const locations = await seedLocations();
