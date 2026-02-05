@@ -264,6 +264,31 @@ export const TimelineBoard = ({
     });
   }, [items, boardWidth, links]);
 
+  useEffect(() => {
+    if (!items.length || draggingId) {
+      return;
+    }
+    setPositions((prev) => {
+      const next = { ...prev };
+      const itemsById = new Map(items.map((item) => [item.id, item]));
+      items.forEach((item) => {
+        const prevId = prevById[item.id];
+        if (!prevId) {
+          return;
+        }
+        const prevPos = next[prevId];
+        const prevItem = itemsById.get(prevId);
+        if (!prevPos || !prevItem) {
+          return;
+        }
+        const prevWidth = getWidth(prevItem);
+        const currentPos = next[item.id] ?? prevPos;
+        next[item.id] = { x: prevPos.x + prevWidth, y: currentPos.y };
+      });
+      return next;
+    });
+  }, [items, prevById, boardWidth, draggingId]);
+
   const clampPosition = (_id: string, x: number, y: number) => ({
     x,
     y,
