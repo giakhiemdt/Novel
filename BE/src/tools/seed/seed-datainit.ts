@@ -23,41 +23,16 @@ import { generateId } from "../../shared/utils/generate-id";
 import { buildParams } from "../../shared/utils/build-params";
 
 const DB_NAME = "datainit";
-const SEED_PREFIX = "DI";
-const SEED_MARKER = `${SEED_PREFIX}-`;
 
 const pick = <T>(arr: readonly T[], index: number): T =>
   arr[index % arr.length] as T;
 
 const buildName = (prefix: string, index: number) => `${prefix} ${index + 1}`;
-const seedName = (name: string) => `${SEED_PREFIX}-${name}`;
 
 const cleanupSeedData = async () => {
   const session = getSessionForDatabase(DB_NAME, neo4j.session.WRITE);
   try {
-    await session.run(
-      `MATCH (n)
-       WHERE (n.name IS NOT NULL AND n.name STARTS WITH $prefix)
-          OR (n.title IS NOT NULL AND n.title STARTS WITH $prefix)
-       DETACH DELETE n`,
-      { prefix: SEED_MARKER }
-    );
-    const check = await session.run(
-      `MATCH (l:Location)
-       WHERE l.name STARTS WITH $prefix
-       RETURN count(l) AS total, collect(l.name)[0..5] AS samples`,
-      { prefix: SEED_MARKER }
-    );
-    const record = check.records[0];
-    const total = record?.get("total")?.toNumber?.() ?? 0;
-    const samples = record?.get("samples") ?? [];
-    if (total > 0) {
-      console.warn(
-        `Seed cleanup: còn ${total} Location có prefix '${SEED_MARKER}', mẫu: ${samples.join(
-          ", "
-        )}`
-      );
-    }
+    await session.run("MATCH (n) DETACH DELETE n");
   } finally {
     await session.close();
   }
@@ -172,7 +147,7 @@ const createProjectInDatabase = async () => {
     const now = new Date().toISOString();
     const data = {
       id: generateId(),
-      name: seedName("NoeM Data Init"),
+        name: "NoeM Data Init",
       description: "Dữ liệu mẫu cho hệ thống quản lý novel.",
       dbName: DB_NAME,
       status: "active",
@@ -205,7 +180,7 @@ const seedOverview = async () => {
   try {
     await overviewService.create(
       {
-        title: seedName("NoeM Chronicle"),
+        title: "NoeM Chronicle",
         subtitle: "Hành trình của những lời thề",
         genre: ["Fantasy", "Mystery"],
         shortSummary: "Tổng quan câu chuyện về sự trỗi dậy của các thế lực mới.",
@@ -223,7 +198,7 @@ const seedMasterData = async () => {
   for (const name of races) {
     await raceService.create(
       {
-        name: seedName(name),
+        name,
         description: `Mô tả chủng tộc ${name} bằng tiếng Việt.`,
         origin: "Ancient Realm",
         traits: ["tự tôn", "khả năng thích nghi"],
@@ -239,7 +214,7 @@ const seedMasterData = async () => {
   for (const name of ranks) {
     await rankService.create(
       {
-        name: seedName(name),
+        name,
         tier: "Core",
         system: "Aether Path",
         description: `Cấp bậc ${name} trong hệ thống tu luyện.`,
@@ -253,7 +228,7 @@ const seedMasterData = async () => {
   for (const name of abilities) {
     await specialAbilityService.create(
       {
-        name: seedName(name),
+        name,
         type: Math.random() > 0.5 ? "innate" : "acquired",
         description: `Năng lực ${name} mô tả bằng tiếng Việt.`,
         notes: "Dữ liệu mẫu.",
@@ -269,7 +244,7 @@ const seedLocations = async (): Promise<LocationNode[]> => {
   let nameIndex = 0;
 
   const createLocation = async (type: string) => {
-    const name = seedName(pick(locationNames, nameIndex));
+    const name = pick(locationNames, nameIndex);
     const existing = await findLocationByName(name);
     if (existing) {
       nameIndex += 1;
@@ -393,7 +368,7 @@ const seedFactions = async (): Promise<FactionNode[]> => {
   for (let i = 0; i < 20; i += 1) {
     const created = await factionService.create(
       {
-        name: seedName(pick(factionNames, i)),
+        name: pick(factionNames, i),
         type: "Guild",
         alignment: i % 2 === 0 ? "Neutral" : "Chaotic",
         ideology: "Bảo vệ cân bằng",
@@ -418,7 +393,7 @@ const seedTimelines = async () => {
   for (let i = 0; i < 5; i += 1) {
     const created = await timelineService.create(
       {
-        name: seedName(`Era ${i + 1}`),
+        name: `Era ${i + 1}`,
         code: `ERA-${i + 1}`,
         durationYears: 120 + i * 30,
         summary: "Giai đoạn phát triển của thế giới.",
@@ -444,14 +419,14 @@ const seedCharacters = async (): Promise<CharacterNode[]> => {
   for (let i = 0; i < 24; i += 1) {
     const created = await characterService.create(
       {
-        name: seedName(pick(characterNames, i)),
+        name: pick(characterNames, i),
         gender: pick(genderList, i),
         age: 18 + (i % 20),
-        race: seedName(pick(races, i)),
-        level: seedName(pick(ranks, i)),
+        race: pick(races, i),
+        level: pick(ranks, i),
         specialAbilities: [
-          seedName(pick(abilities, i)),
-          seedName(pick(abilities, i + 2)),
+          pick(abilities, i),
+          pick(abilities, i + 2),
         ].filter((value, index, arr) => arr.indexOf(value) === index),
         status: i % 5 === 0 ? "Dead" : "Alive",
         isMainCharacter: i < 3,
@@ -490,7 +465,7 @@ const seedEvents = async (
 
     const created = await eventService.create(
       {
-        name: seedName(pick(eventNames, i)),
+        name: pick(eventNames, i),
         type: "Battle",
         scope: "Regional",
         locationId: location.id,
@@ -518,7 +493,7 @@ const seedArcs = async () => {
   for (let i = 0; i < 4; i += 1) {
     const created = await arcService.create(
       {
-        name: seedName(pick(arcNames, i)),
+        name: pick(arcNames, i),
         order: i + 1,
         summary: "Tóm tắt mạch truyện bằng tiếng Việt.",
         notes: "Dữ liệu mẫu.",
@@ -536,7 +511,7 @@ const seedChapters = async (arcs: any[]) => {
   for (let i = 0; i < 12; i += 1) {
     const created = await chapterService.create(
       {
-        name: seedName(pick(chapterNames, i)),
+        name: pick(chapterNames, i),
         order: i + 1,
         summary: "Tóm tắt chương bằng tiếng Việt.",
         notes: "Dữ liệu mẫu.",
@@ -560,7 +535,7 @@ const seedScenes = async (
   for (let i = 0; i < 24; i += 1) {
     const created = await sceneService.create(
       {
-        name: seedName(pick(sceneNames, i)),
+        name: pick(sceneNames, i),
         order: i + 1,
         summary: "Tóm tắt cảnh bằng tiếng Việt.",
         content: "Nội dung cảnh mô tả diễn biến chính.",
@@ -586,7 +561,7 @@ const seedItems = async () => {
   for (let i = 0; i < 6; i += 1) {
     const created = await itemService.create(
       {
-        name: seedName(pick(itemNames, i)),
+        name: pick(itemNames, i),
         type: "Artifact",
         rarity: "Rare",
         origin: "Ancient Vault",
@@ -605,7 +580,7 @@ const seedWorldRules = async () => {
   for (const title of worldRuleTitles) {
     await worldRuleService.create(
       {
-        title: seedName(title),
+        title,
         category: "Cosmology",
         description: "Mô tả luật thế giới bằng tiếng Việt.",
         constraints: "Giới hạn áp dụng luật.",
