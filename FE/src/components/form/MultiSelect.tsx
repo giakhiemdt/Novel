@@ -33,10 +33,14 @@ export const MultiSelect = ({
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter") {
+    if (event.key === "Enter" || event.key === "," || event.key === "Tab") {
       event.preventDefault();
       addValue();
     }
+  };
+
+  const handleBlur = () => {
+    addValue();
   };
 
   const removeValue = (value: string) => {
@@ -66,6 +70,7 @@ export const MultiSelect = ({
             value={inputValue}
             onChange={(event) => setInputValue(event.target.value)}
             onKeyDown={handleKeyDown}
+            onBlur={handleBlur}
             placeholder={t(placeholder ?? "Type and press Enter")}
           />
         </div>
