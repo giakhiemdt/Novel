@@ -132,14 +132,7 @@ export const TimelineBoard = ({
   const { prevById, nextById, adjacency } = useMemo(() => {
     const prevMap: Record<string, string | undefined> = {};
     const nextMap: Record<string, string> = {};
-    const addEdge = (prevId: string, nextId: string) => {
-      if (!prevMap[nextId]) {
-        prevMap[nextId] = prevId;
-      }
-      if (!nextMap[prevId]) {
-        nextMap[prevId] = nextId;
-      }
-    };
+    const adj: Record<string, Set<string>> = {};
     const addAdj = (a: string, b: string) => {
       if (!a || !b) {
         return;
@@ -153,20 +146,25 @@ export const TimelineBoard = ({
       adj[a]!.add(b);
       adj[b]!.add(a);
     };
-    const adj: Record<string, Set<string>> = {};
 
     items.forEach((item) => {
       const hasLinkOverride = Object.prototype.hasOwnProperty.call(links, item.id);
       const prevId = hasLinkOverride ? links[item.id]?.previousId : item.previousId;
       if (prevId) {
-        addEdge(prevId, item.id);
-        addAdj(prevId, item.id);
-      }
-      if (item.nextId) {
-        addEdge(item.id, item.nextId);
-        addAdj(item.id, item.nextId);
+        prevMap[item.id] = prevId;
       }
     });
+
+    Object.entries(prevMap).forEach(([currentId, prevId]) => {
+      if (!prevId) {
+        return;
+      }
+      if (!nextMap[prevId]) {
+        nextMap[prevId] = currentId;
+      }
+      addAdj(prevId, currentId);
+    });
+
     return { prevById: prevMap, nextById: nextMap, adjacency: adj };
   }, [items, links]);
 
