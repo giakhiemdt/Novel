@@ -375,12 +375,29 @@ h3 {
   padding: 0 var(--space-4);
 }
 
-.topbar__input {
+.topbar__search {
+  position: relative;
   width: min(420px, 100%);
+}
+
+.topbar__input {
+  width: 100%;
   border: none;
   background: var(--surface-muted);
   box-shadow: none;
   padding: 7px 10px;
+}
+
+.topbar__suggestions {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  right: 0;
+  z-index: 40;
+  background: var(--color-panel);
+  border-radius: 14px;
+  padding: var(--space-2);
+  box-shadow: var(--shadow-modal);
 }
 
 .topbar__button {
