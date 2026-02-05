@@ -447,11 +447,12 @@ const seedCharacters = async (): Promise<CharacterNode[]> => {
         name: seedName(pick(characterNames, i)),
         gender: pick(genderList, i),
         age: 18 + (i % 20),
-        race: pick(races, i),
-        level: pick(ranks, i),
-        specialAbilities: [pick(abilities, i), pick(abilities, i + 2)].filter(
-          (value, index, arr) => arr.indexOf(value) === index
-        ),
+        race: seedName(pick(races, i)),
+        level: seedName(pick(ranks, i)),
+        specialAbilities: [
+          seedName(pick(abilities, i)),
+          seedName(pick(abilities, i + 2)),
+        ].filter((value, index, arr) => arr.indexOf(value) === index),
         status: i % 5 === 0 ? "Dead" : "Alive",
         isMainCharacter: i < 3,
         appearance: "Miêu tả ngoại hình bằng tiếng Việt.",
