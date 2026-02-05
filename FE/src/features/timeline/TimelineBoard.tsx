@@ -128,7 +128,7 @@ export const TimelineBoard = ({
     return cache;
   }, [items, links]);
 
-  const { prevById, nextById } = useMemo(() => {
+  const { prevById, nextById, adjacency } = useMemo(() => {
     const prevMap: Record<string, string | undefined> = {};
     const nextMap: Record<string, string> = {};
     const addEdge = (prevId: string, nextId: string) => {
@@ -139,35 +139,55 @@ export const TimelineBoard = ({
         nextMap[prevId] = nextId;
       }
     };
+    const addAdj = (a: string, b: string) => {
+      if (!a || !b) {
+        return;
+      }
+      if (!adj[a]) {
+        adj[a] = new Set();
+      }
+      if (!adj[b]) {
+        adj[b] = new Set();
+      }
+      adj[a]!.add(b);
+      adj[b]!.add(a);
+    };
+    const adj: Record<string, Set<string>> = {};
 
     items.forEach((item) => {
       const hasLinkOverride = Object.prototype.hasOwnProperty.call(links, item.id);
       const prevId = hasLinkOverride ? links[item.id]?.previousId : item.previousId;
       if (prevId) {
         addEdge(prevId, item.id);
+        addAdj(prevId, item.id);
       }
       if (item.nextId) {
         addEdge(item.id, item.nextId);
+        addAdj(item.id, item.nextId);
       }
     });
-    return { prevById: prevMap, nextById: nextMap };
+    return { prevById: prevMap, nextById: nextMap, adjacency: adj };
   }, [items, links]);
 
   const getChainIds = (startId: string): string[] => {
     const visited = new Set<string>();
-    let head = startId;
-    while (prevById[head] && !visited.has(prevById[head]!)) {
-      visited.add(head);
-      head = prevById[head]!;
-    }
-    const chain: string[] = [];
-    let current: string | undefined = head;
-    while (current && !visited.has(current)) {
-      chain.push(current);
+    const queue: string[] = [startId];
+    while (queue.length) {
+      const current = queue.shift()!;
+      if (visited.has(current)) {
+        continue;
+      }
       visited.add(current);
-      current = nextById[current];
+      const neighbors = adjacency[current];
+      if (neighbors) {
+        neighbors.forEach((neighbor) => {
+          if (!visited.has(neighbor)) {
+            queue.push(neighbor);
+          }
+        });
+      }
     }
-    return chain;
+    return Array.from(visited);
   };
 
   const getWidth = (item: Timeline) => {
