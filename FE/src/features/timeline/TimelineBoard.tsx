@@ -1,6 +1,6 @@
 import {
-  PointerEvent,
-  WheelEvent,
+  type PointerEvent,
+  type WheelEvent,
   useEffect,
   useMemo,
   useRef,
@@ -72,6 +72,10 @@ export const TimelineBoard = ({
   const panRef = useRef<Position>({ x: 0, y: 0 });
   const rafRef = useRef<number | null>(null);
   const splitRef = useRef(false);
+  const itemsWithId = useMemo(
+    () => items.filter((item): item is Timeline & { id: string } => Boolean(item.id)),
+    [items]
+  );
 
   useEffect(() => {
     scaleRef.current = scale;
@@ -82,15 +86,15 @@ export const TimelineBoard = ({
   }, [pan]);
 
   const durations = useMemo(() => {
-    const values = items.map((item) => Math.max(1, item.durationYears || 1));
+    const values = itemsWithId.map((item) => Math.max(1, item.durationYears || 1));
     const max = Math.max(...values, 1);
     return { max };
-  }, [items]);
+  }, [itemsWithId]);
 
   const startYears = useMemo(() => {
-    const byId = new Map(items.map((item) => [item.id, item]));
+    const byId = new Map(itemsWithId.map((item) => [item.id, item]));
     const prevMap: Record<string, string | undefined> = {};
-    items.forEach((item) => {
+    itemsWithId.forEach((item) => {
       const prevId = links[item.id]?.previousId ?? item.previousId;
       if (prevId) {
         prevMap[item.id] = prevId;
@@ -122,12 +126,12 @@ export const TimelineBoard = ({
       return value;
     };
 
-    items.forEach((item) => {
+    itemsWithId.forEach((item) => {
       cache[item.id] = getStart(item.id);
     });
 
     return cache;
-  }, [items, links]);
+  }, [itemsWithId, links]);
 
   const { prevById, nextById, adjacency } = useMemo(() => {
     const prevMap: Record<string, string | undefined> = {};
@@ -147,7 +151,7 @@ export const TimelineBoard = ({
       adj[b]!.add(a);
     };
 
-    items.forEach((item) => {
+    itemsWithId.forEach((item) => {
       const hasLinkOverride = Object.prototype.hasOwnProperty.call(links, item.id);
       const prevId = hasLinkOverride ? links[item.id]?.previousId : item.previousId;
       if (prevId) {
@@ -166,7 +170,7 @@ export const TimelineBoard = ({
     });
 
     return { prevById: prevMap, nextById: nextMap, adjacency: adj };
-  }, [items, links]);
+  }, [itemsWithId, links]);
 
   const getChainIds = (startId: string): string[] => {
     const visited = new Set<string>();
@@ -243,7 +247,7 @@ export const TimelineBoard = ({
       const next = { ...prev };
       const columns =
         boardWidth > 0 ? Math.max(1, Math.floor(boardWidth / 260)) : 3;
-      const itemsById = new Map(items.map((item) => [item.id, item]));
+      const itemsById = new Map(itemsWithId.map((item) => [item.id, item]));
       let index = 0;
 
       const placeRoot = (item: Timeline) => {
@@ -259,16 +263,16 @@ export const TimelineBoard = ({
         index += 1;
       };
 
-      items.forEach((item) => {
+      itemsWithId.forEach((item) => {
         const prevId = links[item.id]?.previousId;
         if (!prevId || !itemsById.has(prevId)) {
           placeRoot(item);
         }
       });
 
-      for (let pass = 0; pass < items.length; pass += 1) {
+      for (let pass = 0; pass < itemsWithId.length; pass += 1) {
         let changed = false;
-        items.forEach((item) => {
+        itemsWithId.forEach((item) => {
           if (next[item.id]) {
             return;
           }
@@ -290,7 +294,7 @@ export const TimelineBoard = ({
         }
       }
 
-      items.forEach((item) => {
+      itemsWithId.forEach((item) => {
         if (!next[item.id]) {
           placeRoot(item);
         }
@@ -298,16 +302,16 @@ export const TimelineBoard = ({
 
       return next;
     });
-  }, [items, boardWidth, links]);
+  }, [itemsWithId, boardWidth, links]);
 
   useEffect(() => {
-    if (!items.length || draggingId) {
+    if (!itemsWithId.length || draggingId) {
       return;
     }
     setPositions((prev) => {
       const next = { ...prev };
-      const itemsById = new Map(items.map((item) => [item.id, item]));
-      items.forEach((item) => {
+      const itemsById = new Map(itemsWithId.map((item) => [item.id, item]));
+      itemsWithId.forEach((item) => {
         const prevId = prevById[item.id];
         if (!prevId) {
           return;
@@ -323,7 +327,7 @@ export const TimelineBoard = ({
       });
       return next;
     });
-  }, [items, prevById, boardWidth, draggingId]);
+  }, [itemsWithId, prevById, boardWidth, draggingId]);
 
   const clampPosition = (_id: string, x: number, y: number) => ({
     x,
@@ -344,6 +348,9 @@ export const TimelineBoard = ({
     event: PointerEvent<HTMLButtonElement>,
     item: Timeline
   ) => {
+    if (!item.id) {
+      return;
+    }
     event.currentTarget.setPointerCapture(event.pointerId);
     const position = positions[item.id] ?? { x: 0, y: 0 };
     const { x: pointerX, y: pointerY } = toBoardCoords(
@@ -395,10 +402,10 @@ export const TimelineBoard = ({
     let nextX = base.x;
     let nextY = base.y;
     let target: SnapTarget | null = null;
-    const currentItem = items.find((item) => item.id === draggingId);
+    const currentItem = itemsWithId.find((item) => item.id === draggingId);
     const currentWidth = currentItem ? getWidth(currentItem) : MIN_WIDTH;
 
-    items.forEach((item) => {
+    itemsWithId.forEach((item) => {
       if (item.id === draggingId) {
         return;
       }
@@ -593,7 +600,7 @@ export const TimelineBoard = ({
     }
   };
 
-  const selected = items.find((item) => item.id === selectedId);
+  const selected = itemsWithId.find((item) => item.id === selectedId);
   const selectedPos = selected ? positions[selected.id] : null;
   const selectedWidth = selected ? getWidth(selected) : 0;
   const detailScale = Math.min(1.3, Math.max(0.7, 1 / scale));
@@ -614,7 +621,7 @@ export const TimelineBoard = ({
           transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${scale})`,
         }}
       >
-        {items.map((item) => {
+        {itemsWithId.map((item) => {
           const position = positions[item.id] ?? { x: COL_GAP, y: COL_GAP };
           const width = getWidth(item);
           const isSelected = item.id === selectedId;
