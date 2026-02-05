@@ -63,6 +63,7 @@ export const TimelineBoard = ({
   const [dragStart, setDragStart] = useState<Position>({ x: 0, y: 0 });
   const [hasDragged, setHasDragged] = useState(false);
   const [snapTarget, setSnapTarget] = useState<SnapTarget | null>(null);
+  const [dragChain, setDragChain] = useState<string[] | null>(null);
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState<Position>({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
@@ -136,6 +137,23 @@ export const TimelineBoard = ({
     });
     return nextMap;
   }, [links]);
+
+  const getChainIds = (startId: string): string[] => {
+    const visited = new Set<string>();
+    let head = startId;
+    while (links[head]?.previousId && !visited.has(links[head]!.previousId!)) {
+      visited.add(head);
+      head = links[head]!.previousId!;
+    }
+    const chain: string[] = [];
+    let current: string | undefined = head;
+    while (current && !visited.has(current)) {
+      chain.push(current);
+      visited.add(current);
+      current = nextById[current];
+    }
+    return chain;
+  };
 
   const getWidth = (item: Timeline) => {
     if (!boardWidth) {
@@ -261,6 +279,12 @@ export const TimelineBoard = ({
     setDragStart({ x: pointerX, y: pointerY });
     setHasDragged(false);
     setDraggingId(item.id);
+    if (!event.altKey) {
+      const chain = getChainIds(item.id);
+      setDragChain(chain.length > 1 ? chain : null);
+    } else {
+      setDragChain(null);
+    }
   };
 
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
@@ -330,10 +354,24 @@ export const TimelineBoard = ({
     });
 
     setSnapTarget(target);
-    setPositions((prev) => ({
-      ...prev,
-      [draggingId]: { x: nextX, y: nextY },
-    }));
+    setPositions((prev) => {
+      if (dragChain && dragChain.length > 1) {
+        const anchorId = draggingId;
+        const anchorPrev = prev[anchorId] ?? { x: 0, y: 0 };
+        const deltaX = nextX - anchorPrev.x;
+        const deltaY = nextY - anchorPrev.y;
+        const next = { ...prev };
+        dragChain.forEach((id) => {
+          const currentPos = prev[id] ?? { x: 0, y: 0 };
+          next[id] = { x: currentPos.x + deltaX, y: currentPos.y + deltaY };
+        });
+        return next;
+      }
+      return {
+        ...prev,
+        [draggingId]: { x: nextX, y: nextY },
+      };
+    });
   };
 
   const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
@@ -372,7 +410,7 @@ export const TimelineBoard = ({
           onLink(snapTarget.targetId, currentId);
         }
       }
-    } else if (hasDragged) {
+    } else if (hasDragged && !dragChain) {
       if (previousId) {
         onUnlink(currentId, previousId);
       }
@@ -384,6 +422,7 @@ export const TimelineBoard = ({
     setDraggingId(null);
     setSnapTarget(null);
     setHasDragged(false);
+    setDragChain(null);
   };
 
   const handleBoardPointerDown = (event: PointerEvent<HTMLDivElement>) => {
