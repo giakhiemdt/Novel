@@ -644,7 +644,6 @@ export const TimelineBoard = ({
       if (!timeline || !timelinePos) {
         return;
       }
-      const startYear = startYears[timelineId] ?? 0;
       const duration = Math.max(1, timeline.durationYears || 1);
       const width = getWidth(timeline);
       const baseX = timelinePos.x;
@@ -656,7 +655,7 @@ export const TimelineBoard = ({
       const rows: number[] = [];
       sorted.forEach((event) => {
         const year = event.timelineYear ?? 0;
-        const ratio = Math.min(1, Math.max(0, (year - startYear) / duration));
+        const ratio = Math.min(1, Math.max(0, year / duration));
         const x = baseX + ratio * width;
         const labelWidth = Math.max(60, event.name.length * 7 + 36);
         let row = 0;
