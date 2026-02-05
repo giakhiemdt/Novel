@@ -113,7 +113,7 @@ const vi: Dictionary = {
   "No favorites yet.": "Chưa có mục yêu thích.",
   "Hide sidebar": "Ẩn sidebar",
   "Show sidebar": "Hiện sidebar",
-  "Open T-code": "Mở T-code",
+  "Back": "Quay lại",
   "Schemas": "Schema",
   "Race nodes": "Danh sách chủng tộc",
   "Rank nodes": "Danh sách cấp bậc",

@@ -1,26 +1,62 @@
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../common/Button";
 import { useI18n } from "../../i18n/I18nProvider";
+import { commandRegistry, normalizeCommand } from "../../features/command/commandRegistry";
 
 export type TopBarProps = {
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
-  onOpenCommand: () => void;
 };
 
-export const TopBar = ({ sidebarOpen, onToggleSidebar, onOpenCommand }: TopBarProps) => {
+export const TopBar = ({ sidebarOpen, onToggleSidebar }: TopBarProps) => {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const [query, setQuery] = useState("");
+
+  const commandMap = useMemo(
+    () => new Map(commandRegistry.map((command) => [command.code, command])),
+    []
+  );
+
+  const handleCommand = () => {
+    const normalized = normalizeCommand(query);
+    if (!normalized) {
+      return;
+    }
+    const match = commandMap.get(normalized) ??
+      commandRegistry.find((cmd) =>
+        cmd.label.toUpperCase().includes(normalized)
+      );
+    if (match) {
+      navigate(match.route);
+      setQuery("");
+    }
+  };
 
   return (
     <div className="topbar">
       <div className="topbar__left">
+        <Button variant="ghost" onClick={() => navigate(-1)} className="topbar__button">
+          {t("Back")}
+        </Button>
         <Button variant="ghost" onClick={onToggleSidebar} className="topbar__button">
           {sidebarOpen ? t("Hide sidebar") : t("Show sidebar")}
         </Button>
-        <Button variant="ghost" onClick={onOpenCommand} className="topbar__button">
-          {t("Open T-code")}
-        </Button>
+      </div>
+      <div className="topbar__center">
+        <input
+          className="input topbar__input"
+          placeholder={t("Type a T-code or name.")}
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              handleCommand();
+            }
+          }}
+        />
       </div>
       <div className="topbar__right">
         <Button

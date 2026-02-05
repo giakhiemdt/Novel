@@ -38,7 +38,6 @@ export const PageLayout = ({ title, subtitle, children }: PageLayoutProps) => {
         <TopBar
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
-          onOpenCommand={openCommand}
         />
         <Header title={title} subtitle={subtitle} />
         {children}
