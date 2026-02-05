@@ -71,6 +71,7 @@ export const TimelineBoard = ({
   const scaleRef = useRef(1);
   const panRef = useRef<Position>({ x: 0, y: 0 });
   const rafRef = useRef<number | null>(null);
+  const splitRef = useRef(false);
 
   useEffect(() => {
     scaleRef.current = scale;
@@ -355,6 +356,7 @@ export const TimelineBoard = ({
     setDragStart({ x: pointerX, y: pointerY });
     setHasDragged(false);
     setDraggingId(item.id);
+    splitRef.current = event.shiftKey;
     if (!event.shiftKey) {
       const chain = getChainIds(item.id);
       const hasLink = Boolean(prevById[item.id] || nextById[item.id]);
@@ -431,7 +433,9 @@ export const TimelineBoard = ({
     });
 
     const chain =
-      !event.shiftKey && draggingId && (prevById[draggingId] || nextById[draggingId])
+      !splitRef.current &&
+      draggingId &&
+      (prevById[draggingId] || nextById[draggingId])
         ? getChainIds(draggingId)
         : null;
     if (chain && chain.length > 1) {
@@ -495,7 +499,7 @@ export const TimelineBoard = ({
     const currentId = draggingId;
     const previousId = prevById[currentId];
     const nextId = nextById[currentId];
-    const shiftSplit = event.shiftKey;
+    const shiftSplit = splitRef.current;
 
     const releaseChain =
       prevById[currentId] || nextById[currentId] ? getChainIds(currentId) : null;
@@ -541,6 +545,7 @@ export const TimelineBoard = ({
     setSnapTarget(null);
     setHasDragged(false);
     setDragChain(null);
+    splitRef.current = false;
   };
 
   const handleBoardPointerDown = (event: PointerEvent<HTMLDivElement>) => {
