@@ -37,6 +37,8 @@ const vi: Dictionary = {
   "Description": "Mô tả",
   "Notes": "Ghi chú",
   "Tags": "Thẻ",
+  "Promotion Conditions": "Điều kiện thăng cấp",
+  "Conditions to rank up (comma separated)": "Điều kiện thăng cấp (cách nhau bởi dấu phẩy)",
   "Active": "Đang hoạt động",
   "Archived": "Lưu trữ",
   "Cancel": "Hủy",

@@ -155,4 +155,45 @@ export const rankRoutes: RouteConfig[] = [
       },
     },
   },
+  {
+    method: "POST",
+    path: "/ranks/link",
+    handler: rankController.linkRank,
+    schema: {
+      tags: ["Rank"],
+      summary: "Link rank progression",
+      body: {
+        type: "object",
+        required: ["currentId", "previousId"],
+        properties: {
+          currentId: { type: "string" },
+          previousId: { type: "string" },
+          conditions: { type: "array", items: { type: "string" } },
+        },
+      },
+      response: {
+        200: { type: "object", properties: { message: { type: "string" } } },
+      },
+    },
+  },
+  {
+    method: "POST",
+    path: "/ranks/unlink",
+    handler: rankController.unlinkRank,
+    schema: {
+      tags: ["Rank"],
+      summary: "Unlink rank progression",
+      body: {
+        type: "object",
+        required: ["currentId", "previousId"],
+        properties: {
+          currentId: { type: "string" },
+          previousId: { type: "string" },
+        },
+      },
+      response: {
+        200: { type: "object", properties: { message: { type: "string" } } },
+      },
+    },
+  },
 ];

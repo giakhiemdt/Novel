@@ -5,6 +5,7 @@ export const relationTypes = {
   occursOn: "OCCURS_ON",
   timelineNext: "NEXT",
   timelinePrevious: "PREVIOUS",
+  rankNext: "RANK_NEXT",
   contains: "CONTAINS",
   arcHasChapter: "ARC_HAS_CHAPTER",
   chapterHasScene: "CHAPTER_HAS_SCENE",

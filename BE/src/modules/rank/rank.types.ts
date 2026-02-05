@@ -12,6 +12,9 @@ export type RankInput = {
 export type RankNode = RankInput & {
   createdAt: string;
   updatedAt: string;
+  previousId?: string;
+  nextId?: string;
+  conditions?: string[];
 };
 
 export type RankListQuery = {

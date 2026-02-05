@@ -1,6 +1,13 @@
 import { AppError } from "../../shared/errors/app-error";
 import { generateId } from "../../shared/utils/generate-id";
-import { createRank, deleteRank, getRanks, updateRank } from "./rank.repo";
+import {
+  createRank,
+  deleteRank,
+  getRanks,
+  linkRank,
+  unlinkRank,
+  updateRank,
+} from "./rank.repo";
 import { RankInput, RankListQuery, RankNode } from "./rank.types";
 
 const isStringArray = (value: unknown): value is string[] =>
@@ -130,6 +137,13 @@ const validateRankPayload = (payload: unknown): RankInput => {
   return result as RankInput;
 };
 
+const assertRequiredId = (value: unknown, field: string): string => {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new AppError(`${field} is required`, 400);
+  }
+  return value.trim();
+};
+
 const buildRankNode = (payload: RankInput): RankNode => {
   const now = new Date().toISOString();
   return {
@@ -222,5 +236,37 @@ export const rankService = {
     if (!deleted) {
       throw new AppError("rank not found", 404);
     }
+  },
+  link: async (
+    dbName: unknown,
+    payload: unknown
+  ): Promise<{ message: string }> => {
+    const database = assertDatabaseName(dbName);
+    if (!payload || typeof payload !== "object") {
+      throw new AppError("payload must be an object", 400);
+    }
+    const data = payload as Record<string, unknown>;
+    const currentId = assertRequiredId(data.currentId, "currentId");
+    const previousId = assertRequiredId(data.previousId, "previousId");
+    const conditions = assertOptionalStringArray(
+      data.conditions,
+      "conditions"
+    );
+    await linkRank(database, currentId, previousId, conditions ?? []);
+    return { message: "linked" };
+  },
+  unlink: async (
+    dbName: unknown,
+    payload: unknown
+  ): Promise<{ message: string }> => {
+    const database = assertDatabaseName(dbName);
+    if (!payload || typeof payload !== "object") {
+      throw new AppError("payload must be an object", 400);
+    }
+    const data = payload as Record<string, unknown>;
+    const currentId = assertRequiredId(data.currentId, "currentId");
+    const previousId = assertRequiredId(data.previousId, "previousId");
+    await unlinkRank(database, currentId, previousId);
+    return { message: "unlinked" };
   },
 };

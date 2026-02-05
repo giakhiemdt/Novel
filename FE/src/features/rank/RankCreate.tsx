@@ -8,7 +8,15 @@ import { TextInput } from "../../components/form/TextInput";
 import { useForm } from "../../hooks/useForm";
 import { useProjectChange } from "../../hooks/useProjectChange";
 import { useI18n } from "../../i18n/I18nProvider";
-import { createRank, deleteRank, getAllRanks, updateRank } from "./rank.api";
+import {
+  createRank,
+  deleteRank,
+  getAllRanks,
+  linkRank,
+  unlinkRank,
+  updateRank,
+} from "./rank.api";
+import { RankBoard } from "./RankBoard";
 import { RankList } from "./RankList";
 import { validateRank } from "./rank.schema";
 import type { Rank, RankPayload } from "./rank.types";
@@ -33,12 +41,24 @@ export const RankCreate = () => {
   const [editItem, setEditItem] = useState<Rank | null>(null);
   const [editValues, setEditValues] = useState<RankFormState | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [links, setLinks] = useState<Record<string, { previousId?: string; conditions?: string[] }>>({});
   const { notify } = useToast();
 
   const loadItems = useCallback(async () => {
     try {
       const data = await getAllRanks();
       setItems(data ?? []);
+      setLinks((prev) => {
+        const next: Record<string, { previousId?: string; conditions?: string[] }> = {};
+        (data ?? []).forEach((item) => {
+          if (item.previousId) {
+            next[item.id] = { previousId: item.previousId, conditions: item.conditions ?? [] };
+          } else if (prev[item.id]) {
+            next[item.id] = prev[item.id];
+          }
+        });
+        return next;
+      });
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -149,6 +169,61 @@ export const RankCreate = () => {
     }
   };
 
+  const promptConditions = () => {
+    const input = window.prompt(
+      t("Conditions to rank up (comma separated)")
+    );
+    if (!input) {
+      return [];
+    }
+    return input
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+  };
+
+  const handleBoardLink = async (currentId: string, previousId: string) => {
+    try {
+      const conditions = promptConditions();
+      const response = await linkRank({ currentId, previousId, conditions });
+      setLinks((prev) => ({
+        ...prev,
+        [currentId]: { previousId, conditions },
+      }));
+      notify(`Linked: ${response.message}`, "success");
+    } catch (err) {
+      notify((err as Error).message, "error");
+    }
+  };
+
+  const handleBoardRelink = async (currentId: string, previousId: string) => {
+    try {
+      const existingPrev = links[currentId]?.previousId;
+      if (existingPrev) {
+        await unlinkRank({ currentId, previousId: existingPrev });
+      }
+      const conditions = promptConditions();
+      const response = await linkRank({ currentId, previousId, conditions });
+      setLinks((prev) => ({
+        ...prev,
+        [currentId]: { previousId, conditions },
+      }));
+      notify(`Relinked: ${response.message}`, "success");
+    } catch (err) {
+      notify((err as Error).message, "error");
+    }
+  };
+
+  const handleBoardUnlink = async (currentId: string, previousId: string) => {
+    try {
+      const response = await unlinkRank({ currentId, previousId });
+      setLinks((prev) => ({ ...prev, [currentId]: {} }));
+      notify(`Unlinked: ${response.message}`, "success");
+    } catch (err) {
+      notify((err as Error).message, "error");
+    }
+  };
+
   return (
     <div>
       <div className="card">
@@ -163,6 +238,15 @@ export const RankCreate = () => {
             {showForm ? t("Close form") : t("Create new rank")}
           </Button>
         </div>
+        <RankBoard
+          items={items}
+          links={links}
+          selectedId={editItem?.id}
+          onSelect={(item) => item && handleEditOpen(item)}
+          onLink={handleBoardLink}
+          onRelink={handleBoardRelink}
+          onUnlink={handleBoardUnlink}
+        />
         <RankList items={items} onEdit={handleEditOpen} onDelete={handleDelete} />
       </div>
 

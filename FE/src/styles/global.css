@@ -1143,6 +1143,46 @@ h3 {
   will-change: transform;
 }
 
+.rank-board {
+  position: relative;
+  height: 320px;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--timeline-board-border);
+  background: var(--timeline-board-bg);
+  box-shadow: var(--timeline-board-shadow);
+  overflow: hidden;
+}
+
+.rank-board__canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.rank-bar {
+  position: absolute;
+  height: 34px;
+  border: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  color: var(--color-ink);
+  font-weight: 600;
+  padding: 0 18px;
+  cursor: grab;
+  transition: box-shadow 0.2s ease;
+}
+
+.rank-bar:active {
+  cursor: grabbing;
+}
+
+.rank-bar--active {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+.rank-bar__label {
+  pointer-events: none;
+}
+
 .timeline-event {
   position: absolute;
   display: inline-flex;
@@ -1178,7 +1218,7 @@ h3 {
   content: var(--timeline-event-year);
   position: absolute;
   left: 0;
-  bottom: calc(100% + var(--timeline-event-rise) + 12px);
+  bottom: calc(100% + var(--timeline-event-rise) - 20px);
   transform: translateX(-10%);
   font-size: 11px;
   color: var(--color-muted);
