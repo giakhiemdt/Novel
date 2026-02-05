@@ -7,6 +7,10 @@ const titles: Record<string, { title: string; subtitle: string }> = {
     title: "",
     subtitle: "",
   },
+  "/overview": {
+    title: "",
+    subtitle: "",
+  },
   "/characters": {
     title: "",
     subtitle: "",

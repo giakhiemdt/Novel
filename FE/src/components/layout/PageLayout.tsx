@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
 import { CommandBar } from "../../features/command/CommandBar";
@@ -12,6 +13,8 @@ export type PageLayoutProps = {
 
 export const PageLayout = ({ title, subtitle, children }: PageLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -25,10 +28,29 @@ export const PageLayout = ({ title, subtitle, children }: PageLayoutProps) => {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  const openCommand = () => {
-    window.dispatchEvent(
-      new CustomEvent("novel-command-open", { detail: { query: "" } })
-    );
+  useEffect(() => {
+    const key = "novel-nav-stack";
+    const stored = sessionStorage.getItem(key);
+    const stack = stored ? (JSON.parse(stored) as string[]) : [];
+    const current = location.pathname + location.search;
+    if (stack[stack.length - 1] !== current) {
+      stack.push(current);
+    }
+    sessionStorage.setItem(key, JSON.stringify(stack.slice(-50)));
+  }, [location.pathname, location.search]);
+
+  const handleBack = () => {
+    const key = "novel-nav-stack";
+    const stored = sessionStorage.getItem(key);
+    const stack = stored ? (JSON.parse(stored) as string[]) : [];
+    if (stack.length > 1) {
+      stack.pop();
+      const prev = stack.pop();
+      sessionStorage.setItem(key, JSON.stringify(stack));
+      navigate(prev ?? "/");
+      return;
+    }
+    navigate("/");
   };
 
   return (
@@ -38,6 +60,7 @@ export const PageLayout = ({ title, subtitle, children }: PageLayoutProps) => {
         <TopBar
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
+          onBack={handleBack}
         />
         <Header title={title} subtitle={subtitle} />
         {children}

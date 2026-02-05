@@ -18,11 +18,13 @@ import { SchemaManager } from "../features/schema/SchemaManager";
 import { CommandDocs } from "../features/command/CommandDocs";
 import { Settings } from "./Settings";
 import { Dashboard } from "./Dashboard";
+import { Home } from "./Home";
 
 export const AppRouter = () => {
   return (
     <Routes>
-      <Route path="/" element={<Dashboard />} />
+      <Route path="/" element={<Home />} />
+      <Route path="/overview" element={<Dashboard />} />
       <Route path="/characters" element={<CharacterCreate />} />
       <Route path="/races" element={<RaceCreate />} />
       <Route path="/ranks" element={<RankCreate />} />

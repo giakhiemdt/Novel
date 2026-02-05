@@ -127,6 +127,8 @@ const vi: Dictionary = {
   "Action": "Hành động",
   "Open command bar": "Mở thanh lệnh",
   "Toggle sidebar": "Bật/tắt sidebar",
+  "Home": "Trang chủ",
+  "NoeM": "NoeM",
   "Schemas": "Schema",
   "Race nodes": "Danh sách chủng tộc",
   "Rank nodes": "Danh sách cấp bậc",

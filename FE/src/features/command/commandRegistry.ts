@@ -5,7 +5,8 @@ export type CommandDefinition = {
 };
 
 export const commandRegistry: CommandDefinition[] = [
-  { code: "OV01", label: "Overview", route: "/" },
+  { code: "HM01", label: "Home", route: "/" },
+  { code: "OV01", label: "Overview", route: "/overview" },
   { code: "CH01", label: "Characters", route: "/characters" },
   { code: "RA01", label: "Races", route: "/races" },
   { code: "RK01", label: "Ranks", route: "/ranks" },

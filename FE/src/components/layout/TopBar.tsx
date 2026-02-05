@@ -7,9 +7,10 @@ import { commandRegistry, normalizeCommand } from "../../features/command/comman
 export type TopBarProps = {
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
+  onBack: () => void;
 };
 
-export const TopBar = ({ sidebarOpen, onToggleSidebar }: TopBarProps) => {
+export const TopBar = ({ sidebarOpen, onToggleSidebar, onBack }: TopBarProps) => {
   const { t } = useI18n();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
@@ -37,8 +38,8 @@ export const TopBar = ({ sidebarOpen, onToggleSidebar }: TopBarProps) => {
   return (
     <div className="topbar">
       <div className="topbar__left">
-        <Button variant="ghost" onClick={() => navigate(-1)} className="topbar__button">
-          {t("Back")}
+        <Button variant="ghost" onClick={onBack} className="topbar__button topbar__button--icon">
+          <img src="/icons8-back.apng" alt={t("Back")} className="topbar__icon" />
         </Button>
         <Button variant="ghost" onClick={onToggleSidebar} className="topbar__button">
           {sidebarOpen ? t("Hide sidebar") : t("Show sidebar")}
