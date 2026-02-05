@@ -493,7 +493,7 @@ export const TimelineBoard = ({
     }
 
     const currentId = draggingId;
-    const previousId = links[currentId]?.previousId;
+    const previousId = prevById[currentId];
     const nextId = nextById[currentId];
     const shiftSplit = event.shiftKey;
 
