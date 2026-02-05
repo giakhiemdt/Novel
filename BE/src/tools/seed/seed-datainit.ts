@@ -327,47 +327,47 @@ const seedLocations = async (): Promise<LocationNode[]> => {
     Array.from({ length: 2 }, () => createLocation("LEVEL 1 - STRUCTURE"))
   );
 
+  const linkContains = async (parentId: string, childId: string) => {
+    try {
+      await locationService.createContains(
+        { parentId, childId, sinceYear: 0, note: "Liên kết mẫu" },
+        DB_NAME
+      );
+    } catch (error) {
+      const statusCode = (error as { statusCode?: number })?.statusCode;
+      if (statusCode === 409) {
+        return;
+      }
+      throw error;
+    }
+  };
+
   for (const territory of territories) {
-    await locationService.createContains(
-      { parentId: world.id, childId: territory.id, sinceYear: 0, note: "Liên kết mẫu" },
-      DB_NAME
-    );
+    await linkContains(world.id, territory.id);
   }
 
   for (let i = 0; i < regions.length; i += 1) {
     const region = regions[i]!;
     const parent = territories[i % territories.length]!;
-    await locationService.createContains(
-      { parentId: parent.id, childId: region.id, sinceYear: 0, note: "Liên kết mẫu" },
-      DB_NAME
-    );
+    await linkContains(parent.id, region.id);
   }
 
   for (let i = 0; i < settlements.length; i += 1) {
     const settlement = settlements[i]!;
     const parent = regions[i % regions.length]!;
-    await locationService.createContains(
-      { parentId: parent.id, childId: settlement.id, sinceYear: 0, note: "Liên kết mẫu" },
-      DB_NAME
-    );
+    await linkContains(parent.id, settlement.id);
   }
 
   for (let i = 0; i < complexes.length; i += 1) {
     const complex = complexes[i]!;
     const parent = settlements[i % settlements.length]!;
-    await locationService.createContains(
-      { parentId: parent.id, childId: complex.id, sinceYear: 0, note: "Liên kết mẫu" },
-      DB_NAME
-    );
+    await linkContains(parent.id, complex.id);
   }
 
   for (let i = 0; i < structures.length; i += 1) {
     const structure = structures[i]!;
     const parent = complexes[i % complexes.length]!;
-    await locationService.createContains(
-      { parentId: parent.id, childId: structure.id, sinceYear: 0, note: "Liên kết mẫu" },
-      DB_NAME
-    );
+    await linkContains(parent.id, structure.id);
   }
 
   return locations;
