@@ -389,6 +389,12 @@ h3 {
   color: var(--color-ink);
 }
 
+.topbar .button {
+  border: none;
+  box-shadow: none;
+  --btn-border: transparent;
+}
+
 .header {
   display: flex;
   justify-content: space-between;
