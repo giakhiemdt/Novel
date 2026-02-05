@@ -1170,7 +1170,7 @@ h3 {
     transparent 4px,
     transparent 8px
   );
-  opacity: 0.6;
+  opacity: 0.5;
   transform: translateX(-2px);
 }
 
@@ -1178,7 +1178,7 @@ h3 {
   content: var(--timeline-event-year);
   position: absolute;
   left: 0;
-  bottom: calc(100% + 28px);
+  bottom: calc(100% + 42px);
   transform: translateX(-10%);
   font-size: 11px;
   color: var(--color-muted);
@@ -1191,8 +1191,7 @@ h3 {
 }
 
 .timeline-event:hover::before {
-  height: 48px;
-  opacity: 0.9;
+  opacity: 0.95;
 }
 
 .timeline-event:hover::after {
