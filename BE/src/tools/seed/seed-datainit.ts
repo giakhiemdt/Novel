@@ -22,7 +22,8 @@ import type { EventNode } from "../../modules/event/event.types";
 
 const DB_NAME = "datainit";
 
-const pick = <T>(arr: T[], index: number): T => arr[index % arr.length];
+const pick = <T>(arr: readonly T[], index: number): T =>
+  arr[index % arr.length] as T;
 
 const buildName = (prefix: string, index: number) => `${prefix} ${index + 1}`;
 
@@ -104,7 +105,11 @@ const locationTypes = [
   "LEVEL 1 - STRUCTURE",
 ];
 
-const genderList = ["male", "female", "other"] as const;
+const genderList: Array<"male" | "female" | "other"> = [
+  "male",
+  "female",
+  "other",
+];
 
 const timelineUnits = ["YEAR", "MONTH", "DAY"]; 
 
@@ -236,8 +241,8 @@ const seedLocations = async (): Promise<LocationNode[]> => {
   }
 
   for (let i = 0; i < regions.length; i += 1) {
-    const region = regions[i];
-    const parent = territories[i % territories.length];
+    const region = regions[i]!;
+    const parent = territories[i % territories.length]!;
     await locationService.createContains(
       { parentId: parent.id, childId: region.id, sinceYear: 0, note: "Liên kết mẫu" },
       DB_NAME
@@ -245,8 +250,8 @@ const seedLocations = async (): Promise<LocationNode[]> => {
   }
 
   for (let i = 0; i < settlements.length; i += 1) {
-    const settlement = settlements[i];
-    const parent = regions[i % regions.length];
+    const settlement = settlements[i]!;
+    const parent = regions[i % regions.length]!;
     await locationService.createContains(
       { parentId: parent.id, childId: settlement.id, sinceYear: 0, note: "Liên kết mẫu" },
       DB_NAME
@@ -254,8 +259,8 @@ const seedLocations = async (): Promise<LocationNode[]> => {
   }
 
   for (let i = 0; i < complexes.length; i += 1) {
-    const complex = complexes[i];
-    const parent = settlements[i % settlements.length];
+    const complex = complexes[i]!;
+    const parent = settlements[i % settlements.length]!;
     await locationService.createContains(
       { parentId: parent.id, childId: complex.id, sinceYear: 0, note: "Liên kết mẫu" },
       DB_NAME
@@ -263,8 +268,8 @@ const seedLocations = async (): Promise<LocationNode[]> => {
   }
 
   for (let i = 0; i < structures.length; i += 1) {
-    const structure = structures[i];
-    const parent = complexes[i % complexes.length];
+    const structure = structures[i]!;
+    const parent = complexes[i % complexes.length]!;
     await locationService.createContains(
       { parentId: parent.id, childId: structure.id, sinceYear: 0, note: "Liên kết mẫu" },
       DB_NAME
@@ -360,10 +365,10 @@ const seedEvents = async (
   const events: EventNode[] = [];
   for (let i = 0; i < 24; i += 1) {
     const timeline = timelines[i % timelines.length];
-    const location = locations[i % locations.length];
+    const location = locations[i % locations.length]!;
     const participants = [
-      characters[i % characters.length],
-      characters[(i + 3) % characters.length],
+      characters[i % characters.length]!,
+      characters[(i + 3) % characters.length]!,
     ].map((character) => ({
       characterId: character.id,
       role: "participant",
@@ -452,11 +457,11 @@ const seedScenes = async (
         notes: "Dữ liệu mẫu.",
         tags: ["scene"],
         chapterId: chapters[i % chapters.length].id,
-        eventId: events[i % events.length].id,
-        locationId: locations[i % locations.length].id,
+        eventId: events[i % events.length]!.id,
+        locationId: locations[i % locations.length]!.id,
         characterIds: [
-          characters[i % characters.length].id,
-          characters[(i + 1) % characters.length].id,
+          characters[i % characters.length]!.id,
+          characters[(i + 1) % characters.length]!.id,
         ],
       },
       DB_NAME
@@ -507,8 +512,8 @@ const seedWorldRules = async () => {
 
 const seedRelationships = async (characters: CharacterNode[]) => {
   for (let i = 0; i < 30; i += 1) {
-    const from = characters[i % characters.length];
-    const to = characters[(i + 2) % characters.length];
+    const from = characters[i % characters.length]!;
+    const to = characters[(i + 2) % characters.length]!;
     await relationshipService.create(
       {
         fromId: from.id,
