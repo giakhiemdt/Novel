@@ -128,28 +128,29 @@ export const TimelineBoard = ({
     return cache;
   }, [items, links]);
 
-  const prevById = useMemo(() => {
+  const { prevById, nextById } = useMemo(() => {
     const prevMap: Record<string, string | undefined> = {};
-    items.forEach((item) => {
-      const hasLinkOverride = Object.prototype.hasOwnProperty.call(links, item.id);
-      const prevId = hasLinkOverride ? links[item.id]?.previousId : item.previousId;
-      if (prevId) {
-        prevMap[item.id] = prevId;
-      }
-    });
-    return prevMap;
-  }, [items, links]);
-
-  const nextById = useMemo(() => {
     const nextMap: Record<string, string> = {};
+    const addEdge = (prevId: string, nextId: string) => {
+      if (!prevMap[nextId]) {
+        prevMap[nextId] = prevId;
+      }
+      if (!nextMap[prevId]) {
+        nextMap[prevId] = nextId;
+      }
+    };
+
     items.forEach((item) => {
       const hasLinkOverride = Object.prototype.hasOwnProperty.call(links, item.id);
       const prevId = hasLinkOverride ? links[item.id]?.previousId : item.previousId;
       if (prevId) {
-        nextMap[prevId] = item.id;
+        addEdge(prevId, item.id);
+      }
+      if (item.nextId) {
+        addEdge(item.id, item.nextId);
       }
     });
-    return nextMap;
+    return { prevById: prevMap, nextById: nextMap };
   }, [items, links]);
 
   const getChainIds = (startId: string): string[] => {
@@ -393,13 +394,13 @@ export const TimelineBoard = ({
       }
     });
 
-    setSnapTarget(target);
     const chain =
       !event.altKey && draggingId && (prevById[draggingId] || nextById[draggingId])
         ? getChainIds(draggingId)
         : null;
-    setPositions((prev) => {
-      if (chain && chain.length > 1) {
+    if (chain && chain.length > 1) {
+      setSnapTarget(null);
+      setPositions((prev) => {
         const anchorId = draggingId;
         const anchorPrev = prev[anchorId] ?? { x: 0, y: 0 };
         const deltaX = nextX - anchorPrev.x;
@@ -410,12 +411,15 @@ export const TimelineBoard = ({
           next[id] = { x: currentPos.x + deltaX, y: currentPos.y + deltaY };
         });
         return next;
-      }
-      return {
-        ...prev,
-        [draggingId]: { x: nextX, y: nextY },
-      };
-    });
+      });
+      return;
+    }
+
+    setSnapTarget(target);
+    setPositions((prev) => ({
+      ...prev,
+      [draggingId]: { x: nextX, y: nextY },
+    }));
   };
 
   const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
@@ -441,6 +445,13 @@ export const TimelineBoard = ({
 
     const releaseChain =
       prevById[currentId] || nextById[currentId] ? getChainIds(currentId) : null;
+    if (hasDragged && releaseChain && releaseChain.length > 1) {
+      setDraggingId(null);
+      setSnapTarget(null);
+      setHasDragged(false);
+      setDragChain(null);
+      return;
+    }
     if (hasDragged && snapTarget) {
       if (snapTarget.mode === "previous") {
         if (previousId && previousId !== snapTarget.targetId) {
