@@ -466,7 +466,7 @@ export const TimelineBoard = ({
 
     const releaseChain =
       prevById[currentId] || nextById[currentId] ? getChainIds(currentId) : null;
-    if (hasDragged && releaseChain && releaseChain.length > 1) {
+    if (hasDragged && releaseChain && releaseChain.length > 1 && !shiftSplit) {
       setDraggingId(null);
       setSnapTarget(null);
       setHasDragged(false);
