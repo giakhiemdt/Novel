@@ -67,6 +67,17 @@ export const TimelineBoard = ({
   const [pan, setPan] = useState<Position>({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState<Position>({ x: 0, y: 0 });
+  const scaleRef = useRef(1);
+  const panRef = useRef<Position>({ x: 0, y: 0 });
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    scaleRef.current = scale;
+  }, [scale]);
+
+  useEffect(() => {
+    panRef.current = pan;
+  }, [pan]);
 
   const durations = useMemo(() => {
     const values = items.map((item) => Math.max(1, item.durationYears || 1));
@@ -149,6 +160,14 @@ export const TimelineBoard = ({
 
     observer.observe(boardRef.current);
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -249,6 +268,7 @@ export const TimelineBoard = ({
       const rect = boardRef.current.getBoundingClientRect();
       const nextX = event.clientX - rect.left - panStart.x;
       const nextY = event.clientY - rect.top - panStart.y;
+      panRef.current = { x: nextX, y: nextY };
       setPan({ x: nextX, y: nextY });
       return;
     }
@@ -390,15 +410,27 @@ export const TimelineBoard = ({
     const rect = boardRef.current.getBoundingClientRect();
     const pointerX = event.clientX - rect.left;
     const pointerY = event.clientY - rect.top;
-    const nextScale = Math.min(2.2, Math.max(0.5, scale - event.deltaY * 0.001));
-    if (nextScale === scale) {
+    const currentScale = scaleRef.current;
+    const nextScale = Math.min(
+      2.2,
+      Math.max(0.5, currentScale - event.deltaY * 0.001)
+    );
+    if (nextScale === currentScale) {
       return;
     }
-    const scaleRatio = nextScale / scale;
-    const nextPanX = pointerX - (pointerX - pan.x) * scaleRatio;
-    const nextPanY = pointerY - (pointerY - pan.y) * scaleRatio;
-    setScale(nextScale);
-    setPan({ x: nextPanX, y: nextPanY });
+    const currentPan = panRef.current;
+    const scaleRatio = nextScale / currentScale;
+    const nextPanX = pointerX - (pointerX - currentPan.x) * scaleRatio;
+    const nextPanY = pointerY - (pointerY - currentPan.y) * scaleRatio;
+    scaleRef.current = nextScale;
+    panRef.current = { x: nextPanX, y: nextPanY };
+    if (rafRef.current === null) {
+      rafRef.current = requestAnimationFrame(() => {
+        setScale(scaleRef.current);
+        setPan(panRef.current);
+        rafRef.current = null;
+      });
+    }
   };
 
   const selected = items.find((item) => item.id === selectedId);
@@ -418,7 +450,9 @@ export const TimelineBoard = ({
     >
       <div
         className="timeline-board__canvas"
-        style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})` }}
+        style={{
+          transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${scale})`,
+        }}
       >
         {items.map((item) => {
           const position = positions[item.id] ?? { x: COL_GAP, y: COL_GAP };

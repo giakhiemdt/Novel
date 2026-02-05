@@ -1118,6 +1118,8 @@ h3 {
   box-shadow: var(--timeline-board-shadow);
   overflow: hidden;
   cursor: grab;
+  touch-action: none;
+  overscroll-behavior: contain;
 }
 
 .timeline-board:active {
