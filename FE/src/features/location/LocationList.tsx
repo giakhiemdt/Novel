@@ -31,6 +31,7 @@ export const LocationList = ({
   onError,
 }: LocationListProps) => {
   const { t } = useI18n();
+  type LocationTreeNode = Location & { children: LocationTreeNode[] };
   const [detailItem, setDetailItem] = useState<Location | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
@@ -115,8 +116,11 @@ export const LocationList = ({
   ];
 
   const tree = useMemo(() => {
-    const byId = new Map(items.map((item) => [item.id, { ...item, children: [] }]));
-    const roots: (Location & { children: Location[] })[] = [];
+    const byId = new Map<string, LocationTreeNode>();
+    items.forEach((item) => {
+      byId.set(item.id, { ...item, children: [] });
+    });
+    const roots: LocationTreeNode[] = [];
     byId.forEach((item) => {
       if (item.parentId && byId.has(item.parentId)) {
         const parent = byId.get(item.parentId);
@@ -161,7 +165,7 @@ export const LocationList = ({
     setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const renderNode = (item: Location & { children?: Location[] }, depth = 0) => {
+  const renderNode = (item: LocationTreeNode, depth = 0) => {
     const isDragOver = dragOverId === item.id;
     const hasChildren = Boolean(item.children && item.children.length > 0);
     const isCollapsed = collapsed[item.id];

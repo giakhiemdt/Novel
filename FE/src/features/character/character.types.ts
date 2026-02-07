@@ -6,7 +6,7 @@ export type CharacterPayload = {
   status?: "Alive" | "Dead";
   isMainCharacter?: boolean;
   gender: "male" | "female" | "other";
-  age: number;
+  age?: number;
   race?: string;
   specialAbilities?: string[];
   extra?: Record<string, unknown>;
@@ -30,7 +30,8 @@ export type CharacterPayload = {
   tags?: string[];
 };
 
-export type Character = CharacterPayload & {
+export type Character = Omit<CharacterPayload, "id"> & {
+  id: string;
   createdAt?: string;
   updatedAt?: string;
 };

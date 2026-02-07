@@ -19,6 +19,7 @@ export type ArcListQuery = {
   q?: string;
   name?: string;
   tag?: string;
+  total?: number;
 };
 
 export type ArcStructureScene = {

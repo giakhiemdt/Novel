@@ -1,10 +1,31 @@
 import { api } from "../../services/api";
 import { endpoints } from "../../services/endpoints";
 import { withDatabaseHeader } from "../../services/db";
+import type { PagedResponse, PaginationMeta } from "../../types/api";
+import { toQueryString } from "../../utils/query";
 import type { Location, LocationPayload } from "./location.types";
 
 export const getAllLocations = () =>
   api.get<Location[]>(endpoints.locations, withDatabaseHeader());
+
+export type LocationListQuery = {
+  limit?: number;
+  offset?: number;
+  q?: string;
+  name?: string;
+  tag?: string;
+  type?: string;
+  category?: string;
+  isSecret?: boolean;
+  isHabitable?: boolean;
+  parentId?: string;
+};
+
+export const getLocationsPage = (query: LocationListQuery) =>
+  api.getRaw<PagedResponse<Location[], PaginationMeta>>(
+    `${endpoints.locations}${toQueryString(query)}`,
+    withDatabaseHeader()
+  );
 
 export const createLocation = (payload: LocationPayload) =>
   api.post<Location>(endpoints.locations, payload, withDatabaseHeader());

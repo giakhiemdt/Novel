@@ -24,4 +24,5 @@ export type RaceListQuery = {
   tag?: string;
   origin?: string;
   culture?: string;
+  total?: number;
 };

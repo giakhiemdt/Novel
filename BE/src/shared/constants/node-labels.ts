@@ -4,6 +4,7 @@ export const nodeLabels = {
   character: "Character",
   race: "Race",
   rank: "Rank",
+  rankSystem: "RankSystem",
   specialAbility: "SpecialAbility",
   entitySchema: "EntitySchema",
   event: "Event",

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/common/Button";
+import { FilterPanel } from "../../components/common/FilterPanel";
+import { Pagination } from "../../components/common/Pagination";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
 import { Select } from "../../components/form/Select";
@@ -13,7 +15,7 @@ import { useToast } from "../../components/common/Toast";
 import {
   createCharacter,
   deleteCharacter,
-  getAllCharacters,
+  getCharactersPage,
   updateCharacter,
 } from "./character.api";
 import { getAllRaces } from "../race/race.api";
@@ -32,7 +34,7 @@ const initialState = {
   name: "",
   alias: [] as string[],
   level: "",
-  status: "",
+  status: "" as Exclude<Character["status"], undefined> | "",
   isMainCharacter: false,
   gender: "",
   age: "",
@@ -60,6 +62,10 @@ const initialState = {
 };
 
 type CharacterFormState = typeof initialState;
+const normalizeCharacterStatus = (
+  value: string
+): Exclude<Character["status"], undefined> | "" =>
+  value === "Alive" || value === "Dead" ? value : "";
 
 export const CharacterCreate = () => {
   const { t } = useI18n();
@@ -74,16 +80,49 @@ export const CharacterCreate = () => {
   const [editItem, setEditItem] = useState<Character | null>(null);
   const [editValues, setEditValues] = useState<CharacterFormState | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [hasNext, setHasNext] = useState(false);
+  const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
+  const [filters, setFilters] = useState({
+    q: "",
+    name: "",
+    tag: "",
+    race: "",
+    specialAbility: "",
+    gender: "",
+    status: "",
+    level: "",
+    isMainCharacter: undefined as boolean | undefined,
+  });
+  const [refreshKey, setRefreshKey] = useState(0);
   const { notify } = useToast();
 
   const loadItems = useCallback(async () => {
     try {
-      const data = await getAllCharacters();
-      setItems(data ?? []);
+      const offset = (page - 1) * pageSize;
+      const response = await getCharactersPage({
+        ...filters,
+        limit: pageSize + 1,
+        offset,
+      });
+      const data = response?.data ?? [];
+      const total = typeof response?.meta?.total === "number" ? response.meta.total : undefined;
+      const nextPage = total !== undefined ? offset + Math.min(data.length, pageSize) < total : data.length > pageSize;
+      const trimmed = nextPage ? data.slice(0, pageSize) : data;
+      setTotalCount(total);
+      if (trimmed.length === 0 && page > 1) {
+        setHasNext(false);
+        setItems([]);
+        setPage((prev) => Math.max(1, prev - 1));
+        return;
+      }
+      setItems(trimmed);
+      setHasNext(nextPage);
     } catch (err) {
       notify((err as Error).message, "error");
     }
-  }, [getAllCharacters]);
+  }, [page, pageSize, filters, notify, getCharactersPage]);
 
   const loadRaces = useCallback(async () => {
     try {
@@ -127,19 +166,62 @@ export const CharacterCreate = () => {
 
   useEffect(() => {
     void loadItems();
+  }, [loadItems, refreshKey]);
+
+  useEffect(() => {
     void loadRaces();
     void loadRanks();
     void loadSpecialAbilities();
     void loadSchema();
-  }, [loadItems, loadRaces, loadRanks, loadSpecialAbilities, loadSchema]);
+  }, [loadRaces, loadRanks, loadSpecialAbilities, loadSchema]);
 
   useProjectChange(() => {
-    void loadItems();
+    setPage(1);
+    setRefreshKey((prev) => prev + 1);
     void loadRaces();
     void loadRanks();
     void loadSpecialAbilities();
     void loadSchema();
   });
+
+  const handleFilterChange = (
+    key:
+      | "q"
+      | "name"
+      | "tag"
+      | "race"
+      | "specialAbility"
+      | "gender"
+      | "status"
+      | "level",
+    value: string
+  ) => {
+    setPage(1);
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleMainCharacterFilterChange = (value: string) => {
+    setPage(1);
+    setFilters((prev) => ({
+      ...prev,
+      isMainCharacter: value === "" ? undefined : value === "true",
+    }));
+  };
+
+  const handleClearFilters = () => {
+    setPage(1);
+    setFilters({
+      q: "",
+      name: "",
+      tag: "",
+      race: "",
+      specialAbility: "",
+      gender: "",
+      status: "",
+      level: "",
+      isMainCharacter: undefined,
+    });
+  };
 
   const raceOptions = useMemo(() => {
     const options =
@@ -219,7 +301,7 @@ export const CharacterCreate = () => {
     status: values.status as CharacterPayload["status"],
     isMainCharacter: values.isMainCharacter,
     gender: values.gender as CharacterPayload["gender"],
-    age: values.age === "" ? Number.NaN : Number(values.age),
+    age: values.age === "" ? undefined : Number(values.age),
     race: values.race || undefined,
     specialAbilities: values.specialAbilities,
     appearance: values.appearance || undefined,
@@ -259,7 +341,8 @@ export const CharacterCreate = () => {
       notify(t("Character created successfully."), "success");
       reset();
       setShowForm(false);
-      await loadItems();
+      setPage(1);
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -289,7 +372,7 @@ export const CharacterCreate = () => {
         status: editValues.status || undefined,
         isMainCharacter: editValues.isMainCharacter,
         gender: editValues.gender as Character["gender"],
-        age: editValues.age === "" ? Number.NaN : Number(editValues.age),
+        age: editValues.age === "" ? undefined : Number(editValues.age),
         race: editValues.race || undefined,
         specialAbilities: editValues.specialAbilities,
         appearance: editValues.appearance || undefined,
@@ -313,7 +396,7 @@ export const CharacterCreate = () => {
         extra: editValues.extra,
       });
       notify(t("Character updated successfully."), "success");
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     } finally {
@@ -334,7 +417,7 @@ export const CharacterCreate = () => {
       if (editItem?.id === item.id) {
         handleEditCancel();
       }
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -449,7 +532,101 @@ export const CharacterCreate = () => {
             {showForm ? t("Close form") : t("Create new character")}
           </Button>
         </div>
+        <FilterPanel>
+          <TextInput
+            label="Search"
+            value={filters.q}
+            onChange={(value) => handleFilterChange("q", value)}
+            placeholder="Search..."
+          />
+          <TextInput
+            label="Name"
+            value={filters.name}
+            onChange={(value) => handleFilterChange("name", value)}
+          />
+          <TextInput
+            label="Tag"
+            value={filters.tag}
+            onChange={(value) => handleFilterChange("tag", value)}
+          />
+          <Select
+            label="Gender"
+            value={filters.gender}
+            onChange={(value) => handleFilterChange("gender", value)}
+            options={[
+              { value: "male", label: "Male" },
+              { value: "female", label: "Female" },
+              { value: "other", label: "Other" },
+            ]}
+            placeholder="All"
+          />
+          <Select
+            label="Status"
+            value={filters.status}
+            onChange={(value) => handleFilterChange("status", value)}
+            options={[
+              { value: "Alive", label: "Alive" },
+              { value: "Dead", label: "Dead" },
+            ]}
+            placeholder="All"
+          />
+          <TextInput
+            label="Level"
+            value={filters.level}
+            onChange={(value) => handleFilterChange("level", value)}
+          />
+          <Select
+            label="Race"
+            value={filters.race}
+            onChange={(value) => handleFilterChange("race", value)}
+            options={races.map((race) => ({ value: race.name, label: race.name }))}
+            placeholder="All"
+          />
+          <Select
+            label="Special Ability"
+            value={filters.specialAbility}
+            onChange={(value) => handleFilterChange("specialAbility", value)}
+            options={specialAbilities.map((ability) => ({
+              value: ability.name,
+              label: ability.name,
+            }))}
+            placeholder="All"
+          />
+          <Select
+            label="Main Character"
+            value={
+              filters.isMainCharacter === undefined
+                ? ""
+                : String(filters.isMainCharacter)
+            }
+            onChange={(value) => handleMainCharacterFilterChange(value)}
+            options={[
+              { value: "true", label: "Yes" },
+              { value: "false", label: "No" },
+            ]}
+            placeholder="All"
+          />
+          <div className="form-field filter-actions">
+            <Button type="button" variant="ghost" onClick={handleClearFilters}>
+              Clear filters
+            </Button>
+          </div>
+        </FilterPanel>
         <CharacterList items={items} onEdit={handleEditOpen} onDelete={handleDelete} />
+        {(items.length > 0 || page > 1 || hasNext) && (
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            itemCount={items.length}
+            hasNext={hasNext}
+            totalCount={totalCount}
+            onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+            onPageSizeChange={(nextSize) => {
+              setPageSize(nextSize);
+              setPage(1);
+            }}
+          />
+        )}
       </div>
 
       {editItem && editValues && (
@@ -500,7 +677,6 @@ export const CharacterCreate = () => {
                 onChange={(value) =>
                   setEditValues((prev) => prev && { ...prev, age: value })
                 }
-                required
               />
             </div>
             <div className="form-field--narrow">
@@ -538,7 +714,9 @@ export const CharacterCreate = () => {
                 label="Status"
                 value={editValues.status}
                 onChange={(value) =>
-                  setEditValues((prev) => prev && { ...prev, status: value })
+                  setEditValues((prev) =>
+                    prev ? { ...prev, status: normalizeCharacterStatus(value) } : prev
+                  )
                 }
                 options={[
                   { value: "Alive", label: "Alive" },
@@ -851,7 +1029,6 @@ export const CharacterCreate = () => {
             type="number"
             value={values.age}
             onChange={(value) => setField("age", value)}
-            required
           />
         </div>
         <div className="form-field--narrow">
@@ -888,7 +1065,7 @@ export const CharacterCreate = () => {
           <Select
             label="Status"
             value={values.status}
-            onChange={(value) => setField("status", value)}
+            onChange={(value) => setField("status", normalizeCharacterStatus(value))}
             options={[
               { value: "Alive", label: "Alive" },
               { value: "Dead", label: "Dead" },

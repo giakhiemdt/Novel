@@ -10,6 +10,7 @@ export type SpecialAbilityPayload = {
 };
 
 export type SpecialAbility = SpecialAbilityPayload & {
+  id: string;
   createdAt?: string;
   updatedAt?: string;
 };

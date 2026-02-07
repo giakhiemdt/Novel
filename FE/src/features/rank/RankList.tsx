@@ -1,5 +1,5 @@
 import { useI18n } from "../../i18n/I18nProvider";
-import type { Rank } from "./rank.types";
+import type { Rank, RankCondition } from "./rank.types";
 import { useState } from "react";
 
 export type RankListProps = {
@@ -17,16 +17,31 @@ export const RankList = ({ items, onSelect, onEdit, onDelete }: RankListProps) =
     return <p className="header__subtitle">{t("No ranks yet.")}</p>;
   }
 
+  const isRankCondition = (value: unknown): value is RankCondition =>
+    Boolean(value) &&
+    typeof value === "object" &&
+    "name" in (value as Record<string, unknown>) &&
+    typeof (value as Record<string, unknown>).name === "string";
+
   const renderValue = (value: unknown) => {
     if (Array.isArray(value)) {
       if (value.length === 0) {
         return <span className="header__subtitle">-</span>;
       }
+      const isConditionArray = value.every(isRankCondition);
       return (
         <div className="pill-list">
-          {value.map((item) => (
-            <span className="pill" key={item}>
-              {item}
+          {value.map((item, index) => (
+            <span
+              className="pill"
+              key={`${String(isConditionArray ? (item as RankCondition).name : item)}-${index + 1}`}
+              title={
+                isConditionArray
+                  ? (item as RankCondition).description || undefined
+                  : undefined
+              }
+            >
+              {isConditionArray ? (item as RankCondition).name : String(item)}
             </span>
           ))}
         </div>

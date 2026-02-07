@@ -4,6 +4,7 @@ import {
   createChapter,
   createChapterWithArc,
   deleteChapter,
+  getChapterCount,
   getChapters,
   updateChapter,
   updateChapterWithArc,
@@ -246,8 +247,11 @@ export const chapterService = {
   ): Promise<{ data: ChapterNode[]; meta: ChapterListQuery }> => {
     const database = assertDatabaseName(dbName);
     const parsedQuery = parseChapterListQuery(query);
-    const data = await getChapters(database, parsedQuery);
-    return { data, meta: parsedQuery };
+    const [data, total] = await Promise.all([
+      getChapters(database, parsedQuery),
+      getChapterCount(database, parsedQuery),
+    ]);
+    return { data, meta: { ...parsedQuery, total } };
   },
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);

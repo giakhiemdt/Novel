@@ -60,6 +60,27 @@ SKIP toInteger($offset)
 LIMIT toInteger($limit)
 `;
 
+const COUNT_TIMELINES = `
+MATCH (t:${nodeLabels.timeline})
+WHERE
+  ($name IS NULL OR toLower(t.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(t.tags, []))
+  AND ($code IS NULL OR t.code = $code)
+  AND ($isOngoing IS NULL OR t.isOngoing = $isOngoing)
+RETURN count(t) AS total
+`;
+
+const COUNT_TIMELINES_BY_SEARCH = `
+CALL db.index.fulltext.queryNodes("timeline_search", $q) YIELD node, score
+WITH node AS t, score
+WHERE
+  ($name IS NULL OR toLower(t.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(t.tags, []))
+  AND ($code IS NULL OR t.code = $code)
+  AND ($isOngoing IS NULL OR t.isOngoing = $isOngoing)
+RETURN count(t) AS total
+`;
+
 const TIMELINE_PARAMS = [
   "id",
   "name",
@@ -218,6 +239,31 @@ export const getTimelines = async (
         nextId: next?.properties?.id ?? undefined,
       } as TimelineNode;
     });
+  } finally {
+    await session.close();
+  }
+};
+
+export const getTimelineCount = async (
+  database: string,
+  query: TimelineListQuery
+): Promise<number> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const statement = query.q ? COUNT_TIMELINES_BY_SEARCH : COUNT_TIMELINES;
+    const result = await session.run(statement, {
+      q: query.q ?? "",
+      name: query.name ?? null,
+      tag: query.tag ?? null,
+      code: query.code ?? null,
+      isOngoing:
+        typeof query.isOngoing === "boolean" ? query.isOngoing : null,
+    });
+    const total = result.records[0]?.get("total");
+    if (neo4j.isInt(total)) {
+      return total.toNumber();
+    }
+    return typeof total === "number" ? total : 0;
   } finally {
     await session.close();
   }

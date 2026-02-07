@@ -108,6 +108,31 @@ SKIP toInteger($offset)
 LIMIT toInteger($limit)
 `;
 
+const COUNT_FACTIONS = `
+MATCH (f:${nodeLabels.faction})
+WHERE
+  ($name IS NULL OR toLower(f.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(f.tags, []))
+  AND ($type IS NULL OR f.type = $type)
+  AND ($alignment IS NULL OR f.alignment = $alignment)
+  AND ($isPublic IS NULL OR f.isPublic = $isPublic)
+  AND ($isCanon IS NULL OR f.isCanon = $isCanon)
+RETURN count(f) AS total
+`;
+
+const COUNT_FACTIONS_BY_SEARCH = `
+CALL db.index.fulltext.queryNodes("faction_search", $q) YIELD node, score
+WITH node AS f, score
+WHERE
+  ($name IS NULL OR toLower(f.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(f.tags, []))
+  AND ($type IS NULL OR f.type = $type)
+  AND ($alignment IS NULL OR f.alignment = $alignment)
+  AND ($isPublic IS NULL OR f.isPublic = $isPublic)
+  AND ($isCanon IS NULL OR f.isCanon = $isCanon)
+RETURN count(f) AS total
+`;
+
 const DELETE_FACTION = `
 MATCH (f:${nodeLabels.faction} {id: $id})
 WITH f
@@ -210,6 +235,34 @@ export const getFactions = async (
       const node = record.get("f");
       return mapNode(node?.properties ?? {}) as FactionNode;
     });
+  } finally {
+    await session.close();
+  }
+};
+
+export const getFactionCount = async (
+  database: string,
+  query: FactionListQuery
+): Promise<number> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const statement = query.q ? COUNT_FACTIONS_BY_SEARCH : COUNT_FACTIONS;
+    const result = await session.run(statement, {
+      q: query.q ?? "",
+      name: query.name ?? null,
+      tag: query.tag ?? null,
+      type: query.type ?? null,
+      alignment: query.alignment ?? null,
+      isPublic:
+        typeof query.isPublic === "boolean" ? query.isPublic : null,
+      isCanon:
+        typeof query.isCanon === "boolean" ? query.isCanon : null,
+    });
+    const total = result.records[0]?.get("total");
+    if (neo4j.isInt(total)) {
+      return total.toNumber();
+    }
+    return typeof total === "number" ? total : 0;
   } finally {
     await session.close();
   }

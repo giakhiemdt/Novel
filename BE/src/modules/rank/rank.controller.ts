@@ -81,4 +81,17 @@ export const rankController = {
       reply.status(handled.statusCode).send({ message: handled.message });
     }
   },
+  updateLinkConditions: async (
+    req: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> => {
+    try {
+      const dbName = getDatabaseHeader(req);
+      const result = await rankService.updateLinkConditions(dbName, req.body);
+      reply.status(200).send(result);
+    } catch (error) {
+      const handled = handleError(error);
+      reply.status(handled.statusCode).send({ message: handled.message });
+    }
+  },
 };

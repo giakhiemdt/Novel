@@ -38,4 +38,5 @@ export type TimelineListQuery = {
   tag?: string;
   code?: string;
   isOngoing?: boolean;
+  total?: number;
 };

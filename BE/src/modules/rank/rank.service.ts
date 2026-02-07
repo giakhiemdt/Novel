@@ -1,17 +1,24 @@
 import { AppError } from "../../shared/errors/app-error";
 import { generateId } from "../../shared/utils/generate-id";
 import {
+  attachRankToSystem,
   createRank,
   deleteRank,
+  getRankCount,
   getRanks,
   linkRank,
+  rankSystemExists,
   unlinkRank,
+  updateRankLinkConditions,
   updateRank,
 } from "./rank.repo";
-import { RankInput, RankListQuery, RankNode } from "./rank.types";
+import { RankCondition, RankInput, RankListQuery, RankNode } from "./rank.types";
 
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
 const assertRequiredString = (value: unknown, field: string): string => {
   if (typeof value !== "string" || value.trim().length === 0) {
@@ -44,6 +51,46 @@ const assertOptionalStringArray = (
     throw new AppError(`${field} must be an array of strings`, 400);
   }
   return value;
+};
+
+const parseRankCondition = (value: unknown, field: string): RankCondition => {
+  if (typeof value === "string") {
+    const name = value.trim();
+    if (!name) {
+      throw new AppError(`${field}.name is required`, 400);
+    }
+    return { name };
+  }
+  if (!isObject(value)) {
+    throw new AppError(`${field} must be an object`, 400);
+  }
+  const nameRaw = value.name;
+  if (typeof nameRaw !== "string" || !nameRaw.trim()) {
+    throw new AppError(`${field}.name is required`, 400);
+  }
+  const descriptionRaw = value.description;
+  if (descriptionRaw !== undefined && typeof descriptionRaw !== "string") {
+    throw new AppError(`${field}.description must be a string`, 400);
+  }
+  const name = nameRaw.trim();
+  const description = descriptionRaw?.trim();
+  if (description && description.length > 0) {
+    return { name, description };
+  }
+  return { name };
+};
+
+const assertOptionalConditionArray = (
+  value: unknown,
+  field: string
+): RankCondition[] | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!Array.isArray(value)) {
+    throw new AppError(`${field} must be an array`, 400);
+  }
+  return value.map((item, index) => parseRankCondition(item, `${field}[${index}]`));
 };
 
 const parseOptionalQueryString = (
@@ -123,6 +170,11 @@ const validateRankPayload = (payload: unknown): RankInput => {
   };
 
   addIfDefined(result, "id", assertOptionalString(data.id, "id"));
+  addIfDefined(
+    result,
+    "systemId",
+    assertOptionalString(data.systemId, "systemId")
+  );
   addIfDefined(result, "alias", assertOptionalStringArray(data.alias, "alias"));
   addIfDefined(result, "tier", assertOptionalString(data.tier, "tier"));
   addIfDefined(result, "system", assertOptionalString(data.system, "system"));
@@ -133,6 +185,7 @@ const validateRankPayload = (payload: unknown): RankInput => {
   );
   addIfDefined(result, "notes", assertOptionalString(data.notes, "notes"));
   addIfDefined(result, "tags", assertOptionalStringArray(data.tags, "tags"));
+  addIfDefined(result, "color", assertOptionalString(data.color, "color"));
 
   return result as RankInput;
 };
@@ -186,6 +239,11 @@ const parseRankListQuery = (query: unknown): RankListQuery => {
   addIfDefined(result, "tag", parseOptionalQueryString(data.tag, "tag"));
   addIfDefined(result, "tier", parseOptionalQueryString(data.tier, "tier"));
   addIfDefined(result, "system", parseOptionalQueryString(data.system, "system"));
+  addIfDefined(
+    result,
+    "systemId",
+    parseOptionalQueryString(data.systemId, "systemId")
+  );
 
   return result;
 };
@@ -194,8 +252,18 @@ export const rankService = {
   create: async (payload: unknown, dbName: unknown): Promise<RankNode> => {
     const database = assertDatabaseName(dbName);
     const validated = validateRankPayload(payload);
+    if (validated.systemId) {
+      const exists = await rankSystemExists(database, validated.systemId);
+      if (!exists) {
+        throw new AppError("rank system not found", 404);
+      }
+    }
     const node = buildRankNode(validated);
-    return createRank(node, database);
+    const created = await createRank(node, database);
+    if (validated.systemId && created.id) {
+      await attachRankToSystem(database, created.id, validated.systemId);
+    }
+    return created;
   },
   update: async (
     id: string,
@@ -204,6 +272,12 @@ export const rankService = {
   ): Promise<RankNode> => {
     const database = assertDatabaseName(dbName);
     const validated = validateRankPayload(payload);
+    if (validated.systemId) {
+      const exists = await rankSystemExists(database, validated.systemId);
+      if (!exists) {
+        throw new AppError("rank system not found", 404);
+      }
+    }
     const now = new Date().toISOString();
     const node: RankNode = {
       ...validated,
@@ -214,6 +288,9 @@ export const rankService = {
     const updated = await updateRank(node, database);
     if (!updated) {
       throw new AppError("rank not found", 404);
+    }
+    if (validated.systemId) {
+      await attachRankToSystem(database, id, validated.systemId);
     }
     return updated;
   },
@@ -227,8 +304,11 @@ export const rankService = {
   ): Promise<{ data: RankNode[]; meta: RankListQuery }> => {
     const database = assertDatabaseName(dbName);
     const parsedQuery = parseRankListQuery(query);
-    const data = await getRanks(database, parsedQuery);
-    return { data, meta: parsedQuery };
+    const [data, total] = await Promise.all([
+      getRanks(database, parsedQuery),
+      getRankCount(database, parsedQuery),
+    ]);
+    return { data, meta: { ...parsedQuery, total } };
   },
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);
@@ -248,7 +328,7 @@ export const rankService = {
     const data = payload as Record<string, unknown>;
     const currentId = assertRequiredId(data.currentId, "currentId");
     const previousId = assertRequiredId(data.previousId, "previousId");
-    const conditions = assertOptionalStringArray(
+    const conditions = assertOptionalConditionArray(
       data.conditions,
       "conditions"
     );
@@ -268,5 +348,31 @@ export const rankService = {
     const previousId = assertRequiredId(data.previousId, "previousId");
     await unlinkRank(database, currentId, previousId);
     return { message: "unlinked" };
+  },
+  updateLinkConditions: async (
+    dbName: unknown,
+    payload: unknown
+  ): Promise<{ message: string }> => {
+    const database = assertDatabaseName(dbName);
+    if (!payload || typeof payload !== "object") {
+      throw new AppError("payload must be an object", 400);
+    }
+    const data = payload as Record<string, unknown>;
+    const currentId = assertRequiredId(data.currentId, "currentId");
+    const previousId = assertRequiredId(data.previousId, "previousId");
+    const conditions = assertOptionalConditionArray(
+      data.conditions,
+      "conditions"
+    );
+    const updated = await updateRankLinkConditions(
+      database,
+      currentId,
+      previousId,
+      conditions ?? []
+    );
+    if (!updated) {
+      throw new AppError("rank link not found", 404);
+    }
+    return { message: "updated" };
   },
 };

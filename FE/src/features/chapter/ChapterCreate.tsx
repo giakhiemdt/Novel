@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/common/Button";
+import { FilterPanel } from "../../components/common/FilterPanel";
+import { Pagination } from "../../components/common/Pagination";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
@@ -15,7 +17,7 @@ import { ChapterList } from "./ChapterList";
 import {
   createChapter,
   deleteChapter,
-  getAllChapters,
+  getChaptersPage,
   updateChapter,
 } from "./chapter.api";
 import { validateChapter } from "./chapter.schema";
@@ -41,6 +43,17 @@ export const ChapterCreate = () => {
   const [editItem, setEditItem] = useState<Chapter | null>(null);
   const [editValues, setEditValues] = useState<ChapterFormState | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [hasNext, setHasNext] = useState(false);
+  const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
+  const [filters, setFilters] = useState({
+    q: "",
+    name: "",
+    tag: "",
+    arcId: "",
+  });
+  const [refreshKey, setRefreshKey] = useState(0);
   const { notify } = useToast();
 
   const arcsById = useMemo(
@@ -54,12 +67,29 @@ export const ChapterCreate = () => {
 
   const loadItems = useCallback(async () => {
     try {
-      const data = await getAllChapters();
-      setItems(data ?? []);
+      const offset = (page - 1) * pageSize;
+      const response = await getChaptersPage({
+        ...filters,
+        limit: pageSize + 1,
+        offset,
+      });
+      const data = response?.data ?? [];
+      const total = typeof response?.meta?.total === "number" ? response.meta.total : undefined;
+      const nextPage = total !== undefined ? offset + Math.min(data.length, pageSize) < total : data.length > pageSize;
+      const trimmed = nextPage ? data.slice(0, pageSize) : data;
+      setTotalCount(total);
+      if (trimmed.length === 0 && page > 1) {
+        setHasNext(false);
+        setItems([]);
+        setPage((prev) => Math.max(1, prev - 1));
+        return;
+      }
+      setItems(trimmed);
+      setHasNext(nextPage);
     } catch (err) {
       notify((err as Error).message, "error");
     }
-  }, [getAllChapters]);
+  }, [page, pageSize, filters, notify, getChaptersPage]);
 
   const loadArcs = useCallback(async () => {
     try {
@@ -72,13 +102,30 @@ export const ChapterCreate = () => {
 
   useEffect(() => {
     void loadItems();
+  }, [loadItems, refreshKey]);
+
+  useEffect(() => {
     void loadArcs();
-  }, [loadItems, loadArcs]);
+  }, [loadArcs]);
 
   useProjectChange(() => {
-    void loadItems();
+    setPage(1);
+    setRefreshKey((prev) => prev + 1);
     void loadArcs();
   });
+
+  const handleFilterChange = (
+    key: "q" | "name" | "tag" | "arcId",
+    value: string
+  ) => {
+    setPage(1);
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleClearFilters = () => {
+    setPage(1);
+    setFilters({ q: "", name: "", tag: "", arcId: "" });
+  };
 
   const mapChapterToForm = (item: Chapter): ChapterFormState => ({
     name: item.name ?? "",
@@ -114,7 +161,8 @@ export const ChapterCreate = () => {
       notify(t("Chapter created successfully."), "success");
       reset();
       setShowForm(false);
-      await loadItems();
+      setPage(1);
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -146,7 +194,7 @@ export const ChapterCreate = () => {
         arcId: editValues.arcId || undefined,
       });
       notify(t("Chapter updated successfully."), "success");
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     } finally {
@@ -167,7 +215,7 @@ export const ChapterCreate = () => {
       if (editItem?.id === item.id) {
         handleEditCancel();
       }
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -187,12 +235,56 @@ export const ChapterCreate = () => {
             {showForm ? t("Close form") : t("Create new chapter")}
           </Button>
         </div>
+        <FilterPanel>
+          <TextInput
+            label="Search"
+            value={filters.q}
+            onChange={(value) => handleFilterChange("q", value)}
+            placeholder="Search..."
+          />
+          <TextInput
+            label="Name"
+            value={filters.name}
+            onChange={(value) => handleFilterChange("name", value)}
+          />
+          <TextInput
+            label="Tag"
+            value={filters.tag}
+            onChange={(value) => handleFilterChange("tag", value)}
+          />
+          <Select
+            label="Arc"
+            value={filters.arcId}
+            onChange={(value) => handleFilterChange("arcId", value)}
+            options={arcs.map((arc) => ({ value: arc.id, label: arc.name }))}
+            placeholder="All"
+          />
+          <div className="form-field filter-actions">
+            <Button type="button" variant="ghost" onClick={handleClearFilters}>
+              Clear filters
+            </Button>
+          </div>
+        </FilterPanel>
         <ChapterList
           items={items}
           arcsById={arcsById}
           onEdit={handleEditOpen}
           onDelete={handleDelete}
         />
+        {(items.length > 0 || page > 1 || hasNext) && (
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            itemCount={items.length}
+            hasNext={hasNext}
+            totalCount={totalCount}
+            onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+            onPageSizeChange={(nextSize) => {
+              setPageSize(nextSize);
+              setPage(1);
+            }}
+          />
+        )}
       </div>
 
       {editItem && editValues && (

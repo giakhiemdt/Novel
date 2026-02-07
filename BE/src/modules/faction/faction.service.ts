@@ -3,6 +3,7 @@ import { generateId } from "../../shared/utils/generate-id";
 import {
   createFaction,
   deleteFaction,
+  getFactionCount,
   getFactions,
   updateFaction,
 } from "./faction.repo";
@@ -369,8 +370,11 @@ export const factionService = {
   ): Promise<{ data: FactionNode[]; meta: FactionListQuery }> => {
     const database = assertDatabaseName(dbName);
     const parsedQuery = parseFactionListQuery(query);
-    const data = await getFactions(database, parsedQuery);
-    return { data, meta: parsedQuery };
+    const [data, total] = await Promise.all([
+      getFactions(database, parsedQuery),
+      getFactionCount(database, parsedQuery),
+    ]);
+    return { data, meta: { ...parsedQuery, total } };
   },
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);

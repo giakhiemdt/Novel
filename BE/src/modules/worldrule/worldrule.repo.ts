@@ -74,6 +74,29 @@ SKIP toInteger($offset)
 LIMIT toInteger($limit)
 `;
 
+const COUNT_RULES = `
+MATCH (r:${nodeLabels.worldRule})
+WHERE
+  ($title IS NULL OR toLower(r.title) CONTAINS toLower($title))
+  AND ($category IS NULL OR r.category = $category)
+  AND ($status IS NULL OR r.status = $status)
+  AND ($scope IS NULL OR r.scope = $scope)
+  AND ($tag IS NULL OR $tag IN coalesce(r.tags, []))
+RETURN count(r) AS total
+`;
+
+const COUNT_RULES_BY_SEARCH = `
+CALL db.index.fulltext.queryNodes("worldrule_search", $q) YIELD node, score
+WITH node AS r, score
+WHERE
+  ($title IS NULL OR toLower(r.title) CONTAINS toLower($title))
+  AND ($category IS NULL OR r.category = $category)
+  AND ($status IS NULL OR r.status = $status)
+  AND ($scope IS NULL OR r.scope = $scope)
+  AND ($tag IS NULL OR $tag IN coalesce(r.tags, []))
+RETURN count(r) AS total
+`;
+
 const DELETE_RULE = `
 MATCH (r:${nodeLabels.worldRule} {id: $id})
 WITH r
@@ -157,6 +180,31 @@ export const getRules = async (
       const node = record.get("r");
       return mapNode(node?.properties ?? {}) as WorldRuleNode;
     });
+  } finally {
+    await session.close();
+  }
+};
+
+export const getRuleCount = async (
+  database: string,
+  query: WorldRuleListQuery
+): Promise<number> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const statement = query.q ? COUNT_RULES_BY_SEARCH : COUNT_RULES;
+    const result = await session.run(statement, {
+      q: query.q ?? "",
+      title: query.title ?? null,
+      category: query.category ?? null,
+      status: query.status ?? null,
+      scope: query.scope ?? null,
+      tag: query.tag ?? null,
+    });
+    const total = result.records[0]?.get("total");
+    if (neo4j.isInt(total)) {
+      return total.toNumber();
+    }
+    return typeof total === "number" ? total : 0;
   } finally {
     await session.close();
   }

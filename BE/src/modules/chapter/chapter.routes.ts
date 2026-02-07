@@ -37,6 +37,7 @@ export const chapterRoutes: RouteConfig[] = [
                 name: { type: "string" },
                 tag: { type: "string" },
                 arcId: { type: "string" },
+                total: { type: "number" },
               },
             },
           },

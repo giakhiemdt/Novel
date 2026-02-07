@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "../../components/common/Button";
+import { FilterPanel } from "../../components/common/FilterPanel";
+import { Pagination } from "../../components/common/Pagination";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
@@ -14,7 +16,7 @@ import {
   createLocationContains,
   deleteLocation,
   deleteLocationContains,
-  getAllLocations,
+  getLocationsPage,
   updateLocation,
 } from "./location.api";
 import { LocationList } from "./LocationList";
@@ -112,24 +114,90 @@ export const LocationCreate = () => {
   const [editItem, setEditItem] = useState<Location | null>(null);
   const [editValues, setEditValues] = useState<LocationFormState | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [hasNext, setHasNext] = useState(false);
+  const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
+  const [filters, setFilters] = useState({
+    q: "",
+    name: "",
+    tag: "",
+    type: "",
+    category: "",
+    isSecret: undefined as boolean | undefined,
+    isHabitable: undefined as boolean | undefined,
+    parentId: "",
+  });
+  const [refreshKey, setRefreshKey] = useState(0);
   const { notify } = useToast();
 
   const loadItems = useCallback(async () => {
     try {
-      const data = await getAllLocations();
-      setItems(data ?? []);
+      const offset = (page - 1) * pageSize;
+      const response = await getLocationsPage({
+        ...filters,
+        limit: pageSize + 1,
+        offset,
+      });
+      const data = response?.data ?? [];
+      const total = typeof response?.meta?.total === "number" ? response.meta.total : undefined;
+      const nextPage = total !== undefined ? offset + Math.min(data.length, pageSize) < total : data.length > pageSize;
+      const trimmed = nextPage ? data.slice(0, pageSize) : data;
+      setTotalCount(total);
+      if (trimmed.length === 0 && page > 1) {
+        setHasNext(false);
+        setItems([]);
+        setPage((prev) => Math.max(1, prev - 1));
+        return;
+      }
+      setItems(trimmed);
+      setHasNext(nextPage);
     } catch (err) {
       notify((err as Error).message, "error");
     }
-  }, [getAllLocations]);
+  }, [page, pageSize, filters, notify, getLocationsPage]);
 
   useEffect(() => {
     void loadItems();
-  }, [loadItems]);
+  }, [loadItems, refreshKey]);
 
   useProjectChange(() => {
-    void loadItems();
+    setPage(1);
+    setRefreshKey((prev) => prev + 1);
   });
+
+  const handleFilterChange = (
+    key: "q" | "name" | "tag" | "type" | "category" | "parentId",
+    value: string
+  ) => {
+    setPage(1);
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleBooleanFilterChange = (
+    key: "isSecret" | "isHabitable",
+    value: string
+  ) => {
+    setPage(1);
+    setFilters((prev) => ({
+      ...prev,
+      [key]: value === "" ? undefined : value === "true",
+    }));
+  };
+
+  const handleClearFilters = () => {
+    setPage(1);
+    setFilters({
+      q: "",
+      name: "",
+      tag: "",
+      type: "",
+      category: "",
+      isSecret: undefined,
+      isHabitable: undefined,
+      parentId: "",
+    });
+  };
 
   const mapLocationToForm = (item: Location): LocationFormState => ({
     name: item.name ?? "",
@@ -199,7 +267,8 @@ export const LocationCreate = () => {
       notify(t("Location created successfully."), "success");
       reset();
       setShowForm(false);
-      await loadItems();
+      setPage(1);
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -249,7 +318,7 @@ export const LocationCreate = () => {
         tags: editValues.tags,
       });
       notify(t("Location updated successfully."), "success");
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     } finally {
@@ -270,7 +339,7 @@ export const LocationCreate = () => {
       if (editItem?.id === item.id) {
         handleEditCancel();
       }
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -286,7 +355,7 @@ export const LocationCreate = () => {
         note: null,
       });
       notify(t("Location linked successfully."), "success");
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -296,7 +365,7 @@ export const LocationCreate = () => {
     try {
       await deleteLocationContains({ childId });
       notify(t("Location unlinked successfully."), "success");
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -316,6 +385,68 @@ export const LocationCreate = () => {
             {showForm ? t("Close form") : t("Create new location")}
           </Button>
         </div>
+        <FilterPanel>
+          <TextInput
+            label="Search"
+            value={filters.q}
+            onChange={(value) => handleFilterChange("q", value)}
+            placeholder="Search..."
+          />
+          <TextInput
+            label="Name"
+            value={filters.name}
+            onChange={(value) => handleFilterChange("name", value)}
+          />
+          <TextInput
+            label="Tag"
+            value={filters.tag}
+            onChange={(value) => handleFilterChange("tag", value)}
+          />
+          <TextInput
+            label="Type"
+            value={filters.type}
+            onChange={(value) => handleFilterChange("type", value)}
+          />
+          <TextInput
+            label="Category"
+            value={filters.category}
+            onChange={(value) => handleFilterChange("category", value)}
+          />
+          <Select
+            label="Secret"
+            value={filters.isSecret === undefined ? "" : String(filters.isSecret)}
+            onChange={(value) => handleBooleanFilterChange("isSecret", value)}
+            options={[
+              { value: "true", label: "Yes" },
+              { value: "false", label: "No" },
+            ]}
+            placeholder="All"
+          />
+          <Select
+            label="Habitable"
+            value={
+              filters.isHabitable === undefined
+                ? ""
+                : String(filters.isHabitable)
+            }
+            onChange={(value) => handleBooleanFilterChange("isHabitable", value)}
+            options={[
+              { value: "true", label: "Yes" },
+              { value: "false", label: "No" },
+            ]}
+            placeholder="All"
+          />
+          <TextInput
+            label="Parent ID"
+            value={filters.parentId}
+            onChange={(value) => handleFilterChange("parentId", value)}
+          />
+          <div className="form-field filter-actions">
+            <Button type="button" variant="ghost" onClick={handleClearFilters}>
+              Clear filters
+            </Button>
+          </div>
+        </FilterPanel>
         <LocationList
           items={items}
           onEdit={handleEditOpen}
@@ -324,6 +455,20 @@ export const LocationCreate = () => {
           onUnlink={handleUnlink}
           onError={(message) => notify(message, "error")}
         />
+        {(items.length > 0 || page > 1 || hasNext) && (
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            itemCount={items.length}
+            hasNext={hasNext}
+            totalCount={totalCount}
+            onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+            onPageSizeChange={(nextSize) => {
+              setPageSize(nextSize);
+              setPage(1);
+            }}
+          />
+        )}
       </div>
 
       {editItem && editValues && (

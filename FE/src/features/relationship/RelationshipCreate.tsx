@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/common/Button";
+import { FilterPanel } from "../../components/common/FilterPanel";
+import { Pagination } from "../../components/common/Pagination";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
 import { Select } from "../../components/form/Select";
@@ -54,6 +56,13 @@ export const RelationshipCreate = () => {
   const [editItem, setEditItem] = useState<CharacterRelation | null>(null);
   const [editValues, setEditValues] = useState<RelationFormState | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [filters, setFilters] = useState({
+    characterId: "",
+    type: "",
+  });
+  const [refreshKey, setRefreshKey] = useState(0);
   const { notify } = useToast();
 
   const charactersById = useMemo(
@@ -67,12 +76,15 @@ export const RelationshipCreate = () => {
 
   const loadItems = useCallback(async () => {
     try {
-      const data = await getRelations();
+      const data = await getRelations({
+        characterId: filters.characterId || undefined,
+        type: (filters.type as CharacterRelationType | "") || undefined,
+      });
       setItems(data ?? []);
     } catch (err) {
       notify((err as Error).message, "error");
     }
-  }, [getRelations]);
+  }, [getRelations, filters]);
 
   const loadCharacters = useCallback(async () => {
     try {
@@ -85,13 +97,41 @@ export const RelationshipCreate = () => {
 
   useEffect(() => {
     void loadItems();
+  }, [loadItems, refreshKey]);
+
+  useEffect(() => {
     void loadCharacters();
-  }, [loadItems, loadCharacters]);
+  }, [loadCharacters]);
 
   useProjectChange(() => {
-    void loadItems();
+    setPage(1);
+    setRefreshKey((prev) => prev + 1);
     void loadCharacters();
   });
+
+  const handleFilterChange = (key: "characterId" | "type", value: string) => {
+    setPage(1);
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleClearFilters = () => {
+    setPage(1);
+    setFilters({ characterId: "", type: "" });
+  };
+
+  const pagedItems = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return items.slice(start, start + pageSize);
+  }, [items, page, pageSize]);
+
+  const hasNext = page * pageSize < items.length;
+
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(items.length / pageSize));
+    if (page > maxPage) {
+      setPage(maxPage);
+    }
+  }, [items.length, pageSize, page]);
 
   const mapRelationToForm = (item: CharacterRelation): RelationFormState => ({
     fromId: item.fromId ?? "",
@@ -127,7 +167,8 @@ export const RelationshipCreate = () => {
       notify(t("Relationship created successfully."), "success");
       reset();
       setShowForm(false);
-      await loadItems();
+      setPage(1);
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -161,7 +202,7 @@ export const RelationshipCreate = () => {
     try {
       await updateRelation(payload);
       notify(t("Relationship updated successfully."), "success");
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     } finally {
@@ -192,7 +233,7 @@ export const RelationshipCreate = () => {
         editItem.type === item.type) {
         handleEditCancel();
       }
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -212,12 +253,50 @@ export const RelationshipCreate = () => {
             {showForm ? t("Close form") : t("Create new relationship")}
           </Button>
         </div>
+        <FilterPanel>
+          <Select
+            label="Character"
+            value={filters.characterId}
+            onChange={(value) => handleFilterChange("characterId", value)}
+            options={characters.map((character) => ({
+              value: character.id,
+              label: character.name,
+            }))}
+            placeholder="All"
+          />
+          <Select
+            label="Type"
+            value={filters.type}
+            onChange={(value) => handleFilterChange("type", value)}
+            options={TYPE_OPTIONS.map((type) => ({ value: type, label: type }))}
+            placeholder="All"
+          />
+          <div className="form-field filter-actions">
+            <Button type="button" variant="ghost" onClick={handleClearFilters}>
+              Clear filters
+            </Button>
+          </div>
+        </FilterPanel>
         <RelationshipList
-          items={items}
+          items={pagedItems}
           charactersById={charactersById}
           onEdit={handleEditOpen}
           onDelete={handleDelete}
         />
+        {(items.length > 0 || page > 1 || hasNext) && (
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            itemCount={pagedItems.length}
+            hasNext={hasNext}
+            totalCount={items.length}
+            onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+            onPageSizeChange={(nextSize) => {
+              setPageSize(nextSize);
+              setPage(1);
+            }}
+          />
+        )}
       </div>
 
       {editItem && editValues && (

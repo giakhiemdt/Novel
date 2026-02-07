@@ -18,7 +18,8 @@ export type TimelinePayload = {
   nextId?: string;
 };
 
-export type Timeline = TimelinePayload & {
+export type Timeline = Omit<TimelinePayload, "id"> & {
+  id: string;
   createdAt?: string;
   updatedAt?: string;
   previousId?: string;

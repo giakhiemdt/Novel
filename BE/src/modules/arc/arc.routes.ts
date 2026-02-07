@@ -55,6 +55,7 @@ export const arcRoutes: RouteConfig[] = [
                 offset: { type: "number" },
                 name: { type: "string" },
                 tag: { type: "string" },
+                total: { type: "number" },
               },
             },
           },

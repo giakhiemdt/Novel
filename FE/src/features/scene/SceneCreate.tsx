@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/common/Button";
+import { FilterPanel } from "../../components/common/FilterPanel";
+import { Pagination } from "../../components/common/Pagination";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
@@ -18,7 +20,7 @@ import type { Event } from "../event/event.types";
 import { getAllLocations } from "../location/location.api";
 import type { Location } from "../location/location.types";
 import { SceneList } from "./SceneList";
-import { createScene, deleteScene, getAllScenes, updateScene } from "./scene.api";
+import { createScene, deleteScene, getScenesPage, updateScene } from "./scene.api";
 import { validateScene } from "./scene.schema";
 import type { Scene, ScenePayload } from "./scene.types";
 
@@ -51,6 +53,20 @@ export const SceneCreate = () => {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [characterId, setCharacterId] = useState("");
   const [editCharacterId, setEditCharacterId] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [hasNext, setHasNext] = useState(false);
+  const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
+  const [filters, setFilters] = useState({
+    q: "",
+    name: "",
+    tag: "",
+    chapterId: "",
+    eventId: "",
+    locationId: "",
+    characterId: "",
+  });
+  const [refreshKey, setRefreshKey] = useState(0);
   const { notify } = useToast();
 
   const chaptersById = useMemo(
@@ -91,12 +107,29 @@ export const SceneCreate = () => {
 
   const loadItems = useCallback(async () => {
     try {
-      const data = await getAllScenes();
-      setItems(data ?? []);
+      const offset = (page - 1) * pageSize;
+      const response = await getScenesPage({
+        ...filters,
+        limit: pageSize + 1,
+        offset,
+      });
+      const data = response?.data ?? [];
+      const total = typeof response?.meta?.total === "number" ? response.meta.total : undefined;
+      const nextPage = total !== undefined ? offset + Math.min(data.length, pageSize) < total : data.length > pageSize;
+      const trimmed = nextPage ? data.slice(0, pageSize) : data;
+      setTotalCount(total);
+      if (trimmed.length === 0 && page > 1) {
+        setHasNext(false);
+        setItems([]);
+        setPage((prev) => Math.max(1, prev - 1));
+        return;
+      }
+      setItems(trimmed);
+      setHasNext(nextPage);
     } catch (err) {
       notify((err as Error).message, "error");
     }
-  }, [getAllScenes]);
+  }, [page, pageSize, filters, notify, getScenesPage]);
 
   const loadChapters = useCallback(async () => {
     try {
@@ -136,19 +169,51 @@ export const SceneCreate = () => {
 
   useEffect(() => {
     void loadItems();
+  }, [loadItems, refreshKey]);
+
+  useEffect(() => {
     void loadChapters();
     void loadEvents();
     void loadLocations();
     void loadCharacters();
-  }, [loadItems, loadChapters, loadEvents, loadLocations, loadCharacters]);
+  }, [loadChapters, loadEvents, loadLocations, loadCharacters]);
 
   useProjectChange(() => {
-    void loadItems();
+    setPage(1);
+    setRefreshKey((prev) => prev + 1);
     void loadChapters();
     void loadEvents();
     void loadLocations();
     void loadCharacters();
   });
+
+  const handleFilterChange = (
+    key:
+      | "q"
+      | "name"
+      | "tag"
+      | "chapterId"
+      | "eventId"
+      | "locationId"
+      | "characterId",
+    value: string
+  ) => {
+    setPage(1);
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleClearFilters = () => {
+    setPage(1);
+    setFilters({
+      q: "",
+      name: "",
+      tag: "",
+      chapterId: "",
+      eventId: "",
+      locationId: "",
+      characterId: "",
+    });
+  };
 
   const mapSceneToForm = (item: Scene): SceneFormState => ({
     name: item.name ?? "",
@@ -193,7 +258,8 @@ export const SceneCreate = () => {
       reset();
       setShowForm(false);
       setCharacterId("");
-      await loadItems();
+      setPage(1);
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -229,7 +295,7 @@ export const SceneCreate = () => {
         characterIds: editValues.characterIds,
       });
       notify(t("Scene updated successfully."), "success");
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     } finally {
@@ -250,7 +316,7 @@ export const SceneCreate = () => {
       if (editItem?.id === item.id) {
         handleEditCancel();
       }
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -296,6 +362,69 @@ export const SceneCreate = () => {
             {showForm ? t("Close form") : t("Create new scene")}
           </Button>
         </div>
+        <FilterPanel>
+          <TextInput
+            label="Search"
+            value={filters.q}
+            onChange={(value) => handleFilterChange("q", value)}
+            placeholder="Search..."
+          />
+          <TextInput
+            label="Name"
+            value={filters.name}
+            onChange={(value) => handleFilterChange("name", value)}
+          />
+          <TextInput
+            label="Tag"
+            value={filters.tag}
+            onChange={(value) => handleFilterChange("tag", value)}
+          />
+          <Select
+            label="Chapter"
+            value={filters.chapterId}
+            onChange={(value) => handleFilterChange("chapterId", value)}
+            options={chapters.map((chapter) => ({
+              value: chapter.id,
+              label: chapter.name,
+            }))}
+            placeholder="All"
+          />
+          <Select
+            label="Event"
+            value={filters.eventId}
+            onChange={(value) => handleFilterChange("eventId", value)}
+            options={events.map((event) => ({
+              value: event.id,
+              label: event.name,
+            }))}
+            placeholder="All"
+          />
+          <Select
+            label="Location"
+            value={filters.locationId}
+            onChange={(value) => handleFilterChange("locationId", value)}
+            options={locations.map((location) => ({
+              value: location.id,
+              label: location.name,
+            }))}
+            placeholder="All"
+          />
+          <Select
+            label="Character"
+            value={filters.characterId}
+            onChange={(value) => handleFilterChange("characterId", value)}
+            options={characters.map((character) => ({
+              value: character.id,
+              label: character.name,
+            }))}
+            placeholder="All"
+          />
+          <div className="form-field filter-actions">
+            <Button type="button" variant="ghost" onClick={handleClearFilters}>
+              Clear filters
+            </Button>
+          </div>
+        </FilterPanel>
         <SceneList
           items={items}
           chaptersById={chaptersById}
@@ -305,6 +434,20 @@ export const SceneCreate = () => {
           onEdit={handleEditOpen}
           onDelete={handleDelete}
         />
+        {(items.length > 0 || page > 1 || hasNext) && (
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            itemCount={items.length}
+            hasNext={hasNext}
+            totalCount={totalCount}
+            onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+            onPageSizeChange={(nextSize) => {
+              setPageSize(nextSize);
+              setPage(1);
+            }}
+          />
+        )}
       </div>
 
       {editItem && editValues && (

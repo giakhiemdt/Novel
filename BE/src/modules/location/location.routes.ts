@@ -45,6 +45,7 @@ export const locationRoutes: RouteConfig[] = [
                 isSecret: { type: "boolean" },
                 isHabitable: { type: "boolean" },
                 parentId: { type: "string" },
+                total: { type: "number" },
               },
             },
           },

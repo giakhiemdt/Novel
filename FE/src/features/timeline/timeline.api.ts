@@ -1,10 +1,28 @@
 import { api } from "../../services/api";
 import { endpoints } from "../../services/endpoints";
 import { withDatabaseHeader } from "../../services/db";
+import type { PagedResponse, PaginationMeta } from "../../types/api";
+import { toQueryString } from "../../utils/query";
 import type { Timeline, TimelineLinkPayload, TimelinePayload } from "./timeline.types";
 
 export const getAllTimelines = () =>
   api.get<Timeline[]>(endpoints.timelines, withDatabaseHeader());
+
+export type TimelineListQuery = {
+  limit?: number;
+  offset?: number;
+  q?: string;
+  name?: string;
+  tag?: string;
+  code?: string;
+  isOngoing?: boolean;
+};
+
+export const getTimelinesPage = (query: TimelineListQuery) =>
+  api.getRaw<PagedResponse<Timeline[], PaginationMeta>>(
+    `${endpoints.timelines}${toQueryString(query)}`,
+    withDatabaseHeader()
+  );
 
 export const createTimeline = (payload: TimelinePayload) =>
   api.post<Timeline>(endpoints.timelines, payload, withDatabaseHeader());

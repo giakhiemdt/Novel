@@ -43,6 +43,7 @@ export const sceneRoutes: RouteConfig[] = [
                 eventId: { type: "string" },
                 locationId: { type: "string" },
                 characterId: { type: "string" },
+                total: { type: "number" },
               },
             },
           },

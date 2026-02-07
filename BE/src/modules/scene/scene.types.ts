@@ -28,4 +28,5 @@ export type SceneListQuery = {
   eventId?: string;
   locationId?: string;
   characterId?: string;
+  total?: number;
 };

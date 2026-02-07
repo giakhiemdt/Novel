@@ -39,6 +39,7 @@ export const raceRoutes: RouteConfig[] = [
                 tag: { type: "string" },
                 origin: { type: "string" },
                 culture: { type: "string" },
+                total: { type: "number" },
               },
             },
           },

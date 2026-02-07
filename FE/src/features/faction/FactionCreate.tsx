@@ -1,14 +1,22 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "../../components/common/Button";
+import { FilterPanel } from "../../components/common/FilterPanel";
+import { Pagination } from "../../components/common/Pagination";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
+import { Select } from "../../components/form/Select";
 import { TextArea } from "../../components/form/TextArea";
 import { TextInput } from "../../components/form/TextInput";
 import { useForm } from "../../hooks/useForm";
 import { useProjectChange } from "../../hooks/useProjectChange";
 import { useI18n } from "../../i18n/I18nProvider";
-import { createFaction, deleteFaction, getAllFactions, updateFaction } from "./faction.api";
+import {
+  createFaction,
+  deleteFaction,
+  getFactionsPage,
+  updateFaction,
+} from "./faction.api";
 import { FactionList } from "./FactionList";
 import { validateFaction } from "./faction.schema";
 import type { Faction, FactionPayload } from "./faction.types";
@@ -54,24 +62,88 @@ export const FactionCreate = () => {
   const [editItem, setEditItem] = useState<Faction | null>(null);
   const [editValues, setEditValues] = useState<FactionFormState | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [hasNext, setHasNext] = useState(false);
+  const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
+  const [filters, setFilters] = useState({
+    q: "",
+    name: "",
+    tag: "",
+    type: "",
+    alignment: "",
+    isPublic: undefined as boolean | undefined,
+    isCanon: undefined as boolean | undefined,
+  });
+  const [refreshKey, setRefreshKey] = useState(0);
   const { notify } = useToast();
 
   const loadItems = useCallback(async () => {
     try {
-      const data = await getAllFactions();
-      setItems(data ?? []);
+      const offset = (page - 1) * pageSize;
+      const response = await getFactionsPage({
+        ...filters,
+        limit: pageSize + 1,
+        offset,
+      });
+      const data = response?.data ?? [];
+      const total = typeof response?.meta?.total === "number" ? response.meta.total : undefined;
+      const nextPage = total !== undefined ? offset + Math.min(data.length, pageSize) < total : data.length > pageSize;
+      const trimmed = nextPage ? data.slice(0, pageSize) : data;
+      setTotalCount(total);
+      if (trimmed.length === 0 && page > 1) {
+        setHasNext(false);
+        setItems([]);
+        setPage((prev) => Math.max(1, prev - 1));
+        return;
+      }
+      setItems(trimmed);
+      setHasNext(nextPage);
     } catch (err) {
       notify((err as Error).message, "error");
     }
-  }, [getAllFactions]);
+  }, [page, pageSize, filters, notify, getFactionsPage]);
 
   useEffect(() => {
     void loadItems();
-  }, [loadItems]);
+  }, [loadItems, refreshKey]);
 
   useProjectChange(() => {
-    void loadItems();
+    setPage(1);
+    setRefreshKey((prev) => prev + 1);
   });
+
+  const handleFilterChange = (
+    key: "q" | "name" | "tag" | "type" | "alignment",
+    value: string
+  ) => {
+    setPage(1);
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleBooleanFilterChange = (
+    key: "isPublic" | "isCanon",
+    value: string
+  ) => {
+    setPage(1);
+    setFilters((prev) => ({
+      ...prev,
+      [key]: value === "" ? undefined : value === "true",
+    }));
+  };
+
+  const handleClearFilters = () => {
+    setPage(1);
+    setFilters({
+      q: "",
+      name: "",
+      tag: "",
+      type: "",
+      alignment: "",
+      isPublic: undefined,
+      isCanon: undefined,
+    });
+  };
 
   const mapFactionToForm = (item: Faction): FactionFormState => ({
     name: item.name ?? "",
@@ -151,7 +223,8 @@ export const FactionCreate = () => {
       notify(t("Faction created successfully."), "success");
       reset();
       setShowForm(false);
-      await loadItems();
+      setPage(1);
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -206,7 +279,7 @@ export const FactionCreate = () => {
         tags: editValues.tags,
       });
       notify(t("Faction updated successfully."), "success");
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     } finally {
@@ -227,7 +300,7 @@ export const FactionCreate = () => {
       if (editItem?.id === item.id) {
         handleEditCancel();
       }
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -247,7 +320,74 @@ export const FactionCreate = () => {
             {showForm ? t("Close form") : t("Create new faction")}
           </Button>
         </div>
+        <FilterPanel>
+          <TextInput
+            label="Search"
+            value={filters.q}
+            onChange={(value) => handleFilterChange("q", value)}
+            placeholder="Search..."
+          />
+          <TextInput
+            label="Name"
+            value={filters.name}
+            onChange={(value) => handleFilterChange("name", value)}
+          />
+          <TextInput
+            label="Tag"
+            value={filters.tag}
+            onChange={(value) => handleFilterChange("tag", value)}
+          />
+          <TextInput
+            label="Type"
+            value={filters.type}
+            onChange={(value) => handleFilterChange("type", value)}
+          />
+          <TextInput
+            label="Alignment"
+            value={filters.alignment}
+            onChange={(value) => handleFilterChange("alignment", value)}
+          />
+          <Select
+            label="Public"
+            value={filters.isPublic === undefined ? "" : String(filters.isPublic)}
+            onChange={(value) => handleBooleanFilterChange("isPublic", value)}
+            options={[
+              { value: "true", label: "Yes" },
+              { value: "false", label: "No" },
+            ]}
+            placeholder="All"
+          />
+          <Select
+            label="Canon"
+            value={filters.isCanon === undefined ? "" : String(filters.isCanon)}
+            onChange={(value) => handleBooleanFilterChange("isCanon", value)}
+            options={[
+              { value: "true", label: "Yes" },
+              { value: "false", label: "No" },
+            ]}
+            placeholder="All"
+          />
+          <div className="form-field filter-actions">
+            <Button type="button" variant="ghost" onClick={handleClearFilters}>
+              Clear filters
+            </Button>
+          </div>
+        </FilterPanel>
         <FactionList items={items} onEdit={handleEditOpen} onDelete={handleDelete} />
+        {(items.length > 0 || page > 1 || hasNext) && (
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            itemCount={items.length}
+            hasNext={hasNext}
+            totalCount={totalCount}
+            onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+            onPageSizeChange={(nextSize) => {
+              setPageSize(nextSize);
+              setPage(1);
+            }}
+          />
+        )}
       </div>
 
       {editItem && editValues && (

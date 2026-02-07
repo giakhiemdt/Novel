@@ -21,4 +21,5 @@ export type SpecialAbilityListQuery = {
   name?: string;
   tag?: string;
   type?: SpecialAbilityType;
+  total?: number;
 };

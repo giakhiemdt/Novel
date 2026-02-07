@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/common/Button";
+import { FilterPanel } from "../../components/common/FilterPanel";
+import { Pagination } from "../../components/common/Pagination";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
@@ -19,7 +21,7 @@ import { ItemList } from "./ItemList";
 import {
   createItem,
   deleteItem,
-  getAllItems,
+  getItemsPage,
   getEventsByItem,
   linkItemEvent,
   unlinkItemEvent,
@@ -57,6 +59,19 @@ export const ItemCreate = () => {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [editEvents, setEditEvents] = useState<Event[]>([]);
   const [eventId, setEventId] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [hasNext, setHasNext] = useState(false);
+  const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
+  const [filters, setFilters] = useState({
+    q: "",
+    name: "",
+    tag: "",
+    status: "",
+    ownerType: "",
+    ownerId: "",
+  });
+  const [refreshKey, setRefreshKey] = useState(0);
   const { notify } = useToast();
 
   const charactersById = useMemo(
@@ -79,12 +94,29 @@ export const ItemCreate = () => {
 
   const loadItems = useCallback(async () => {
     try {
-      const data = await getAllItems();
-      setItems(data ?? []);
+      const offset = (page - 1) * pageSize;
+      const response = await getItemsPage({
+        ...filters,
+        limit: pageSize + 1,
+        offset,
+      });
+      const data = response?.data ?? [];
+      const total = typeof response?.meta?.total === "number" ? response.meta.total : undefined;
+      const nextPage = total !== undefined ? offset + Math.min(data.length, pageSize) < total : data.length > pageSize;
+      const trimmed = nextPage ? data.slice(0, pageSize) : data;
+      setTotalCount(total);
+      if (trimmed.length === 0 && page > 1) {
+        setHasNext(false);
+        setItems([]);
+        setPage((prev) => Math.max(1, prev - 1));
+        return;
+      }
+      setItems(trimmed);
+      setHasNext(nextPage);
     } catch (err) {
       notify((err as Error).message, "error");
     }
-  }, [getAllItems]);
+  }, [page, pageSize, filters, notify, getItemsPage]);
 
   const loadCharacters = useCallback(async () => {
     try {
@@ -127,17 +159,70 @@ export const ItemCreate = () => {
 
   useEffect(() => {
     void loadItems();
+  }, [loadItems, refreshKey]);
+
+  useEffect(() => {
     void loadCharacters();
     void loadFactions();
     void loadEvents();
-  }, [loadItems, loadCharacters, loadFactions, loadEvents]);
+  }, [loadCharacters, loadFactions, loadEvents]);
 
   useProjectChange(() => {
-    void loadItems();
+    setPage(1);
+    setRefreshKey((prev) => prev + 1);
     void loadCharacters();
     void loadFactions();
     void loadEvents();
   });
+
+  const handleFilterChange = (
+    key: "q" | "name" | "tag" | "status" | "ownerType" | "ownerId",
+    value: string
+  ) => {
+    setPage(1);
+    setFilters((prev) => ({
+      ...prev,
+      [key]: value,
+      ...(key === "ownerType" ? { ownerId: "" } : {}),
+    }));
+  };
+
+  const handleClearFilters = () => {
+    setPage(1);
+    setFilters({
+      q: "",
+      name: "",
+      tag: "",
+      status: "",
+      ownerType: "",
+      ownerId: "",
+    });
+  };
+
+  const filterOwnerOptions = useMemo(() => {
+    if (filters.ownerType === "character") {
+      return characters.map((character) => ({
+        value: character.id,
+        label: character.name,
+      }));
+    }
+    if (filters.ownerType === "faction") {
+      return factions.map((faction) => ({
+        value: faction.id,
+        label: faction.name,
+      }));
+    }
+    return [
+      ...characters.map((character) => ({
+        value: character.id,
+        label: `${t("Character")}: ${character.name}`,
+      })),
+      ...factions.map((faction) => ({
+        value: faction.id,
+        label: `${t("Faction")}: ${faction.name}`,
+      })),
+    ];
+  }, [filters.ownerType, characters, factions, t]);
 
   const mapItemToForm = (item: Item): ItemFormState => ({
     name: item.name ?? "",
@@ -179,7 +264,8 @@ export const ItemCreate = () => {
       notify(t("Item created successfully."), "success");
       reset();
       setShowForm(false);
-      await loadItems();
+      setPage(1);
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -218,7 +304,7 @@ export const ItemCreate = () => {
         tags: editValues.tags,
       });
       notify(t("Item updated successfully."), "success");
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     } finally {
@@ -239,7 +325,7 @@ export const ItemCreate = () => {
       if (editItem?.id === item.id) {
         handleEditCancel();
       }
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -318,6 +404,57 @@ export const ItemCreate = () => {
             {showForm ? t("Close form") : t("Create new item")}
           </Button>
         </div>
+        <FilterPanel>
+          <TextInput
+            label="Search"
+            value={filters.q}
+            onChange={(value) => handleFilterChange("q", value)}
+            placeholder="Search..."
+          />
+          <TextInput
+            label="Name"
+            value={filters.name}
+            onChange={(value) => handleFilterChange("name", value)}
+          />
+          <TextInput
+            label="Tag"
+            value={filters.tag}
+            onChange={(value) => handleFilterChange("tag", value)}
+          />
+          <Select
+            label="Status"
+            value={filters.status}
+            onChange={(value) => handleFilterChange("status", value)}
+            options={[
+              { value: "owned", label: "owned" },
+              { value: "lost", label: "lost" },
+              { value: "destroyed", label: "destroyed" },
+            ]}
+            placeholder="All"
+          />
+          <Select
+            label="Owner Type"
+            value={filters.ownerType}
+            onChange={(value) => handleFilterChange("ownerType", value)}
+            options={[
+              { value: "character", label: "Character" },
+              { value: "faction", label: "Faction" },
+            ]}
+            placeholder="All"
+          />
+          <Select
+            label="Owner"
+            value={filters.ownerId}
+            onChange={(value) => handleFilterChange("ownerId", value)}
+            options={filterOwnerOptions}
+            placeholder="All"
+          />
+          <div className="form-field filter-actions">
+            <Button type="button" variant="ghost" onClick={handleClearFilters}>
+              Clear filters
+            </Button>
+          </div>
+        </FilterPanel>
         <ItemList
           items={items}
           charactersById={charactersById}
@@ -325,6 +462,20 @@ export const ItemCreate = () => {
           onEdit={handleEditOpen}
           onDelete={handleDelete}
         />
+        {(items.length > 0 || page > 1 || hasNext) && (
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            itemCount={items.length}
+            hasNext={hasNext}
+            totalCount={totalCount}
+            onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+            onPageSizeChange={(nextSize) => {
+              setPageSize(nextSize);
+              setPage(1);
+            }}
+          />
+        )}
       </div>
 
       {editItem && editValues && (

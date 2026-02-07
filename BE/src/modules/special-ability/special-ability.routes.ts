@@ -37,6 +37,7 @@ export const specialAbilityRoutes: RouteConfig[] = [
                 name: { type: "string" },
                 tag: { type: "string" },
                 type: { type: "string" },
+                total: { type: "number" },
               },
             },
           },

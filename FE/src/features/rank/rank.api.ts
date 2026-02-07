@@ -1,10 +1,35 @@
 import { api } from "../../services/api";
 import { endpoints } from "../../services/endpoints";
 import { withDatabaseHeader } from "../../services/db";
+import type { PagedResponse, PaginationMeta } from "../../types/api";
+import { toQueryString } from "../../utils/query";
 import type { Rank, RankLinkPayload, RankPayload } from "./rank.types";
 
 export const getAllRanks = () =>
   api.get<Rank[]>(endpoints.ranks, withDatabaseHeader());
+
+export type RankListQuery = {
+  limit?: number;
+  offset?: number;
+  q?: string;
+  name?: string;
+  tag?: string;
+  tier?: string;
+  system?: string;
+  systemId?: string;
+};
+
+export const getRanksPage = (query: RankListQuery) =>
+  api.getRaw<PagedResponse<Rank[], PaginationMeta>>(
+    `${endpoints.ranks}${toQueryString(query)}`,
+    withDatabaseHeader()
+  );
+
+export const getRanksBySystem = (systemId: string, query: RankListQuery = {}) =>
+  api.getRaw<PagedResponse<Rank[], PaginationMeta>>(
+    `${endpoints.rankSystems}/${systemId}/ranks${toQueryString(query)}`,
+    withDatabaseHeader()
+  );
 
 export const createRank = (payload: RankPayload) =>
   api.post<Rank>(endpoints.ranks, payload, withDatabaseHeader());
@@ -20,3 +45,10 @@ export const linkRank = (payload: RankLinkPayload) =>
 
 export const unlinkRank = (payload: RankLinkPayload) =>
   api.post<{ message: string }>(`${endpoints.ranks}/unlink`, payload, withDatabaseHeader());
+
+export const updateRankLinkConditions = (payload: RankLinkPayload) =>
+  api.post<{ message: string }>(
+    `${endpoints.ranks}/link/conditions`,
+    payload,
+    withDatabaseHeader()
+  );

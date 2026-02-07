@@ -4,6 +4,7 @@ export const endpoints = {
   projects: "/projects",
   characters: "/characters",
   races: "/races",
+  rankSystems: "/rank-systems",
   ranks: "/ranks",
   specialAbilities: "/special-abilities",
   schemas: "/schemas",

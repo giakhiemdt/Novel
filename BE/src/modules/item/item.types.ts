@@ -30,4 +30,5 @@ export type ItemListQuery = {
   status?: ItemStatus;
   ownerId?: string;
   ownerType?: ItemOwnerType;
+  total?: number;
 };

@@ -3,6 +3,7 @@ import { generateId } from "../../shared/utils/generate-id";
 import {
   createSpecialAbility,
   deleteSpecialAbility,
+  getSpecialAbilityCount,
   getSpecialAbilities,
   updateSpecialAbility,
 } from "./special-ability.repo";
@@ -236,8 +237,11 @@ export const specialAbilityService = {
   ): Promise<{ data: SpecialAbilityNode[]; meta: SpecialAbilityListQuery }> => {
     const database = assertDatabaseName(dbName);
     const parsedQuery = parseSpecialAbilityListQuery(query);
-    const data = await getSpecialAbilities(database, parsedQuery);
-    return { data, meta: parsedQuery };
+    const [data, total] = await Promise.all([
+      getSpecialAbilities(database, parsedQuery),
+      getSpecialAbilityCount(database, parsedQuery),
+    ]);
+    return { data, meta: { ...parsedQuery, total } };
   },
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);

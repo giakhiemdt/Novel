@@ -1,11 +1,30 @@
 import { api } from "../../services/api";
 import { withDatabaseHeader } from "../../services/db";
 import { endpoints } from "../../services/endpoints";
+import type { PagedResponse, PaginationMeta } from "../../types/api";
+import { toQueryString } from "../../utils/query";
 import type { Event } from "../event/event.types";
 import type { Item, ItemPayload } from "./item.types";
 
 export const getAllItems = () =>
   api.get<Item[]>(endpoints.items, withDatabaseHeader());
+
+export type ItemListQuery = {
+  limit?: number;
+  offset?: number;
+  q?: string;
+  name?: string;
+  tag?: string;
+  status?: string;
+  ownerId?: string;
+  ownerType?: string;
+};
+
+export const getItemsPage = (query: ItemListQuery) =>
+  api.getRaw<PagedResponse<Item[], PaginationMeta>>(
+    `${endpoints.items}${toQueryString(query)}`,
+    withDatabaseHeader()
+  );
 
 export const getItemsByEvent = (eventId: string) =>
   api.get<Item[]>(`${endpoints.events}/${eventId}/items`, withDatabaseHeader());

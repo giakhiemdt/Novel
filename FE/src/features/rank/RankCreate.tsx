@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/common/Button";
+import { FilterPanel } from "../../components/common/FilterPanel";
+import { Pagination } from "../../components/common/Pagination";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
@@ -12,14 +14,16 @@ import {
   createRank,
   deleteRank,
   getAllRanks,
+  getRanksPage,
   linkRank,
   unlinkRank,
+  updateRankLinkConditions,
   updateRank,
 } from "./rank.api";
-import { RankBoard } from "./RankBoard";
+import { RankBoard, type RankLinkSelection } from "./RankBoard";
 import { RankList } from "./RankList";
 import { validateRank } from "./rank.schema";
-import type { Rank, RankPayload } from "./rank.types";
+import type { Rank, RankCondition, RankPayload } from "./rank.types";
 
 const initialState = {
   name: "",
@@ -29,28 +33,115 @@ const initialState = {
   description: "",
   notes: "",
   tags: [] as string[],
+  color: "",
 };
 
 type RankFormState = typeof initialState;
+
+const createEmptyCondition = (): RankCondition => ({
+  name: "",
+  description: "",
+});
+
+const normalizeConditionDraft = (conditions?: RankCondition[]): RankCondition[] => {
+  const normalized = (conditions ?? [])
+    .map((item) => ({
+      name: item.name?.trim() ?? "",
+      description: item.description?.trim() ?? "",
+    }))
+    .filter((item) => item.name.length > 0);
+  return normalized.length > 0 ? normalized : [createEmptyCondition()];
+};
+
+const normalizeConditionPayload = (conditions: RankCondition[]): RankCondition[] =>
+  conditions
+    .map((item) => ({
+      name: item.name.trim(),
+      description: item.description?.trim() ?? "",
+    }))
+    .filter((item) => item.name.length > 0)
+    .map((item) => ({
+      name: item.name,
+      description: item.description.length > 0 ? item.description : undefined,
+    }));
 
 export const RankCreate = () => {
   const { t } = useI18n();
   const { values, setField, reset } = useForm<RankFormState>(initialState);
   const [items, setItems] = useState<Rank[]>([]);
+  const [boardItems, setBoardItems] = useState<Rank[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<Rank | null>(null);
   const [editValues, setEditValues] = useState<RankFormState | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
-  const [links, setLinks] = useState<Record<string, { previousId?: string; conditions?: string[] }>>({});
+  const [isSavingColor, setIsSavingColor] = useState(false);
+  const [links, setLinks] = useState<
+    Record<string, { previousId?: string; conditions?: RankCondition[] }>
+  >({});
+  const [selectedLink, setSelectedLink] = useState<{
+    currentId: string;
+    previousId: string;
+  } | null>(null);
+  const [linkConditionsDraft, setLinkConditionsDraft] = useState<RankCondition[]>([
+    { name: "", description: "" },
+  ]);
+  const [isSavingLinkConditions, setIsSavingLinkConditions] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [hasNext, setHasNext] = useState(false);
+  const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
+  const [filters, setFilters] = useState({
+    q: "",
+    name: "",
+    tag: "",
+    tier: "",
+    system: "",
+  });
+  const [refreshKey, setRefreshKey] = useState(0);
   const { notify } = useToast();
 
   const loadItems = useCallback(async () => {
     try {
+      const offset = (page - 1) * pageSize;
+      const response = await getRanksPage({
+        ...filters,
+        limit: pageSize + 1,
+        offset,
+      });
+      const data = response?.data ?? [];
+      const total = typeof response?.meta?.total === "number" ? response.meta.total : undefined;
+      const nextPage =
+        total !== undefined
+          ? offset + Math.min(data.length, pageSize) < total
+          : data.length > pageSize;
+      const trimmed = nextPage ? data.slice(0, pageSize) : data;
+      setTotalCount(total);
+      if (trimmed.length === 0 && page > 1) {
+        setHasNext(false);
+        setItems([]);
+        setPage((prev) => Math.max(1, prev - 1));
+        return;
+      }
+      setItems(trimmed);
+      setHasNext(nextPage);
+    } catch (err) {
+      notify((err as Error).message, "error");
+    }
+  }, [page, pageSize, filters, notify, getRanksPage]);
+
+  const loadBoardItems = useCallback(async () => {
+    try {
       const data = await getAllRanks();
-      setItems(data ?? []);
+      setBoardItems(data ?? []);
       setLinks((prev) => {
-        const next: Record<string, { previousId?: string; conditions?: string[] }> = {};
+        const next: Record<
+          string,
+          { previousId?: string; conditions?: RankCondition[] }
+        > = {};
         (data ?? []).forEach((item) => {
+          if (!item.id) {
+            return;
+          }
           if (item.previousId) {
             next[item.id] = { previousId: item.previousId, conditions: item.conditions ?? [] };
           } else if (prev[item.id]) {
@@ -62,15 +153,33 @@ export const RankCreate = () => {
     } catch (err) {
       notify((err as Error).message, "error");
     }
-  }, [getAllRanks]);
+  }, [getAllRanks, notify]);
 
   useEffect(() => {
     void loadItems();
-  }, [loadItems]);
+  }, [loadItems, refreshKey]);
+
+  useEffect(() => {
+    void loadBoardItems();
+  }, [loadBoardItems, refreshKey]);
 
   useProjectChange(() => {
-    void loadItems();
+    setPage(1);
+    setRefreshKey((prev) => prev + 1);
   });
+
+  const handleFilterChange = (
+    key: "q" | "name" | "tag" | "tier" | "system",
+    value: string
+  ) => {
+    setPage(1);
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleClearFilters = () => {
+    setPage(1);
+    setFilters({ q: "", name: "", tag: "", tier: "", system: "" });
+  };
 
   const mapRankToForm = (item: Rank): RankFormState => ({
     name: item.name ?? "",
@@ -80,6 +189,7 @@ export const RankCreate = () => {
     description: item.description ?? "",
     notes: item.notes ?? "",
     tags: item.tags ?? [],
+    color: item.color ?? "",
   });
 
   const buildPayload = (state: RankFormState): RankPayload => ({
@@ -90,7 +200,33 @@ export const RankCreate = () => {
     description: state.description || undefined,
     notes: state.notes || undefined,
     tags: state.tags,
+    color: state.color || undefined,
   });
+
+  const handleBoardColorChange = async (id: string, value: string) => {
+    const item =
+      editItem?.id === id
+        ? editItem
+        : boardItems.find((entry) => entry.id === id);
+    if (!item) {
+      return;
+    }
+    setEditValues((prev) =>
+      prev && editItem?.id === id ? { ...prev, color: value } : prev
+    );
+    setIsSavingColor(true);
+    try {
+      const base = mapRankToForm(item);
+      const payload = buildPayload({ ...base, color: value });
+      await updateRank(id, payload);
+      notify(t("Rank updated successfully."), "success");
+      setRefreshKey((prev) => prev + 1);
+    } catch (err) {
+      notify((err as Error).message, "error");
+    } finally {
+      setIsSavingColor(false);
+    }
+  };
 
   const handleSubmit = async () => {
     const payload = buildPayload(values);
@@ -108,7 +244,8 @@ export const RankCreate = () => {
       notify(t("Rank created successfully."), "success");
       reset();
       setShowForm(false);
-      await loadItems();
+      setPage(1);
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -125,8 +262,44 @@ export const RankCreate = () => {
     setEditValues(null);
   };
 
+  const boardItemsById = useMemo(
+    () =>
+      new Map(
+        boardItems
+          .filter((item): item is Rank & { id: string } => Boolean(item.id))
+          .map((item) => [item.id, item])
+      ),
+    [boardItems]
+  );
+
+  const resolveLinkConditions = useCallback(
+    (currentId: string, previousId: string): RankCondition[] => {
+      const override = links[currentId];
+      if (override?.previousId === previousId) {
+        return normalizeConditionPayload(override.conditions ?? []);
+      }
+      const item = boardItemsById.get(currentId);
+      if (item?.previousId === previousId) {
+        return normalizeConditionPayload(item.conditions ?? []);
+      }
+      return [];
+    },
+    [boardItemsById, links]
+  );
+
+  useEffect(() => {
+    if (!selectedLink) {
+      return;
+    }
+    const resolved = resolveLinkConditions(
+      selectedLink.currentId,
+      selectedLink.previousId
+    );
+    setLinkConditionsDraft(normalizeConditionDraft(resolved));
+  }, [selectedLink, resolveLinkConditions]);
+
   const handleEditSave = async () => {
-    if (!editItem || !editValues) {
+    if (!editItem || !editValues || !editItem.id) {
       return;
     }
     const payload = buildPayload(editValues);
@@ -142,7 +315,7 @@ export const RankCreate = () => {
     try {
       await updateRank(editItem.id, payload);
       notify(t("Rank updated successfully."), "success");
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     } finally {
@@ -151,6 +324,9 @@ export const RankCreate = () => {
   };
 
   const handleDelete = async (item: Rank) => {
+    if (!item.id) {
+      return;
+    }
     const confirmed = window.confirm(
       t("Delete this rank? This action cannot be undone.")
     );
@@ -163,33 +339,96 @@ export const RankCreate = () => {
       if (editItem?.id === item.id) {
         handleEditCancel();
       }
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
   };
 
-  const promptConditions = () => {
-    const input = window.prompt(
-      t("Conditions to rank up (comma separated)")
-    );
-    if (!input) {
-      return [];
+  const handleSelectLink = (link: RankLinkSelection | null) => {
+    if (!link) {
+      setSelectedLink(null);
+      setLinkConditionsDraft([]);
+      return;
     }
-    return input
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean);
+    setSelectedLink({
+      currentId: link.currentId,
+      previousId: link.previousId,
+    });
+    setLinkConditionsDraft(normalizeConditionDraft(link.conditions));
+  };
+
+  const handleSaveLinkConditions = async () => {
+    if (!selectedLink) {
+      return;
+    }
+    const conditions = normalizeConditionPayload(linkConditionsDraft);
+    setIsSavingLinkConditions(true);
+    try {
+      const response = await updateRankLinkConditions({
+        currentId: selectedLink.currentId,
+        previousId: selectedLink.previousId,
+        conditions,
+      });
+      setLinks((prev) => ({
+        ...prev,
+        [selectedLink.currentId]: {
+          previousId: selectedLink.previousId,
+          conditions,
+        },
+      }));
+      setLinkConditionsDraft(normalizeConditionDraft(conditions));
+      notify(`Updated: ${response.message}`, "success");
+      setRefreshKey((prev) => prev + 1);
+    } catch (err) {
+      notify((err as Error).message, "error");
+    } finally {
+      setIsSavingLinkConditions(false);
+    }
+  };
+
+  const handleUnlinkSelectedLink = async () => {
+    if (!selectedLink) {
+      return;
+    }
+    await handleBoardUnlink(selectedLink.currentId, selectedLink.previousId);
+  };
+
+  const handleConditionChange = (
+    index: number,
+    field: "name" | "description",
+    value: string
+  ) => {
+    setLinkConditionsDraft((prev) =>
+      prev.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [field]: value } : item
+      )
+    );
+  };
+
+  const handleAddConditionField = () => {
+    setLinkConditionsDraft((prev) => [...prev, createEmptyCondition()]);
+  };
+
+  const handleRemoveConditionField = (index: number) => {
+    setLinkConditionsDraft((prev) => {
+      if (prev.length <= 1) {
+        return prev;
+      }
+      return prev.filter((_, itemIndex) => itemIndex !== index);
+    });
   };
 
   const handleBoardLink = async (currentId: string, previousId: string) => {
     try {
-      const conditions = promptConditions();
+      const conditions: RankCondition[] = [];
       const response = await linkRank({ currentId, previousId, conditions });
       setLinks((prev) => ({
         ...prev,
         [currentId]: { previousId, conditions },
       }));
+      setSelectedLink({ currentId, previousId });
+      setLinkConditionsDraft([createEmptyCondition()]);
       notify(`Linked: ${response.message}`, "success");
     } catch (err) {
       notify((err as Error).message, "error");
@@ -202,12 +441,14 @@ export const RankCreate = () => {
       if (existingPrev) {
         await unlinkRank({ currentId, previousId: existingPrev });
       }
-      const conditions = promptConditions();
+      const conditions: RankCondition[] = [];
       const response = await linkRank({ currentId, previousId, conditions });
       setLinks((prev) => ({
         ...prev,
         [currentId]: { previousId, conditions },
       }));
+      setSelectedLink({ currentId, previousId });
+      setLinkConditionsDraft([createEmptyCondition()]);
       notify(`Relinked: ${response.message}`, "success");
     } catch (err) {
       notify((err as Error).message, "error");
@@ -218,11 +459,34 @@ export const RankCreate = () => {
     try {
       const response = await unlinkRank({ currentId, previousId });
       setLinks((prev) => ({ ...prev, [currentId]: {} }));
+      setSelectedLink((prev) => {
+        if (
+          prev &&
+          prev.currentId === currentId &&
+          prev.previousId === previousId
+        ) {
+          setLinkConditionsDraft([createEmptyCondition()]);
+          return null;
+        }
+        return prev;
+      });
       notify(`Unlinked: ${response.message}`, "success");
     } catch (err) {
       notify((err as Error).message, "error");
     }
   };
+
+  const selectedLinkInfo = useMemo(() => {
+    if (!selectedLink) {
+      return null;
+    }
+    const previous = boardItemsById.get(selectedLink.previousId);
+    const current = boardItemsById.get(selectedLink.currentId);
+    return {
+      previousName: previous?.name ?? selectedLink.previousId,
+      currentName: current?.name ?? selectedLink.currentId,
+    };
+  }, [selectedLink, boardItemsById]);
 
   return (
     <div>
@@ -238,16 +502,160 @@ export const RankCreate = () => {
             {showForm ? t("Close form") : t("Create new rank")}
           </Button>
         </div>
+        <FilterPanel>
+          <TextInput
+            label="Search"
+            value={filters.q}
+            onChange={(value) => handleFilterChange("q", value)}
+            placeholder="Search..."
+          />
+          <TextInput
+            label="Name"
+            value={filters.name}
+            onChange={(value) => handleFilterChange("name", value)}
+          />
+          <TextInput
+            label="Tag"
+            value={filters.tag}
+            onChange={(value) => handleFilterChange("tag", value)}
+          />
+          <TextInput
+            label="Tier"
+            value={filters.tier}
+            onChange={(value) => handleFilterChange("tier", value)}
+          />
+          <TextInput
+            label="System"
+            value={filters.system}
+            onChange={(value) => handleFilterChange("system", value)}
+          />
+          <div className="form-field filter-actions">
+            <Button type="button" variant="ghost" onClick={handleClearFilters}>
+              Clear filters
+            </Button>
+          </div>
+        </FilterPanel>
         <RankBoard
-          items={items}
+          items={boardItems}
           links={links}
           selectedId={editItem?.id}
-          onSelect={(item) => item && handleEditOpen(item)}
+          selectedLink={selectedLink}
+          onSelect={(item) => {
+            if (!item) {
+              handleEditCancel();
+              return;
+            }
+            handleEditOpen(item);
+          }}
+          onSelectLink={handleSelectLink}
           onLink={handleBoardLink}
           onRelink={handleBoardRelink}
           onUnlink={handleBoardUnlink}
+          onColorChange={handleBoardColorChange}
+          isSavingColor={isSavingColor}
         />
+        {selectedLink && (
+          <div className="card rank-link-editor">
+            <div className="card__header">
+              <div>
+                <h3 className="section-title">{t("Promotion Link")}</h3>
+                <p className="header__subtitle">
+                  {selectedLinkInfo
+                    ? `${selectedLinkInfo.previousName} → ${selectedLinkInfo.currentName}`
+                    : `${selectedLink.previousId} → ${selectedLink.currentId}`}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setSelectedLink(null);
+                  setLinkConditionsDraft([createEmptyCondition()]);
+                }}
+              >
+                {t("Cancel")}
+              </Button>
+            </div>
+            <div className="form-field rank-condition-builder">
+              <label>{t("Promotion Conditions")}</label>
+              <div className="rank-condition-list">
+                {linkConditionsDraft.map((condition, index) => (
+                  <div className="rank-condition-item" key={`condition-${index + 1}`}>
+                    <div className="rank-condition-fields">
+                      <input
+                        className="input rank-condition-input"
+                        value={condition.name}
+                        onChange={(event) =>
+                          handleConditionChange(index, "name", event.target.value)
+                        }
+                        placeholder={`${t("Condition name")} ${index + 1}`}
+                      />
+                      <input
+                        className="input rank-condition-input"
+                        value={condition.description ?? ""}
+                        onChange={(event) =>
+                          handleConditionChange(index, "description", event.target.value)
+                        }
+                        placeholder={`${t("Condition description")} ${index + 1}`}
+                      />
+                    </div>
+                    {linkConditionsDraft.length > 1 && (
+                      <button
+                        type="button"
+                        className="rank-condition-icon rank-condition-icon--remove"
+                        onClick={() => handleRemoveConditionField(index)}
+                        aria-label={t("Remove condition")}
+                        title={t("Remove condition")}
+                      >
+                        −
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="rank-condition-icon rank-condition-icon--add"
+                  onClick={handleAddConditionField}
+                  aria-label={t("Add condition")}
+                  title={t("Add condition")}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <div className="page-toolbar">
+              <Button
+                onClick={handleSaveLinkConditions}
+                disabled={isSavingLinkConditions}
+              >
+                {isSavingLinkConditions ? t("Saving...") : t("Save conditions")}
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setLinkConditionsDraft([createEmptyCondition()])}
+              >
+                {t("Clear conditions")}
+              </Button>
+              <Button variant="ghost" onClick={() => void handleUnlinkSelectedLink()}>
+                {t("Unlink")}
+              </Button>
+            </div>
+          </div>
+        )}
         <RankList items={items} onEdit={handleEditOpen} onDelete={handleDelete} />
+        {(items.length > 0 || page > 1 || hasNext) && (
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            itemCount={items.length}
+            hasNext={hasNext}
+            totalCount={totalCount}
+            onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+            onPageSizeChange={(nextSize) => {
+              setPageSize(nextSize);
+              setPage(1);
+            }}
+          />
+        )}
       </div>
 
       {editItem && editValues && (
@@ -302,6 +710,16 @@ export const RankCreate = () => {
                 value={editValues.system}
                 onChange={(value) =>
                   setEditValues((prev) => prev && { ...prev, system: value })
+                }
+              />
+            </div>
+            <div className="form-field--narrow">
+              <TextInput
+                label="Color"
+                type="color"
+                value={editValues.color}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, color: value })
                 }
               />
             </div>
@@ -379,6 +797,14 @@ export const RankCreate = () => {
                 label="System"
                 value={values.system}
                 onChange={(value) => setField("system", value)}
+              />
+            </div>
+            <div className="form-field--narrow">
+              <TextInput
+                label="Color"
+                type="color"
+                value={values.color}
+                onChange={(value) => setField("color", value)}
               />
             </div>
             <div className="form-field--wide">

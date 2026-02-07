@@ -5,7 +5,7 @@ export type TextInputProps = {
   label: string;
   value: string;
   onChange: (value: string) => void;
-  type?: "text" | "number";
+  type?: "text" | "number" | "color" | "date";
   placeholder?: string;
   required?: boolean;
 };

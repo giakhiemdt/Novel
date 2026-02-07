@@ -32,4 +32,5 @@ export type WorldRuleListQuery = {
   status?: WorldRuleStatus;
   scope?: string;
   tag?: string;
+  total?: number;
 };

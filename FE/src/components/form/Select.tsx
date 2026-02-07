@@ -3,7 +3,7 @@ import { useI18n } from "../../i18n/I18nProvider";
 
 export type SelectOption = {
   label: string;
-  value: string;
+  value?: string;
 };
 
 export type SelectProps = {
@@ -43,8 +43,11 @@ export const Select = ({
         disabled={disabled}
       >
         <option value="">{t(placeholder ?? "Select")}</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
+        {options.map((option, index) => (
+          <option
+            key={`${option.value ?? option.label}-${index}`}
+            value={option.value ?? ""}
+          >
             {t(option.label)}
           </option>
         ))}

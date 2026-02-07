@@ -47,4 +47,5 @@ export type LocationListQuery = {
   isSecret?: boolean;
   isHabitable?: boolean;
   parentId?: string;
+  total?: number;
 };

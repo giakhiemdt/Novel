@@ -19,6 +19,7 @@ export const rankRoutes: RouteConfig[] = [
           tag: { type: "string" },
           tier: { type: "string" },
           system: { type: "string" },
+          systemId: { type: "string" },
         },
       },
       response: {
@@ -39,6 +40,8 @@ export const rankRoutes: RouteConfig[] = [
                 tag: { type: "string" },
                 tier: { type: "string" },
                 system: { type: "string" },
+                systemId: { type: "string" },
+                total: { type: "number" },
               },
             },
           },
@@ -58,6 +61,7 @@ export const rankRoutes: RouteConfig[] = [
         required: ["name"],
         properties: {
           id: { type: "string" },
+          systemId: { type: "string" },
           name: { type: "string" },
           alias: { type: "array", items: { type: "string" } },
           tier: { type: "string" },
@@ -75,6 +79,7 @@ export const rankRoutes: RouteConfig[] = [
               type: "object",
               properties: {
                 id: { type: "string" },
+                systemId: { type: "string" },
                 name: { type: "string" },
                 alias: { type: "array", items: { type: "string" } },
                 tier: { type: "string" },
@@ -107,6 +112,7 @@ export const rankRoutes: RouteConfig[] = [
         required: ["name"],
         properties: {
           id: { type: "string" },
+          systemId: { type: "string" },
           name: { type: "string" },
           alias: { type: "array", items: { type: "string" } },
           tier: { type: "string" },
@@ -124,6 +130,7 @@ export const rankRoutes: RouteConfig[] = [
               type: "object",
               properties: {
                 id: { type: "string" },
+                systemId: { type: "string" },
                 name: { type: "string" },
                 alias: { type: "array", items: { type: "string" } },
                 tier: { type: "string" },
@@ -168,7 +175,22 @@ export const rankRoutes: RouteConfig[] = [
         properties: {
           currentId: { type: "string" },
           previousId: { type: "string" },
-          conditions: { type: "array", items: { type: "string" } },
+          conditions: {
+            type: "array",
+            items: {
+              oneOf: [
+                { type: "string" },
+                {
+                  type: "object",
+                  required: ["name"],
+                  properties: {
+                    name: { type: "string" },
+                    description: { type: "string" },
+                  },
+                },
+              ],
+            },
+          },
         },
       },
       response: {
@@ -193,6 +215,43 @@ export const rankRoutes: RouteConfig[] = [
       },
       response: {
         200: { type: "object", properties: { message: { type: "string" } } },
+      },
+    },
+  },
+  {
+    method: "POST",
+    path: "/ranks/link/conditions",
+    handler: rankController.updateLinkConditions,
+    schema: {
+      tags: ["Rank"],
+      summary: "Update rank link conditions",
+      body: {
+        type: "object",
+        required: ["currentId", "previousId"],
+        properties: {
+          currentId: { type: "string" },
+          previousId: { type: "string" },
+          conditions: {
+            type: "array",
+            items: {
+              oneOf: [
+                { type: "string" },
+                {
+                  type: "object",
+                  required: ["name"],
+                  properties: {
+                    name: { type: "string" },
+                    description: { type: "string" },
+                  },
+                },
+              ],
+            },
+          },
+        },
+      },
+      response: {
+        200: { type: "object", properties: { message: { type: "string" } } },
+        404: { type: "object", properties: { message: { type: "string" } } },
       },
     },
   },

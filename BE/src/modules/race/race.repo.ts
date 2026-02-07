@@ -66,6 +66,27 @@ SKIP toInteger($offset)
 LIMIT toInteger($limit)
 `;
 
+const COUNT_RACES = `
+MATCH (r:${nodeLabels.race})
+WHERE
+  ($name IS NULL OR toLower(r.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(r.tags, []))
+  AND ($origin IS NULL OR r.origin = $origin)
+  AND ($culture IS NULL OR r.culture = $culture)
+RETURN count(r) AS total
+`;
+
+const COUNT_RACES_BY_SEARCH = `
+CALL db.index.fulltext.queryNodes("race_search", $q) YIELD node, score
+WITH node AS r, score
+WHERE
+  ($name IS NULL OR toLower(r.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(r.tags, []))
+  AND ($origin IS NULL OR r.origin = $origin)
+  AND ($culture IS NULL OR r.culture = $culture)
+RETURN count(r) AS total
+`;
+
 const GET_RACE_BY_NAME = `
 MATCH (r:${nodeLabels.race})
 WHERE toLower(r.name) = toLower($name)
@@ -152,6 +173,30 @@ export const getRaces = async (
       const node = record.get("r");
       return mapNode(node?.properties ?? {}) as RaceNode;
     });
+  } finally {
+    await session.close();
+  }
+};
+
+export const getRaceCount = async (
+  database: string,
+  query: RaceListQuery
+): Promise<number> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const statement = query.q ? COUNT_RACES_BY_SEARCH : COUNT_RACES;
+    const result = await session.run(statement, {
+      q: query.q ?? "",
+      name: query.name ?? null,
+      tag: query.tag ?? null,
+      origin: query.origin ?? null,
+      culture: query.culture ?? null,
+    });
+    const total = result.records[0]?.get("total");
+    if (neo4j.isInt(total)) {
+      return total.toNumber();
+    }
+    return typeof total === "number" ? total : 0;
   } finally {
     await session.close();
   }

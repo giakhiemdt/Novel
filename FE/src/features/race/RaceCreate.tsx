@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "../../components/common/Button";
+import { FilterPanel } from "../../components/common/FilterPanel";
+import { Pagination } from "../../components/common/Pagination";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
@@ -8,7 +10,7 @@ import { TextInput } from "../../components/form/TextInput";
 import { useForm } from "../../hooks/useForm";
 import { useProjectChange } from "../../hooks/useProjectChange";
 import { useI18n } from "../../i18n/I18nProvider";
-import { createRace, deleteRace, getAllRaces, updateRace } from "./race.api";
+import { createRace, deleteRace, getRacesPage, updateRace } from "./race.api";
 import { RaceList } from "./RaceList";
 import { validateRace } from "./race.schema";
 import type { Race, RacePayload } from "./race.types";
@@ -35,24 +37,67 @@ export const RaceCreate = () => {
   const [editItem, setEditItem] = useState<Race | null>(null);
   const [editValues, setEditValues] = useState<RaceFormState | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [hasNext, setHasNext] = useState(false);
+  const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
+  const [filters, setFilters] = useState({
+    q: "",
+    name: "",
+    tag: "",
+    origin: "",
+    culture: "",
+  });
+  const [refreshKey, setRefreshKey] = useState(0);
   const { notify } = useToast();
 
   const loadItems = useCallback(async () => {
     try {
-      const data = await getAllRaces();
-      setItems(data ?? []);
+      const offset = (page - 1) * pageSize;
+      const response = await getRacesPage({
+        ...filters,
+        limit: pageSize + 1,
+        offset,
+      });
+      const data = response?.data ?? [];
+      const total = typeof response?.meta?.total === "number" ? response.meta.total : undefined;
+      const nextPage = total !== undefined ? offset + Math.min(data.length, pageSize) < total : data.length > pageSize;
+      const trimmed = nextPage ? data.slice(0, pageSize) : data;
+      setTotalCount(total);
+      if (trimmed.length === 0 && page > 1) {
+        setHasNext(false);
+        setItems([]);
+        setPage((prev) => Math.max(1, prev - 1));
+        return;
+      }
+      setItems(trimmed);
+      setHasNext(nextPage);
     } catch (err) {
       notify((err as Error).message, "error");
     }
-  }, [getAllRaces]);
+  }, [page, pageSize, filters, notify, getRacesPage]);
 
   useEffect(() => {
     void loadItems();
-  }, [loadItems]);
+  }, [loadItems, refreshKey]);
 
   useProjectChange(() => {
-    void loadItems();
+    setPage(1);
+    setRefreshKey((prev) => prev + 1);
   });
+
+  const handleFilterChange = (
+    key: "q" | "name" | "tag" | "origin" | "culture",
+    value: string
+  ) => {
+    setPage(1);
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleClearFilters = () => {
+    setPage(1);
+    setFilters({ q: "", name: "", tag: "", origin: "", culture: "" });
+  };
 
   const mapRaceToForm = (item: Race): RaceFormState => ({
     name: item.name ?? "",
@@ -94,7 +139,8 @@ export const RaceCreate = () => {
       notify(t("Race created successfully."), "success");
       reset();
       setShowForm(false);
-      await loadItems();
+      setPage(1);
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -128,7 +174,7 @@ export const RaceCreate = () => {
     try {
       await updateRace(editItem.id, payload);
       notify(t("Race updated successfully."), "success");
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     } finally {
@@ -149,7 +195,7 @@ export const RaceCreate = () => {
       if (editItem?.id === item.id) {
         handleEditCancel();
       }
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -169,7 +215,54 @@ export const RaceCreate = () => {
             {showForm ? t("Close form") : t("Create new race")}
           </Button>
         </div>
+        <FilterPanel>
+          <TextInput
+            label="Search"
+            value={filters.q}
+            onChange={(value) => handleFilterChange("q", value)}
+            placeholder="Search..."
+          />
+          <TextInput
+            label="Name"
+            value={filters.name}
+            onChange={(value) => handleFilterChange("name", value)}
+          />
+          <TextInput
+            label="Tag"
+            value={filters.tag}
+            onChange={(value) => handleFilterChange("tag", value)}
+          />
+          <TextInput
+            label="Origin"
+            value={filters.origin}
+            onChange={(value) => handleFilterChange("origin", value)}
+          />
+          <TextInput
+            label="Culture"
+            value={filters.culture}
+            onChange={(value) => handleFilterChange("culture", value)}
+          />
+          <div className="form-field filter-actions">
+            <Button type="button" variant="ghost" onClick={handleClearFilters}>
+              Clear filters
+            </Button>
+          </div>
+        </FilterPanel>
         <RaceList items={items} onEdit={handleEditOpen} onDelete={handleDelete} />
+        {(items.length > 0 || page > 1 || hasNext) && (
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            itemCount={items.length}
+            hasNext={hasNext}
+            totalCount={totalCount}
+            onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+            onPageSizeChange={(nextSize) => {
+              setPageSize(nextSize);
+              setPage(1);
+            }}
+          />
+        )}
       </div>
 
       {editItem && editValues && (

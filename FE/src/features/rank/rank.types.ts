@@ -1,5 +1,11 @@
+export type RankCondition = {
+  name: string;
+  description?: string;
+};
+
 export type RankPayload = {
   id?: string;
+  systemId?: string;
   name: string;
   alias?: string[];
   tier?: string;
@@ -9,7 +15,8 @@ export type RankPayload = {
   tags?: string[];
   previousId?: string;
   nextId?: string;
-  conditions?: string[];
+  conditions?: RankCondition[];
+  color?: string;
 };
 
 export type Rank = RankPayload & {
@@ -20,5 +27,5 @@ export type Rank = RankPayload & {
 export type RankLinkPayload = {
   currentId: string;
   previousId: string;
-  conditions?: string[];
+  conditions?: RankCondition[];
 };

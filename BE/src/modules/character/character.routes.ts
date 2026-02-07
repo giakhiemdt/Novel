@@ -47,6 +47,7 @@ export const characterRoutes: RouteConfig[] = [
                 status: { type: "string" },
                 level: { type: "string" },
                 isMainCharacter: { type: "boolean" },
+                total: { type: "number" },
               },
             },
           },
@@ -63,7 +64,7 @@ export const characterRoutes: RouteConfig[] = [
       summary: "Create character",
       body: {
         type: "object",
-        required: ["name", "gender", "age"],
+        required: ["name", "gender"],
         properties: {
           id: { type: "string" },
           name: { type: "string" },
@@ -156,7 +157,7 @@ export const characterRoutes: RouteConfig[] = [
       summary: "Update character",
       body: {
         type: "object",
-        required: ["name", "gender", "age"],
+        required: ["name", "gender"],
         properties: {
           name: { type: "string" },
           alias: { type: "array", items: { type: "string" } },

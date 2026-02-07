@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "../../components/common/Button";
+import { FilterPanel } from "../../components/common/FilterPanel";
+import { Pagination } from "../../components/common/Pagination";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
@@ -12,22 +14,28 @@ import { useI18n } from "../../i18n/I18nProvider";
 import {
   createSpecialAbility,
   deleteSpecialAbility,
-  getAllSpecialAbilities,
+  getSpecialAbilitiesPage,
   updateSpecialAbility,
 } from "./special-ability.api";
 import { SpecialAbilityList } from "./SpecialAbilityList";
 import { validateSpecialAbility } from "./special-ability.schema";
-import type { SpecialAbility, SpecialAbilityPayload } from "./special-ability.types";
+import type {
+  SpecialAbility,
+  SpecialAbilityPayload,
+  SpecialAbilityType,
+} from "./special-ability.types";
 
 const initialState = {
   name: "",
-  type: "",
+  type: "" as SpecialAbilityType | "",
   description: "",
   notes: "",
   tags: [] as string[],
 };
 
 type SpecialAbilityFormState = typeof initialState;
+const normalizeAbilityType = (value: string): SpecialAbilityType | "" =>
+  value === "innate" || value === "acquired" ? value : "";
 
 export const SpecialAbilityCreate = () => {
   const { t } = useI18n();
@@ -37,24 +45,66 @@ export const SpecialAbilityCreate = () => {
   const [editItem, setEditItem] = useState<SpecialAbility | null>(null);
   const [editValues, setEditValues] = useState<SpecialAbilityFormState | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [hasNext, setHasNext] = useState(false);
+  const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
+  const [filters, setFilters] = useState({
+    q: "",
+    name: "",
+    tag: "",
+    type: "",
+  });
+  const [refreshKey, setRefreshKey] = useState(0);
   const { notify } = useToast();
 
   const loadItems = useCallback(async () => {
     try {
-      const data = await getAllSpecialAbilities();
-      setItems(data ?? []);
+      const offset = (page - 1) * pageSize;
+      const response = await getSpecialAbilitiesPage({
+        ...filters,
+        limit: pageSize + 1,
+        offset,
+      });
+      const data = response?.data ?? [];
+      const total = typeof response?.meta?.total === "number" ? response.meta.total : undefined;
+      const nextPage = total !== undefined ? offset + Math.min(data.length, pageSize) < total : data.length > pageSize;
+      const trimmed = nextPage ? data.slice(0, pageSize) : data;
+      setTotalCount(total);
+      if (trimmed.length === 0 && page > 1) {
+        setHasNext(false);
+        setItems([]);
+        setPage((prev) => Math.max(1, prev - 1));
+        return;
+      }
+      setItems(trimmed);
+      setHasNext(nextPage);
     } catch (err) {
       notify((err as Error).message, "error");
     }
-  }, [getAllSpecialAbilities]);
+  }, [page, pageSize, filters, notify, getSpecialAbilitiesPage]);
 
   useEffect(() => {
     void loadItems();
-  }, [loadItems]);
+  }, [loadItems, refreshKey]);
 
   useProjectChange(() => {
-    void loadItems();
+    setPage(1);
+    setRefreshKey((prev) => prev + 1);
   });
+
+  const handleFilterChange = (
+    key: "q" | "name" | "tag" | "type",
+    value: string
+  ) => {
+    setPage(1);
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleClearFilters = () => {
+    setPage(1);
+    setFilters({ q: "", name: "", tag: "", type: "" });
+  };
 
   const mapAbilityToForm = (item: SpecialAbility): SpecialAbilityFormState => ({
     name: item.name ?? "",
@@ -88,7 +138,8 @@ export const SpecialAbilityCreate = () => {
       notify(t("Special ability created successfully."), "success");
       reset();
       setShowForm(false);
-      await loadItems();
+      setPage(1);
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -122,7 +173,7 @@ export const SpecialAbilityCreate = () => {
     try {
       await updateSpecialAbility(editItem.id, payload);
       notify(t("Special ability updated successfully."), "success");
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     } finally {
@@ -143,7 +194,7 @@ export const SpecialAbilityCreate = () => {
       if (editItem?.id === item.id) {
         handleEditCancel();
       }
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -163,11 +214,58 @@ export const SpecialAbilityCreate = () => {
             {showForm ? t("Close form") : t("Create new special ability")}
           </Button>
         </div>
+        <FilterPanel>
+          <TextInput
+            label="Search"
+            value={filters.q}
+            onChange={(value) => handleFilterChange("q", value)}
+            placeholder="Search..."
+          />
+          <TextInput
+            label="Name"
+            value={filters.name}
+            onChange={(value) => handleFilterChange("name", value)}
+          />
+          <TextInput
+            label="Tag"
+            value={filters.tag}
+            onChange={(value) => handleFilterChange("tag", value)}
+          />
+          <Select
+            label="Type"
+            value={filters.type}
+            onChange={(value) => handleFilterChange("type", value)}
+            options={[
+              { value: "innate", label: "innate" },
+              { value: "acquired", label: "acquired" },
+            ]}
+            placeholder="All"
+          />
+          <div className="form-field filter-actions">
+            <Button type="button" variant="ghost" onClick={handleClearFilters}>
+              Clear filters
+            </Button>
+          </div>
+        </FilterPanel>
         <SpecialAbilityList
           items={items}
           onEdit={handleEditOpen}
           onDelete={handleDelete}
         />
+        {(items.length > 0 || page > 1 || hasNext) && (
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            itemCount={items.length}
+            hasNext={hasNext}
+            totalCount={totalCount}
+            onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+            onPageSizeChange={(nextSize) => {
+              setPageSize(nextSize);
+              setPage(1);
+            }}
+          />
+        )}
       </div>
 
       {editItem && editValues && (
@@ -203,7 +301,9 @@ export const SpecialAbilityCreate = () => {
                 label="Type"
                 value={editValues.type}
                 onChange={(value) =>
-                  setEditValues((prev) => prev && { ...prev, type: value })
+                  setEditValues((prev) =>
+                    prev ? { ...prev, type: normalizeAbilityType(value) } : prev
+                  )
                 }
                 options={[
                   { value: "innate", label: t("Innate") },
@@ -270,7 +370,7 @@ export const SpecialAbilityCreate = () => {
               <Select
                 label="Type"
                 value={values.type}
-                onChange={(value) => setField("type", value)}
+                onChange={(value) => setField("type", normalizeAbilityType(value))}
                 options={[
                   { value: "innate", label: t("Innate") },
                   { value: "acquired", label: t("Acquired") },

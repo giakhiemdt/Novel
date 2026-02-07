@@ -7,6 +7,7 @@ import {
   deleteEventParticipants,
   deleteEventLocation,
   deleteEventTimeline,
+  getEventCount,
   getCharacterIds,
   getLocationName,
   getTimelineName,
@@ -579,8 +580,11 @@ export const eventService = {
   ): Promise<{ data: EventNode[]; meta: EventListQuery }> => {
     const database = assertDatabaseName(dbName);
     const parsedQuery = parseEventListQuery(query);
-    const data = await getEvents(database, parsedQuery);
-    return { data, meta: parsedQuery };
+    const [data, total] = await Promise.all([
+      getEvents(database, parsedQuery),
+      getEventCount(database, parsedQuery),
+    ]);
+    return { data, meta: { ...parsedQuery, total } };
   },
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);

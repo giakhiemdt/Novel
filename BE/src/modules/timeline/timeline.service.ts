@@ -3,6 +3,7 @@ import { generateId } from "../../shared/utils/generate-id";
 import {
   createTimeline,
   deleteTimeline,
+  getTimelineCount,
   getTimelines,
   linkTimeline,
   unlinkTimeline,
@@ -337,8 +338,11 @@ export const timelineService = {
   ): Promise<{ data: TimelineNode[]; meta: TimelineListQuery }> => {
     const database = assertDatabaseName(dbName);
     const parsedQuery = parseTimelineListQuery(query);
-    const data = await getTimelines(database, parsedQuery);
-    return { data, meta: parsedQuery };
+    const [data, total] = await Promise.all([
+      getTimelines(database, parsedQuery),
+      getTimelineCount(database, parsedQuery),
+    ]);
+    return { data, meta: { ...parsedQuery, total } };
   },
   link: async (payload: unknown, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);

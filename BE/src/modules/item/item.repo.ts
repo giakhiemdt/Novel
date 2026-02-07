@@ -69,6 +69,29 @@ SKIP toInteger($offset)
 LIMIT toInteger($limit)
 `;
 
+const COUNT_ITEMS = `
+MATCH (i:${nodeLabels.item})
+WHERE
+  ($name IS NULL OR toLower(i.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(i.tags, []))
+  AND ($status IS NULL OR i.status = $status)
+  AND ($ownerId IS NULL OR i.ownerId = $ownerId)
+  AND ($ownerType IS NULL OR i.ownerType = $ownerType)
+RETURN count(i) AS total
+`;
+
+const COUNT_ITEMS_BY_SEARCH = `
+CALL db.index.fulltext.queryNodes("item_search", $q) YIELD node, score
+WITH node AS i, score
+WHERE
+  ($name IS NULL OR toLower(i.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(i.tags, []))
+  AND ($status IS NULL OR i.status = $status)
+  AND ($ownerId IS NULL OR i.ownerId = $ownerId)
+  AND ($ownerType IS NULL OR i.ownerType = $ownerType)
+RETURN count(i) AS total
+`;
+
 const DELETE_ITEM = `
 MATCH (i:${nodeLabels.item} {id: $id})
 WITH i
@@ -264,6 +287,31 @@ export const getItems = async (
       const node = record.get("i");
       return mapNode(node?.properties ?? {}) as ItemNode;
     });
+  } finally {
+    await session.close();
+  }
+};
+
+export const getItemCount = async (
+  database: string,
+  query: ItemListQuery
+): Promise<number> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const statement = query.q ? COUNT_ITEMS_BY_SEARCH : COUNT_ITEMS;
+    const result = await session.run(statement, {
+      q: query.q ?? "",
+      name: query.name ?? null,
+      tag: query.tag ?? null,
+      status: query.status ?? null,
+      ownerId: query.ownerId ?? null,
+      ownerType: query.ownerType ?? null,
+    });
+    const total = result.records[0]?.get("total");
+    if (neo4j.isInt(total)) {
+      return total.toNumber();
+    }
+    return typeof total === "number" ? total : 0;
   } finally {
     await session.close();
   }

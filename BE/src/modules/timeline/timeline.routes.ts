@@ -39,6 +39,7 @@ export const timelineRoutes: RouteConfig[] = [
                 tag: { type: "string" },
                 code: { type: "string" },
                 isOngoing: { type: "boolean" },
+                total: { type: "number" },
               },
             },
           },

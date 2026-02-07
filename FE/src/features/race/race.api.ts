@@ -1,10 +1,28 @@
 import { api } from "../../services/api";
 import { endpoints } from "../../services/endpoints";
 import { withDatabaseHeader } from "../../services/db";
+import type { PagedResponse, PaginationMeta } from "../../types/api";
+import { toQueryString } from "../../utils/query";
 import type { Race, RacePayload } from "./race.types";
 
 export const getAllRaces = () =>
   api.get<Race[]>(endpoints.races, withDatabaseHeader());
+
+export type RaceListQuery = {
+  limit?: number;
+  offset?: number;
+  q?: string;
+  name?: string;
+  tag?: string;
+  origin?: string;
+  culture?: string;
+};
+
+export const getRacesPage = (query: RaceListQuery) =>
+  api.getRaw<PagedResponse<Race[], PaginationMeta>>(
+    `${endpoints.races}${toQueryString(query)}`,
+    withDatabaseHeader()
+  );
 
 export const createRace = (payload: RacePayload) =>
   api.post<Race>(endpoints.races, payload, withDatabaseHeader());

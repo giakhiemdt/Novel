@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "../../components/common/Button";
+import { FilterPanel } from "../../components/common/FilterPanel";
+import { Pagination } from "../../components/common/Pagination";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
@@ -12,7 +14,7 @@ import { useI18n } from "../../i18n/I18nProvider";
 import {
   createWorldRule,
   deleteWorldRule,
-  getAllWorldRules,
+  getWorldRulesPage,
   updateWorldRule,
 } from "./worldrule.api";
 import { validateWorldRule } from "./worldrule.schema";
@@ -46,24 +48,75 @@ export const WorldRuleCreate = () => {
   const [editItem, setEditItem] = useState<WorldRule | null>(null);
   const [editValues, setEditValues] = useState<WorldRuleFormState | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [hasNext, setHasNext] = useState(false);
+  const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
+  const [filters, setFilters] = useState({
+    q: "",
+    title: "",
+    category: "",
+    status: "",
+    scope: "",
+    tag: "",
+  });
+  const [refreshKey, setRefreshKey] = useState(0);
   const { notify } = useToast();
 
   const loadItems = useCallback(async () => {
     try {
-      const data = await getAllWorldRules();
-      setItems(data ?? []);
+      const offset = (page - 1) * pageSize;
+      const response = await getWorldRulesPage({
+        ...filters,
+        limit: pageSize + 1,
+        offset,
+      });
+      const data = response?.data ?? [];
+      const total = typeof response?.meta?.total === "number" ? response.meta.total : undefined;
+      const nextPage = total !== undefined ? offset + Math.min(data.length, pageSize) < total : data.length > pageSize;
+      const trimmed = nextPage ? data.slice(0, pageSize) : data;
+      setTotalCount(total);
+      if (trimmed.length === 0 && page > 1) {
+        setHasNext(false);
+        setItems([]);
+        setPage((prev) => Math.max(1, prev - 1));
+        return;
+      }
+      setItems(trimmed);
+      setHasNext(nextPage);
     } catch (err) {
       notify((err as Error).message, "error");
     }
-  }, [getAllWorldRules]);
+  }, [page, pageSize, filters, notify, getWorldRulesPage]);
 
   useEffect(() => {
     void loadItems();
-  }, [loadItems]);
+  }, [loadItems, refreshKey]);
 
   useProjectChange(() => {
-    void loadItems();
+    setPage(1);
+    setRefreshKey((prev) => prev + 1);
   });
+
+  const handleFilterChange = (
+    key: "q" | "title" | "category" | "status" | "scope" | "tag",
+    value: string
+  ) => {
+    setPage(1);
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleClearFilters = () => {
+    setPage(1);
+    setFilters({
+      q: "",
+      title: "",
+      category: "",
+      status: "",
+      scope: "",
+      tag: "",
+    });
+  };
 
   const mapWorldRuleToForm = (item: WorldRule): WorldRuleFormState => ({
     title: item.title ?? "",
@@ -111,7 +164,8 @@ export const WorldRuleCreate = () => {
       notify(t("World rule created successfully."), "success");
       reset();
       setShowForm(false);
-      await loadItems();
+      setPage(1);
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -145,7 +199,7 @@ export const WorldRuleCreate = () => {
     try {
       await updateWorldRule(editItem.id, payload);
       notify(t("World rule updated successfully."), "success");
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     } finally {
@@ -166,7 +220,7 @@ export const WorldRuleCreate = () => {
       if (editItem?.id === item.id) {
         handleEditCancel();
       }
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -186,7 +240,64 @@ export const WorldRuleCreate = () => {
             {showForm ? t("Close form") : t("Create new world rule")}
           </Button>
         </div>
+        <FilterPanel>
+          <TextInput
+            label="Search"
+            value={filters.q}
+            onChange={(value) => handleFilterChange("q", value)}
+            placeholder="Search..."
+          />
+          <TextInput
+            label="Title"
+            value={filters.title}
+            onChange={(value) => handleFilterChange("title", value)}
+          />
+          <TextInput
+            label="Category"
+            value={filters.category}
+            onChange={(value) => handleFilterChange("category", value)}
+          />
+          <Select
+            label="Status"
+            value={filters.status}
+            onChange={(value) => handleFilterChange("status", value)}
+            options={STATUS_OPTIONS.map((status) => ({
+              value: status,
+              label: status,
+            }))}
+            placeholder="All"
+          />
+          <TextInput
+            label="Scope"
+            value={filters.scope}
+            onChange={(value) => handleFilterChange("scope", value)}
+          />
+          <TextInput
+            label="Tag"
+            value={filters.tag}
+            onChange={(value) => handleFilterChange("tag", value)}
+          />
+          <div className="form-field filter-actions">
+            <Button type="button" variant="ghost" onClick={handleClearFilters}>
+              Clear filters
+            </Button>
+          </div>
+        </FilterPanel>
         <WorldRuleList items={items} onEdit={handleEditOpen} onDelete={handleDelete} />
+        {(items.length > 0 || page > 1 || hasNext) && (
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            itemCount={items.length}
+            hasNext={hasNext}
+            totalCount={totalCount}
+            onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+            onPageSizeChange={(nextSize) => {
+              setPageSize(nextSize);
+              setPage(1);
+            }}
+          />
+        )}
       </div>
 
       {editItem && editValues && (

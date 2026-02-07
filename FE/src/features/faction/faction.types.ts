@@ -30,7 +30,8 @@ export type FactionPayload = {
   tags?: string[];
 };
 
-export type Faction = FactionPayload & {
+export type Faction = Omit<FactionPayload, "id"> & {
+  id: string;
   createdAt?: string;
   updatedAt?: string;
 };

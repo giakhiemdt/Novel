@@ -6,6 +6,7 @@ export const relationTypes = {
   timelineNext: "NEXT",
   timelinePrevious: "PREVIOUS",
   rankNext: "RANK_NEXT",
+  hasRank: "HAS_RANK",
   contains: "CONTAINS",
   arcHasChapter: "ARC_HAS_CHAPTER",
   chapterHasScene: "CHAPTER_HAS_SCENE",

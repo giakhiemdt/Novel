@@ -1,6 +1,12 @@
 import { AppError } from "../../shared/errors/app-error";
 import { generateId } from "../../shared/utils/generate-id";
-import { createRace, deleteRace, getRaces, updateRace } from "./race.repo";
+import {
+  createRace,
+  deleteRace,
+  getRaceCount,
+  getRaces,
+  updateRace,
+} from "./race.repo";
 import { RaceInput, RaceListQuery, RaceNode } from "./race.types";
 
 const isStringArray = (value: unknown): value is string[] =>
@@ -223,8 +229,11 @@ export const raceService = {
   ): Promise<{ data: RaceNode[]; meta: RaceListQuery }> => {
     const database = assertDatabaseName(dbName);
     const parsedQuery = parseRaceListQuery(query);
-    const data = await getRaces(database, parsedQuery);
-    return { data, meta: parsedQuery };
+    const [data, total] = await Promise.all([
+      getRaces(database, parsedQuery),
+      getRaceCount(database, parsedQuery),
+    ]);
+    return { data, meta: { ...parsedQuery, total } };
   },
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);

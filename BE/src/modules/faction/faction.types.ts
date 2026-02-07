@@ -45,4 +45,5 @@ export type FactionListQuery = {
   alignment?: string;
   isPublic?: boolean;
   isCanon?: boolean;
+  total?: number;
 };

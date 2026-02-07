@@ -9,7 +9,7 @@ export type CharacterInput = {
   status?: CharacterStatus;
   isMainCharacter?: boolean;
   gender: CharacterGender;
-  age: number;
+  age?: number;
   race?: string;
   specialAbilities?: string[];
   extra?: Record<string, unknown>;
@@ -53,4 +53,5 @@ export type CharacterListQuery = {
   status?: CharacterStatus;
   level?: string;
   isMainCharacter?: boolean;
+  total?: number;
 };

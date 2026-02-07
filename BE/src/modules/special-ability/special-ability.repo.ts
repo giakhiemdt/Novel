@@ -56,6 +56,25 @@ SKIP toInteger($offset)
 LIMIT toInteger($limit)
 `;
 
+const COUNT_SPECIAL_ABILITIES = `
+MATCH (a:${nodeLabels.specialAbility})
+WHERE
+  ($name IS NULL OR toLower(a.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(a.tags, []))
+  AND ($type IS NULL OR a.type = $type)
+RETURN count(a) AS total
+`;
+
+const COUNT_SPECIAL_ABILITIES_BY_SEARCH = `
+CALL db.index.fulltext.queryNodes("special_ability_search", $q) YIELD node, score
+WITH node AS a, score
+WHERE
+  ($name IS NULL OR toLower(a.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(a.tags, []))
+  AND ($type IS NULL OR a.type = $type)
+RETURN count(a) AS total
+`;
+
 const GET_SPECIAL_ABILITY_BY_NAME = `
 MATCH (a:${nodeLabels.specialAbility})
 WHERE toLower(a.name) = toLower($name)
@@ -139,6 +158,29 @@ export const getSpecialAbilities = async (
       const node = record.get("a");
       return mapNode(node?.properties ?? {}) as SpecialAbilityNode;
     });
+  } finally {
+    await session.close();
+  }
+};
+
+export const getSpecialAbilityCount = async (
+  database: string,
+  query: SpecialAbilityListQuery
+): Promise<number> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const statement = query.q ? COUNT_SPECIAL_ABILITIES_BY_SEARCH : COUNT_SPECIAL_ABILITIES;
+    const result = await session.run(statement, {
+      q: query.q ?? "",
+      name: query.name ?? null,
+      tag: query.tag ?? null,
+      type: query.type ?? null,
+    });
+    const total = result.records[0]?.get("total");
+    if (neo4j.isInt(total)) {
+      return total.toNumber();
+    }
+    return typeof total === "number" ? total : 0;
   } finally {
     await session.close();
   }

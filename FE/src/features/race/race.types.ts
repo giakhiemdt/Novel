@@ -11,7 +11,8 @@ export type RacePayload = {
   tags?: string[];
 };
 
-export type Race = RacePayload & {
+export type Race = Omit<RacePayload, "id"> & {
+  id: string;
   createdAt?: string;
   updatedAt?: string;
 };

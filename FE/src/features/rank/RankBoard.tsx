@@ -1,172 +1,643 @@
-import { PointerEvent, useEffect, useMemo, useRef, useState } from "react";
-import type { Rank } from "./rank.types";
+import {
+  type PointerEvent,
+  type WheelEvent,
+  type CSSProperties,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useI18n } from "../../i18n/I18nProvider";
+import type { Rank, RankCondition } from "./rank.types";
+
+export type RankLinkSelection = {
+  currentId: string;
+  previousId: string;
+  conditions?: RankCondition[];
+};
 
 type RankBoardProps = {
   items: Rank[];
-  links: Record<string, { previousId?: string; conditions?: string[] }>;
+  links: Record<string, { previousId?: string; conditions?: RankCondition[] }>;
   selectedId?: string;
+  selectedLink?: { currentId: string; previousId: string } | null;
   onSelect?: (item: Rank | null) => void;
+  onSelectLink?: (link: RankLinkSelection | null) => void;
   onLink: (currentId: string, previousId: string) => void;
   onRelink: (currentId: string, previousId: string) => void;
   onUnlink: (currentId: string, previousId: string) => void;
+  onColorChange?: (id: string, color: string) => void;
+  isSavingColor?: boolean;
 };
 
 type Position = { x: number; y: number };
-type SnapTarget = { targetId: string; mode: "previous" | "next" };
 
-const MIN_WIDTH = 160;
-const BAR_HEIGHT = 34;
-const ROW_GAP = 16;
-const COL_GAP = 20;
-const SNAP_DISTANCE = 12;
+type SnapTarget = { targetId: string };
+
+type Span = { min: number; max: number };
+
+type WorldBounds = {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  width: number;
+  height: number;
+};
+
+type ConditionNode = {
+  id: string;
+  linkKey: string;
+  parentId: string;
+  childId: string;
+  condition: RankCondition;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+type BoardEdge = {
+  id: string;
+  linkKey: string;
+  parentId: string;
+  childId: string;
+  path: string;
+};
+
+const NODE_WIDTH = 160;
+const NODE_HEIGHT = 34;
+const H_GAP = 120;
+const V_GAP = 60;
+const CONDITION_WIDTH = 128;
+const CONDITION_HEIGHT = 26;
+const CONDITION_GAP = 8;
+const PADDING = 32;
+const SNAP_DISTANCE = 30;
+const MIN_SCALE = 0.5;
+const MAX_SCALE = 2.4;
+const DEFAULT_PAN = { x: 24, y: 24 };
+
+const MINIMAP_WIDTH = 220;
+const MINIMAP_HEIGHT = 140;
+const MINIMAP_PADDING = 10;
+const MINIMAP_HEADER_HEIGHT = 20;
+
+const toRgb = (hex: string) => {
+  const cleaned = hex.replace("#", "");
+  if (!/^[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(cleaned)) {
+    return null;
+  }
+  const normalized =
+    cleaned.length === 3
+      ? cleaned
+          .split("")
+          .map((char) => char + char)
+          .join("")
+      : cleaned;
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return { r, g, b };
+};
+
+const getContrastColor = (hex: string) => {
+  const rgb = toRgb(hex);
+  if (!rgb) {
+    return undefined;
+  }
+  const { r, g, b } = rgb;
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance < 0.55 ? "#ffffff" : "#1b1b1b";
+};
+
+const clampScale = (value: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, value));
+
+const normalizeConditions = (conditions?: RankCondition[]): RankCondition[] => {
+  if (!conditions?.length) {
+    return [];
+  }
+  return conditions
+    .map((item) => ({
+      name: item.name?.trim() ?? "",
+      description: item.description?.trim() ?? undefined,
+    }))
+    .filter((item) => item.name.length > 0);
+};
+
+const buildOrthPath = (startX: number, startY: number, endX: number, endY: number): string => {
+  const midX = startX + (endX - startX) / 2;
+  return `M ${startX} ${startY} H ${midX} V ${endY} H ${endX}`;
+};
 
 export const RankBoard = ({
   items,
   links,
   selectedId,
+  selectedLink,
   onSelect,
+  onSelectLink,
   onLink,
   onRelink,
   onUnlink,
+  onColorChange,
+  isSavingColor = false,
 }: RankBoardProps) => {
+  const { t } = useI18n();
   const boardRef = useRef<HTMLDivElement>(null);
-  const [positions, setPositions] = useState<Record<string, Position>>({});
+  const minimapRef = useRef<HTMLDivElement>(null);
+
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+  const [manualPositions, setManualPositions] = useState<Record<string, Position>>({});
+
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 });
   const [dragStart, setDragStart] = useState<Position>({ x: 0, y: 0 });
+  const [dragPosition, setDragPosition] = useState<Position | null>(null);
   const [hasDragged, setHasDragged] = useState(false);
   const [snapTarget, setSnapTarget] = useState<SnapTarget | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  const [scale, setScale] = useState(1);
+  const [pan, setPan] = useState<Position>(DEFAULT_PAN);
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState<Position>({ x: 0, y: 0 });
+
+  const [isMinimapDragging, setIsMinimapDragging] = useState(false);
+
+  const scaleRef = useRef(1);
+  const panRef = useRef<Position>(DEFAULT_PAN);
+  const rafRef = useRef<number | null>(null);
   const splitRef = useRef(false);
+  const suppressClickRef = useRef(false);
 
   const itemsWithId = useMemo(
     () => items.filter((item): item is Rank & { id: string } => Boolean(item.id)),
     [items]
   );
 
-  const { prevById, nextById, adjacency } = useMemo(() => {
-    const prevMap: Record<string, string | undefined> = {};
-    const nextMap: Record<string, string> = {};
-    const adj: Record<string, Set<string>> = {};
+  useEffect(() => {
+    scaleRef.current = scale;
+  }, [scale]);
 
-    const addAdj = (a: string, b: string) => {
-      if (!a || !b) {
-        return;
+  useEffect(() => {
+    panRef.current = pan;
+  }, [pan]);
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
       }
-      if (!adj[a]) {
-        adj[a] = new Set();
-      }
-      if (!adj[b]) {
-        adj[b] = new Set();
-      }
-      adj[a]!.add(b);
-      adj[b]!.add(a);
     };
+  }, []);
+
+  useEffect(() => {
+    const node = boardRef.current;
+    if (!node) {
+      return;
+    }
+    const update = () => {
+      setViewportSize({
+        width: node.clientWidth,
+        height: node.clientHeight,
+      });
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  const { prevById, childrenById, roots, linkConditions } = useMemo(() => {
+    const byId = new Map<string, Rank & { id: string }>();
+    const prevMap: Record<string, string | undefined> = {};
+    const childrenMap: Record<string, string[]> = {};
+    const conditionsMap: Record<string, RankCondition[] | undefined> = {};
+
+    itemsWithId.forEach((item) => {
+      byId.set(item.id, item);
+    });
 
     itemsWithId.forEach((item) => {
       const hasOverride = Object.prototype.hasOwnProperty.call(links, item.id);
-      const prevId = hasOverride ? links[item.id]?.previousId : item.previousId;
+      const override = links[item.id];
+      const prevId = hasOverride ? override?.previousId : item.previousId;
       if (prevId) {
         prevMap[item.id] = prevId;
       }
+      const conditions = hasOverride ? override?.conditions : item.conditions;
+      const normalized = normalizeConditions(conditions);
+      if (normalized.length > 0) {
+        conditionsMap[item.id] = normalized;
+      }
     });
 
-    Object.entries(prevMap).forEach(([currentId, prevId]) => {
-      if (!prevId) {
+    Object.entries(prevMap).forEach(([childId, parentId]) => {
+      if (!parentId) {
         return;
       }
-      if (!nextMap[prevId]) {
-        nextMap[prevId] = currentId;
+      if (!childrenMap[parentId]) {
+        childrenMap[parentId] = [];
       }
-      addAdj(prevId, currentId);
+      childrenMap[parentId]?.push(childId);
     });
 
-    return { prevById: prevMap, nextById: nextMap, adjacency: adj };
+    Object.values(childrenMap).forEach((children) => {
+      children.sort((a, b) => {
+        const aName = byId.get(a)?.name ?? "";
+        const bName = byId.get(b)?.name ?? "";
+        return aName.localeCompare(bName);
+      });
+    });
+
+    const rootIds = itemsWithId
+      .filter((item) => {
+        const prevId = prevMap[item.id];
+        return !prevId || !byId.has(prevId);
+      })
+      .map((item) => item.id)
+      .sort((a, b) => {
+        const aName = byId.get(a)?.name ?? "";
+        const bName = byId.get(b)?.name ?? "";
+        return aName.localeCompare(bName);
+      });
+
+    return {
+      prevById: prevMap,
+      childrenById: childrenMap,
+      roots: rootIds,
+      linkConditions: conditionsMap,
+    };
   }, [itemsWithId, links]);
 
-  const getChainIds = (startId: string): string[] => {
-    const visited = new Set<string>();
-    const queue: string[] = [startId];
-    while (queue.length) {
-      const current = queue.shift()!;
-      if (visited.has(current)) {
-        continue;
+  const autoLayout = useMemo(() => {
+    const positions: Record<string, Position> = {};
+    let maxX = 0;
+    let maxY = 0;
+    const visiting = new Set<string>();
+    let yCursor = PADDING;
+
+    const placeLeaf = (id: string, depth: number): Span => {
+      const x = PADDING + depth * (NODE_WIDTH + H_GAP);
+      const y = yCursor;
+      positions[id] = { x, y };
+      yCursor += NODE_HEIGHT + V_GAP;
+      maxX = Math.max(maxX, x + NODE_WIDTH);
+      maxY = Math.max(maxY, y + NODE_HEIGHT);
+      return { min: y, max: y + NODE_HEIGHT };
+    };
+
+    const layoutNode = (id: string, depth: number): Span => {
+      if (positions[id]) {
+        return { min: positions[id].y, max: positions[id].y + NODE_HEIGHT };
       }
-      visited.add(current);
-      const neighbors = adjacency[current];
-      if (neighbors) {
-        neighbors.forEach((neighbor) => {
-          if (!visited.has(neighbor)) {
-            queue.push(neighbor);
-          }
-        });
+      if (visiting.has(id)) {
+        return placeLeaf(id, depth);
       }
-    }
-    return Array.from(visited);
-  };
+      visiting.add(id);
+      const children = childrenById[id] ?? [];
+      if (children.length === 0) {
+        visiting.delete(id);
+        return placeLeaf(id, depth);
+      }
+
+      let min = Number.POSITIVE_INFINITY;
+      let max = Number.NEGATIVE_INFINITY;
+      const childSpans = children.map((childId) => layoutNode(childId, depth + 1));
+      childSpans.forEach((span) => {
+        min = Math.min(min, span.min);
+        max = Math.max(max, span.max);
+      });
+
+      const x = PADDING + depth * (NODE_WIDTH + H_GAP);
+      const y = min + (max - min - NODE_HEIGHT) / 2;
+      positions[id] = { x, y };
+      maxX = Math.max(maxX, x + NODE_WIDTH);
+      maxY = Math.max(maxY, y + NODE_HEIGHT);
+      visiting.delete(id);
+      return {
+        min: Math.min(min, y),
+        max: Math.max(max, y + NODE_HEIGHT),
+      };
+    };
+
+    roots.forEach((rootId) => {
+      layoutNode(rootId, 0);
+      yCursor += V_GAP;
+    });
+
+    itemsWithId.forEach((item) => {
+      if (!positions[item.id]) {
+        layoutNode(item.id, 0);
+      }
+    });
+
+    const width = Math.max(maxX + PADDING, NODE_WIDTH + PADDING * 2);
+    const height = Math.max(maxY + PADDING, NODE_HEIGHT + PADDING * 2);
+
+    return { positions, width, height };
+  }, [childrenById, itemsWithId, roots]);
 
   useEffect(() => {
-    setPositions((prev) => {
-      const next = { ...prev };
-      const columns = 3;
-      let index = 0;
-      const placeRoot = (item: Rank & { id: string }) => {
-        if (next[item.id]) {
-          return;
-        }
-        const col = index % columns;
-        const row = Math.floor(index / columns);
-        next[item.id] = {
-          x: COL_GAP + col * (MIN_WIDTH + COL_GAP),
-          y: COL_GAP + row * (BAR_HEIGHT + ROW_GAP),
-        };
-        index += 1;
-      };
-
-      itemsWithId.forEach((item) => {
-        const prevId = prevById[item.id];
-        if (!prevId) {
-          placeRoot(item);
+    const validIds = new Set(itemsWithId.map((item) => item.id));
+    setManualPositions((prev) => {
+      let changed = false;
+      const next: Record<string, Position> = {};
+      Object.entries(prev).forEach(([id, pos]) => {
+        if (validIds.has(id)) {
+          next[id] = pos;
+        } else {
+          changed = true;
         }
       });
+      return changed ? next : prev;
+    });
+  }, [itemsWithId]);
 
-      for (let pass = 0; pass < itemsWithId.length; pass += 1) {
-        let changed = false;
-        itemsWithId.forEach((item) => {
-          if (next[item.id]) {
-            return;
-          }
-          const prevId = prevById[item.id];
-          if (!prevId) {
-            return;
-          }
-          const prevPos = next[prevId];
-          if (!prevPos) {
-            return;
-          }
-          next[item.id] = { x: prevPos.x + MIN_WIDTH, y: prevPos.y };
-          changed = true;
-        });
-        if (!changed) {
-          break;
-        }
+  const selectedItem = useMemo(
+    () => itemsWithId.find((item) => item.id === selectedId) ?? null,
+    [itemsWithId, selectedId]
+  );
+
+  const selectedLinkKey = selectedLink
+    ? `${selectedLink.previousId}-${selectedLink.currentId}`
+    : null;
+
+  const positionById = useMemo(() => {
+    const base: Record<string, Position> = {};
+    itemsWithId.forEach((item) => {
+      base[item.id] =
+        manualPositions[item.id] ?? autoLayout.positions[item.id] ?? { x: PADDING, y: PADDING };
+    });
+    if (draggingId && dragPosition) {
+      base[draggingId] = dragPosition;
+    }
+    return base;
+  }, [itemsWithId, manualPositions, autoLayout.positions, draggingId, dragPosition]);
+
+  const { edgeList, conditionNodes } = useMemo(() => {
+    const nextEdges: BoardEdge[] = [];
+    const nextConditionNodes: ConditionNode[] = [];
+
+    Object.entries(prevById).forEach(([childId, parentId]) => {
+      if (!parentId) {
+        return;
+      }
+      const childPos = positionById[childId];
+      const parentPos = positionById[parentId];
+      if (!childPos || !parentPos) {
+        return;
       }
 
-      itemsWithId.forEach((item) => {
-        if (!next[item.id]) {
-          placeRoot(item);
-        }
-      });
+      const linkKey = `${parentId}-${childId}`;
+      const startX = parentPos.x + NODE_WIDTH;
+      const startY = parentPos.y + NODE_HEIGHT / 2;
+      const endX = childPos.x;
+      const endY = childPos.y + NODE_HEIGHT / 2;
 
-      return next;
+      const conditions = linkConditions[childId] ?? [];
+      if (conditions.length === 0) {
+        nextEdges.push({
+          id: `${linkKey}-direct`,
+          linkKey,
+          parentId,
+          childId,
+          path: buildOrthPath(startX, startY, endX, endY),
+        });
+        return;
+      }
+
+      const totalHeight =
+        conditions.length * CONDITION_HEIGHT +
+        Math.max(0, conditions.length - 1) * CONDITION_GAP;
+      const topY = (startY + endY) / 2 - totalHeight / 2;
+      const nodeX = startX + (endX - startX) / 2 - CONDITION_WIDTH / 2;
+
+      conditions.forEach((condition, index) => {
+        const nodeId = `${linkKey}-condition-${index + 1}`;
+        const nodeY = topY + index * (CONDITION_HEIGHT + CONDITION_GAP);
+        const conditionNode: ConditionNode = {
+          id: nodeId,
+          linkKey,
+          parentId,
+          childId,
+          condition,
+          x: nodeX,
+          y: nodeY,
+          width: CONDITION_WIDTH,
+          height: CONDITION_HEIGHT,
+        };
+        nextConditionNodes.push(conditionNode);
+
+        const conditionInputX = conditionNode.x;
+        const conditionOutputX = conditionNode.x + conditionNode.width;
+        const conditionMidY = conditionNode.y + conditionNode.height / 2;
+
+        nextEdges.push({
+          id: `${nodeId}-in`,
+          linkKey,
+          parentId,
+          childId,
+          path: buildOrthPath(startX, startY, conditionInputX, conditionMidY),
+        });
+        nextEdges.push({
+          id: `${nodeId}-out`,
+          linkKey,
+          parentId,
+          childId,
+          path: buildOrthPath(conditionOutputX, conditionMidY, endX, endY),
+        });
+      });
     });
-  }, [itemsWithId, prevById]);
+
+    return { edgeList: nextEdges, conditionNodes: nextConditionNodes };
+  }, [linkConditions, positionById, prevById]);
+
+  const conditionNodeByEdgeId = useMemo(() => {
+    const map = new Map<string, ConditionNode>();
+    conditionNodes.forEach((node) => {
+      map.set(`${node.id}-in`, node);
+      map.set(`${node.id}-out`, node);
+    });
+    return map;
+  }, [conditionNodes]);
+
+  const worldBounds = useMemo<WorldBounds>(() => {
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+
+    const include = (x: number, y: number, width: number, height: number) => {
+      minX = Math.min(minX, x - PADDING);
+      minY = Math.min(minY, y - PADDING);
+      maxX = Math.max(maxX, x + width + PADDING);
+      maxY = Math.max(maxY, y + height + PADDING);
+    };
+
+    itemsWithId.forEach((item) => {
+      const pos = positionById[item.id];
+      if (!pos) {
+        return;
+      }
+      include(pos.x, pos.y, NODE_WIDTH, NODE_HEIGHT);
+    });
+
+    conditionNodes.forEach((node) => {
+      include(node.x, node.y, node.width, node.height);
+    });
+
+    if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+      return {
+        minX: 0,
+        minY: 0,
+        maxX: autoLayout.width,
+        maxY: autoLayout.height,
+        width: Math.max(1, autoLayout.width),
+        height: Math.max(1, autoLayout.height),
+      };
+    }
+
+    return {
+      minX,
+      minY,
+      maxX,
+      maxY,
+      width: Math.max(1, maxX - minX),
+      height: Math.max(1, maxY - minY),
+    };
+  }, [autoLayout.height, autoLayout.width, conditionNodes, itemsWithId, positionById]);
+
+  const minimapMetrics = useMemo(() => {
+    const availableWidth = Math.max(1, MINIMAP_WIDTH - MINIMAP_PADDING * 2);
+    const availableHeight = Math.max(
+      1,
+      MINIMAP_HEIGHT - MINIMAP_HEADER_HEIGHT - MINIMAP_PADDING * 2
+    );
+    const contentScale = Math.min(
+      availableWidth / worldBounds.width,
+      availableHeight / worldBounds.height
+    );
+    const safeScale = Number.isFinite(contentScale) && contentScale > 0 ? contentScale : 1;
+    const contentWidth = worldBounds.width * safeScale;
+    const contentHeight = worldBounds.height * safeScale;
+    const originX = (MINIMAP_WIDTH - contentWidth) / 2;
+    const graphTop = MINIMAP_HEADER_HEIGHT + MINIMAP_PADDING;
+    const originY = graphTop + (availableHeight - contentHeight) / 2;
+    const graphBottom = MINIMAP_HEIGHT - MINIMAP_PADDING;
+    return {
+      scale: safeScale,
+      contentWidth,
+      contentHeight,
+      originX,
+      originY,
+      graphTop,
+      graphBottom,
+    };
+  }, [worldBounds.height, worldBounds.width]);
+
+  const viewportWorld = useMemo(() => {
+    const width = viewportSize.width > 0 ? viewportSize.width / scale : 0;
+    const height = viewportSize.height > 0 ? viewportSize.height / scale : 0;
+    const x = -pan.x / scale;
+    const y = -pan.y / scale;
+    return { x, y, width, height };
+  }, [pan.x, pan.y, scale, viewportSize.height, viewportSize.width]);
+
+  const minimapViewportRect = useMemo(() => {
+    const rawX =
+      minimapMetrics.originX + (viewportWorld.x - worldBounds.minX) * minimapMetrics.scale;
+    const rawY =
+      minimapMetrics.originY + (viewportWorld.y - worldBounds.minY) * minimapMetrics.scale;
+
+    const width = Math.min(
+      minimapMetrics.contentWidth,
+      Math.max(6, viewportWorld.width * minimapMetrics.scale)
+    );
+    const height = Math.min(
+      minimapMetrics.contentHeight,
+      Math.max(6, viewportWorld.height * minimapMetrics.scale)
+    );
+
+    const minX = minimapMetrics.originX;
+    const minY = minimapMetrics.originY;
+    const maxX = minimapMetrics.originX + minimapMetrics.contentWidth - width;
+    const maxY = minimapMetrics.originY + minimapMetrics.contentHeight - height;
+
+    const x = Math.max(minX, Math.min(maxX, rawX));
+    const y = Math.max(minY, Math.min(maxY, rawY));
+    return { x, y, width, height };
+  }, [
+    minimapMetrics.contentHeight,
+    minimapMetrics.contentWidth,
+    minimapMetrics.originX,
+    minimapMetrics.originY,
+    minimapMetrics.scale,
+    viewportWorld.height,
+    viewportWorld.width,
+    viewportWorld.x,
+    viewportWorld.y,
+    worldBounds.minX,
+    worldBounds.minY,
+  ]);
+
+  const setZoomAtPointer = (nextScale: number, pointerX: number, pointerY: number) => {
+    const currentScale = scaleRef.current;
+    const clamped = clampScale(nextScale);
+    if (clamped === currentScale) {
+      return;
+    }
+    const currentPan = panRef.current;
+    const ratio = clamped / currentScale;
+    const nextPanX = pointerX - (pointerX - currentPan.x) * ratio;
+    const nextPanY = pointerY - (pointerY - currentPan.y) * ratio;
+    scaleRef.current = clamped;
+    panRef.current = { x: nextPanX, y: nextPanY };
+    if (rafRef.current === null) {
+      rafRef.current = requestAnimationFrame(() => {
+        setScale(scaleRef.current);
+        setPan(panRef.current);
+        rafRef.current = null;
+      });
+    }
+  };
 
   const toBoardCoords = (clientX: number, clientY: number) => {
     const rect = boardRef.current?.getBoundingClientRect();
+    const rawX = clientX - (rect?.left ?? 0);
+    const rawY = clientY - (rect?.top ?? 0);
     return {
-      x: clientX - (rect?.left ?? 0),
-      y: clientY - (rect?.top ?? 0),
+      x: (rawX - pan.x) / scale,
+      y: (rawY - pan.y) / scale,
     };
+  };
+
+  const moveViewportFromMinimap = (clientX: number, clientY: number) => {
+    const rect = minimapRef.current?.getBoundingClientRect();
+    if (!rect || minimapMetrics.scale <= 0) {
+      return;
+    }
+    const localX = clientX - rect.left;
+    const localY = clientY - rect.top;
+    const clampedX = Math.min(
+      minimapMetrics.originX + minimapMetrics.contentWidth,
+      Math.max(minimapMetrics.originX, localX)
+    );
+    const clampedY = Math.min(
+      minimapMetrics.originY + minimapMetrics.contentHeight,
+      Math.max(minimapMetrics.originY, localY)
+    );
+    const worldX =
+      worldBounds.minX + (clampedX - minimapMetrics.originX) / minimapMetrics.scale;
+    const worldY =
+      worldBounds.minY + (clampedY - minimapMetrics.originY) / minimapMetrics.scale;
+    const nextPan = {
+      x: viewportSize.width / 2 - worldX * scaleRef.current,
+      y: viewportSize.height / 2 - worldY * scaleRef.current,
+    };
+    panRef.current = nextPan;
+    setPan(nextPan);
   };
 
   const handlePointerDown = (
@@ -174,26 +645,34 @@ export const RankBoard = ({
     item: Rank & { id: string }
   ) => {
     event.currentTarget.setPointerCapture(event.pointerId);
-    const position = positions[item.id] ?? { x: 0, y: 0 };
-    const { x: pointerX, y: pointerY } = toBoardCoords(
-      event.clientX,
-      event.clientY
-    );
+    const position = positionById[item.id] ?? { x: PADDING, y: PADDING };
+    const { x: pointerX, y: pointerY } = toBoardCoords(event.clientX, event.clientY);
     setDragOffset({ x: pointerX - position.x, y: pointerY - position.y });
     setDragStart({ x: pointerX, y: pointerY });
+    setDragPosition(position);
     setHasDragged(false);
     setDraggingId(item.id);
     splitRef.current = event.shiftKey;
+    onSelectLink?.(null);
   };
 
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (isMinimapDragging) {
+      moveViewportFromMinimap(event.clientX, event.clientY);
+      return;
+    }
+    if (isPanning && boardRef.current) {
+      const rect = boardRef.current.getBoundingClientRect();
+      const nextX = event.clientX - rect.left - panStart.x;
+      const nextY = event.clientY - rect.top - panStart.y;
+      panRef.current = { x: nextX, y: nextY };
+      setPan({ x: nextX, y: nextY });
+      return;
+    }
     if (!draggingId || !boardRef.current) {
       return;
     }
-    const { x: pointerX, y: pointerY } = toBoardCoords(
-      event.clientX,
-      event.clientY
-    );
+    const { x: pointerX, y: pointerY } = toBoardCoords(event.clientX, event.clientY);
     if (!hasDragged) {
       const deltaX = Math.abs(pointerX - dragStart.x);
       const deltaY = Math.abs(pointerY - dragStart.y);
@@ -201,72 +680,54 @@ export const RankBoard = ({
         setHasDragged(true);
       }
     }
-    const rawX = pointerX - dragOffset.x;
-    const rawY = pointerY - dragOffset.y;
 
-    let bestDistance = Number.POSITIVE_INFINITY;
-    let nextX = rawX;
-    let nextY = rawY;
+    let nextX = Math.max(PADDING / 2, pointerX - dragOffset.x);
+    let nextY = Math.max(PADDING / 2, pointerY - dragOffset.y);
     let target: SnapTarget | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
 
     itemsWithId.forEach((item) => {
       if (item.id === draggingId) {
         return;
       }
-      const targetPos = positions[item.id];
+      const targetPos = positionById[item.id];
       if (!targetPos) {
         return;
       }
-      const sameRow = Math.abs(rawY - targetPos.y) <= BAR_HEIGHT;
-      if (!sameRow) {
-        return;
-      }
-      const targetEnd = targetPos.x + MIN_WIDTH;
-      const distanceToPrev = Math.abs(rawX - targetEnd);
-      if (distanceToPrev <= SNAP_DISTANCE && distanceToPrev < bestDistance) {
-        bestDistance = distanceToPrev;
-        nextX = targetEnd;
+
+      const dragAnchor = {
+        x: nextX,
+        y: nextY + NODE_HEIGHT / 2,
+      };
+      const targetAnchor = {
+        x: targetPos.x + NODE_WIDTH,
+        y: targetPos.y + NODE_HEIGHT / 2,
+      };
+      const distance = Math.hypot(
+        dragAnchor.x - targetAnchor.x,
+        dragAnchor.y - targetAnchor.y
+      );
+      if (distance <= SNAP_DISTANCE && distance < bestDistance) {
+        bestDistance = distance;
+        target = { targetId: item.id };
+        nextX = targetPos.x + NODE_WIDTH + H_GAP;
         nextY = targetPos.y;
-        target = { targetId: item.id, mode: "previous" };
-      }
-      const distanceToNext = Math.abs(rawX + MIN_WIDTH - targetPos.x);
-      if (distanceToNext <= SNAP_DISTANCE && distanceToNext < bestDistance) {
-        bestDistance = distanceToNext;
-        nextX = targetPos.x - MIN_WIDTH;
-        nextY = targetPos.y;
-        target = { targetId: item.id, mode: "next" };
       }
     });
 
-    const chain =
-      !splitRef.current &&
-      (prevById[draggingId] || nextById[draggingId])
-        ? getChainIds(draggingId)
-        : null;
-    if (chain && chain.length > 1) {
-      setSnapTarget(target);
-      setPositions((prev) => {
-        const anchorPrev = prev[draggingId] ?? { x: 0, y: 0 };
-        const deltaX = nextX - anchorPrev.x;
-        const deltaY = nextY - anchorPrev.y;
-        const next = { ...prev };
-        chain.forEach((id) => {
-          const currentPos = prev[id] ?? { x: 0, y: 0 };
-          next[id] = { x: currentPos.x + deltaX, y: currentPos.y + deltaY };
-        });
-        return next;
-      });
-      return;
-    }
-
     setSnapTarget(target);
-    setPositions((prev) => ({
-      ...prev,
-      [draggingId]: { x: nextX, y: nextY },
-    }));
+    setDragPosition({ x: nextX, y: nextY });
   };
 
   const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
+    if (isMinimapDragging) {
+      setIsMinimapDragging(false);
+      return;
+    }
+    if (isPanning) {
+      setIsPanning(false);
+      return;
+    }
     if (!draggingId) {
       return;
     }
@@ -281,67 +742,442 @@ export const RankBoard = ({
 
     const currentId = draggingId;
     const previousId = prevById[currentId];
-    const nextId = nextById[currentId];
     const shiftSplit = splitRef.current;
 
-    if (hasDragged && snapTarget && !shiftSplit) {
-      if (snapTarget.mode === "previous") {
+    if (hasDragged) {
+      suppressClickRef.current = true;
+      if (shiftSplit) {
+        if (previousId) {
+          onUnlink(currentId, previousId);
+        }
+      } else if (snapTarget && snapTarget.targetId !== currentId) {
         if (previousId && previousId !== snapTarget.targetId) {
           onRelink(currentId, snapTarget.targetId);
         } else if (!previousId) {
           onLink(currentId, snapTarget.targetId);
         }
-      } else if (snapTarget.mode === "next") {
-        const targetPrev = prevById[snapTarget.targetId];
-        if (targetPrev && targetPrev !== currentId) {
-          onRelink(snapTarget.targetId, currentId);
-        } else if (!targetPrev) {
-          onLink(snapTarget.targetId, currentId);
-        }
-      }
-    } else if (hasDragged && shiftSplit) {
-      if (previousId) {
-        onUnlink(currentId, previousId);
-      }
-      if (nextId) {
-        onUnlink(nextId, currentId);
+      } else if (dragPosition) {
+        setManualPositions((prev) => ({
+          ...prev,
+          [currentId]: dragPosition,
+        }));
       }
     }
 
     setDraggingId(null);
+    setDragPosition(null);
     setSnapTarget(null);
     setHasDragged(false);
     splitRef.current = false;
   };
 
+  const handleBoardPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    if (
+      target.closest(".rank-bar") ||
+      target.closest(".rank-condition-node") ||
+      target.closest(".rank-edge-hit") ||
+      target.closest(".rank-board__toolbar") ||
+      target.closest(".rank-board__minimap")
+    ) {
+      return;
+    }
+    const rect = boardRef.current?.getBoundingClientRect();
+    if (!rect) {
+      return;
+    }
+    setIsPanning(true);
+    setPanStart({
+      x: event.clientX - rect.left - pan.x,
+      y: event.clientY - rect.top - pan.y,
+    });
+    onSelect?.(null);
+    onSelectLink?.(null);
+  };
+
+  const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
+    if (!boardRef.current) {
+      return;
+    }
+    event.preventDefault();
+    const rect = boardRef.current.getBoundingClientRect();
+    const pointerX = event.clientX - rect.left;
+    const pointerY = event.clientY - rect.top;
+    const nextScale = scaleRef.current - event.deltaY * 0.001;
+    setZoomAtPointer(nextScale, pointerX, pointerY);
+  };
+
+  const handleZoomStep = (delta: number) => {
+    const rect = boardRef.current?.getBoundingClientRect();
+    const centerX = rect ? rect.width / 2 : 0;
+    const centerY = rect ? rect.height / 2 : 0;
+    setZoomAtPointer(scaleRef.current + delta, centerX, centerY);
+  };
+
+  const handleResetView = () => {
+    setScale(1);
+    setPan(DEFAULT_PAN);
+  };
+
+  const handleFitView = () => {
+    const rect = boardRef.current?.getBoundingClientRect();
+    if (!rect) {
+      handleResetView();
+      return;
+    }
+    const availableWidth = Math.max(1, rect.width - 40);
+    const availableHeight = Math.max(1, rect.height - 40);
+    const nextScale = clampScale(
+      Math.min(availableWidth / worldBounds.width, availableHeight / worldBounds.height)
+    );
+    const nextPan = {
+      x: (rect.width - worldBounds.width * nextScale) / 2 - worldBounds.minX * nextScale,
+      y: (rect.height - worldBounds.height * nextScale) / 2 - worldBounds.minY * nextScale,
+    };
+    setScale(nextScale);
+    setPan(nextPan);
+  };
+
+  const handleAutoLayout = () => {
+    setManualPositions({});
+  };
+
+  const handleSelect = (item: Rank & { id: string }) => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
+    onSelectLink?.(null);
+    onSelect?.(item);
+  };
+
+  const handleSelectLinkByIds = (currentId: string, previousId: string) => {
+    const conditions = linkConditions[currentId] ?? [];
+    onSelect?.(null);
+    onSelectLink?.({ currentId, previousId, conditions });
+  };
+
+  const handleMinimapPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+    event.preventDefault();
+    setIsMinimapDragging(true);
+    moveViewportFromMinimap(event.clientX, event.clientY);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handleMinimapPointerUp = (event: PointerEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+    setIsMinimapDragging(false);
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+
+  const toMinimapX = (x: number) =>
+    minimapMetrics.originX + (x - worldBounds.minX) * minimapMetrics.scale;
+  const toMinimapY = (y: number) =>
+    minimapMetrics.originY + (y - worldBounds.minY) * minimapMetrics.scale;
+
+  const canvasWidth = Math.max(autoLayout.width, worldBounds.maxX);
+  const canvasHeight = Math.max(autoLayout.height, worldBounds.maxY);
+
   return (
     <div
-      className="rank-board"
+      className={`rank-board${isPanning ? " rank-board--panning" : ""}`}
       ref={boardRef}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
+      onPointerDown={handleBoardPointerDown}
+      onWheel={handleWheel}
     >
-      <div className="rank-board__canvas">
+      <div className="rank-board__toolbar">
+        <div className="rank-board__toolbar-inner rank-board__toolbar-inner--tools">
+          <button
+            type="button"
+            className="rank-board__tool-button"
+            onClick={() => handleZoomStep(-0.15)}
+            title={t("Zoom out")}
+          >
+            −
+          </button>
+          <span className="rank-board__zoom">{Math.round(scale * 100)}%</span>
+          <button
+            type="button"
+            className="rank-board__tool-button"
+            onClick={() => handleZoomStep(0.15)}
+            title={t("Zoom in")}
+          >
+            +
+          </button>
+          <button
+            type="button"
+            className="rank-board__tool-button"
+            onClick={handleFitView}
+            title={t("Fit view")}
+          >
+            {t("Fit")}
+          </button>
+          <button
+            type="button"
+            className="rank-board__tool-button"
+            onClick={handleResetView}
+            title={t("Reset view")}
+          >
+            {t("Reset")}
+          </button>
+          <button
+            type="button"
+            className="rank-board__tool-button"
+            onClick={handleAutoLayout}
+            title={t("Auto layout")}
+          >
+            {t("Auto")}
+          </button>
+        </div>
+        {selectedItem && onColorChange && (
+          <div className="rank-board__toolbar-inner">
+            <span className="rank-board__toolbar-title">{selectedItem.name}</span>
+            <span className="rank-board__toolbar-label">{t("Color")}</span>
+            <input
+              className="input rank-color-input"
+              type="color"
+              value={selectedItem.color || "#4b85b9"}
+              onChange={(event) =>
+                onColorChange(selectedItem.id, event.target.value)
+              }
+              disabled={isSavingColor}
+            />
+          </div>
+        )}
+      </div>
+
+      <div
+        className="rank-board__canvas"
+        style={{
+          width: canvasWidth,
+          height: canvasHeight,
+          transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${scale})`,
+        }}
+      >
+        <svg className="rank-board__edges" width={canvasWidth} height={canvasHeight} aria-hidden="true">
+          <defs>
+            <marker
+              id="rank-arrow"
+              viewBox="0 0 10 10"
+              refX="7.4"
+              refY="5"
+              markerWidth="5"
+              markerHeight="5"
+              orient="auto"
+            >
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+            </marker>
+          </defs>
+          {edgeList.map((edge) => {
+            const isActive =
+              hoveredId && (edge.parentId === hoveredId || edge.childId === hoveredId);
+            const isSelected = edge.linkKey === selectedLinkKey;
+            return (
+              <g key={edge.id}>
+                <path
+                  d={edge.path}
+                  className={`rank-edge${
+                    isActive ? " rank-edge--active" : ""
+                  }${isSelected ? " rank-edge--selected" : ""}`}
+                  markerEnd="url(#rank-arrow)"
+                />
+                <path
+                  d={edge.path}
+                  className="rank-edge-hit"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={() => handleSelectLinkByIds(edge.childId, edge.parentId)}
+                  onDoubleClick={() => handleSelectLinkByIds(edge.childId, edge.parentId)}
+                />
+              </g>
+            );
+          })}
+        </svg>
+
+        {conditionNodes.map((node) => {
+          const isSelected = node.linkKey === selectedLinkKey;
+          return (
+            <button
+              key={node.id}
+              type="button"
+              className={`rank-condition-node${isSelected ? " rank-condition-node--selected" : ""}`}
+              style={{
+                width: node.width,
+                height: node.height,
+                transform: `translate(${node.x}px, ${node.y}px)`,
+              }}
+              title={node.condition.description || node.condition.name}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => handleSelectLinkByIds(node.childId, node.parentId)}
+              onDoubleClick={() => handleSelectLinkByIds(node.childId, node.parentId)}
+            >
+              <span className="rank-condition-node__label">{node.condition.name}</span>
+            </button>
+          );
+        })}
+
         {itemsWithId.map((item) => {
-          const position = positions[item.id] ?? { x: COL_GAP, y: COL_GAP };
+          const position = positionById[item.id] ?? {
+            x: PADDING,
+            y: PADDING,
+          };
           const isSelected = item.id === selectedId;
+          const isSnapTarget = item.id === snapTarget?.targetId;
+          const classes = ["rank-bar"];
+          if (isSelected) {
+            classes.push("rank-bar--active");
+          }
+          if (isSnapTarget) {
+            classes.push("rank-bar--snap");
+          }
+          const colorValue = item.color?.trim();
+          const textColor = colorValue ? getContrastColor(colorValue) : undefined;
+          const style = {
+            width: NODE_WIDTH,
+            transform: `translate(${position.x}px, ${position.y}px)`,
+          } as CSSProperties & Record<string, string>;
+          if (colorValue) {
+            style["--rank-color" as string] = colorValue;
+          }
+          if (textColor) {
+            style["--rank-text" as string] = textColor;
+          }
           return (
             <button
               key={item.id}
               type="button"
-              className={`rank-bar${isSelected ? " rank-bar--active" : ""}`}
-              style={{
-                width: MIN_WIDTH,
-                transform: `translate(${position.x}px, ${position.y}px)`,
-              }}
-              onClick={() => onSelect?.(item)}
+              className={classes.join(" ")}
+              style={style}
+              onClick={() => handleSelect(item)}
               onPointerDown={(event) => handlePointerDown(event, item)}
+              onMouseEnter={() => setHoveredId(item.id)}
+              onMouseLeave={() => setHoveredId(null)}
             >
               <span className="rank-bar__label">{item.name}</span>
             </button>
           );
         })}
+      </div>
+
+      <div
+        className="rank-board__minimap"
+        ref={minimapRef}
+        onPointerDown={handleMinimapPointerDown}
+        onPointerMove={(event) => {
+          if (isMinimapDragging) {
+            moveViewportFromMinimap(event.clientX, event.clientY);
+          }
+        }}
+        onPointerUp={handleMinimapPointerUp}
+        onPointerCancel={handleMinimapPointerUp}
+      >
+        <span className="rank-board__minimap-title">{t("Mini map")}</span>
+        <svg width={MINIMAP_WIDTH} height={MINIMAP_HEIGHT} aria-hidden="true">
+          <rect
+            x={MINIMAP_PADDING}
+            y={minimapMetrics.graphTop}
+            width={MINIMAP_WIDTH - MINIMAP_PADDING * 2}
+            height={minimapMetrics.graphBottom - minimapMetrics.graphTop}
+            className="rank-board__minimap-graph-area"
+          />
+          <rect
+            x={minimapMetrics.originX}
+            y={minimapMetrics.originY}
+            width={minimapMetrics.contentWidth}
+            height={minimapMetrics.contentHeight}
+            className="rank-board__minimap-content"
+          />
+          {edgeList.map((edge) => {
+            const sourceNode = edge.id.endsWith("-out")
+              ? conditionNodeByEdgeId.get(edge.id)
+              : undefined;
+            const targetNode = edge.id.endsWith("-in")
+              ? conditionNodeByEdgeId.get(edge.id)
+              : undefined;
+
+            const childPos = positionById[edge.childId];
+            const parentPos = positionById[edge.parentId];
+
+            if (!childPos || !parentPos) {
+              return null;
+            }
+
+            let x1 = toMinimapX(parentPos.x + NODE_WIDTH);
+            let y1 = toMinimapY(parentPos.y + NODE_HEIGHT / 2);
+            let x2 = toMinimapX(childPos.x);
+            let y2 = toMinimapY(childPos.y + NODE_HEIGHT / 2);
+
+            if (targetNode) {
+              x2 = toMinimapX(targetNode.x);
+              y2 = toMinimapY(targetNode.y + targetNode.height / 2);
+            }
+            if (sourceNode) {
+              x1 = toMinimapX(sourceNode.x + sourceNode.width);
+              y1 = toMinimapY(sourceNode.y + sourceNode.height / 2);
+            }
+
+            return (
+              <line
+                key={`map-${edge.id}`}
+                x1={x1}
+                y1={y1}
+                x2={x2}
+                y2={y2}
+                className="rank-board__minimap-edge"
+              />
+            );
+          })}
+          {itemsWithId.map((item) => {
+            const pos = positionById[item.id];
+            if (!pos) {
+              return null;
+            }
+            const x = toMinimapX(pos.x);
+            const y = toMinimapY(pos.y);
+            const width = Math.max(3, NODE_WIDTH * minimapMetrics.scale);
+            const height = Math.max(3, NODE_HEIGHT * minimapMetrics.scale);
+            const isSelected = item.id === selectedId;
+            return (
+              <rect
+                key={`map-node-${item.id}`}
+                x={x}
+                y={y}
+                width={width}
+                height={height}
+                rx={3}
+                className={`rank-board__minimap-node${
+                  isSelected ? " rank-board__minimap-node--selected" : ""
+                }`}
+              />
+            );
+          })}
+          {conditionNodes.map((node) => {
+            const isSelected = node.linkKey === selectedLinkKey;
+            return (
+              <rect
+                key={`map-condition-${node.id}`}
+                x={toMinimapX(node.x)}
+                y={toMinimapY(node.y)}
+                width={Math.max(2, node.width * minimapMetrics.scale)}
+                height={Math.max(2, node.height * minimapMetrics.scale)}
+                rx={2}
+                className={`rank-board__minimap-condition-node${
+                  isSelected ? " rank-board__minimap-condition-node--selected" : ""
+                }`}
+              />
+            );
+          })}
+          <rect
+            x={minimapViewportRect.x}
+            y={minimapViewportRect.y}
+            width={minimapViewportRect.width}
+            height={minimapViewportRect.height}
+            className="rank-board__minimap-viewport"
+          />
+        </svg>
       </div>
     </div>
   );

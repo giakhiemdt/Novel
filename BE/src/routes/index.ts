@@ -15,6 +15,7 @@ import { relationshipRoutes } from "../modules/relationship/relationship.routes"
 import { worldRuleRoutes } from "../modules/worldrule/worldrule.routes";
 import { raceRoutes } from "../modules/race/race.routes";
 import { rankRoutes } from "../modules/rank/rank.routes";
+import { rankSystemRoutes } from "../modules/rank-system/rank-system.routes";
 import { specialAbilityRoutes } from "../modules/special-ability/special-ability.routes";
 import { schemaRoutes } from "../modules/schema/schema.routes";
 import { healthRoutes } from "./health.routes";
@@ -39,6 +40,7 @@ export const routes: RouteConfig[] = [
   ...projectRoutes,
   ...characterRoutes,
   ...raceRoutes,
+  ...rankSystemRoutes,
   ...rankRoutes,
   ...specialAbilityRoutes,
   ...schemaRoutes,

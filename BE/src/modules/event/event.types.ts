@@ -49,4 +49,5 @@ export type EventListQuery = {
   tag?: string;
   name?: string;
   type?: string;
+  total?: number;
 };

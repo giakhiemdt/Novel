@@ -43,6 +43,7 @@ export const factionRoutes: RouteConfig[] = [
                 alignment: { type: "string" },
                 isPublic: { type: "boolean" },
                 isCanon: { type: "boolean" },
+                total: { type: "number" },
               },
             },
           },

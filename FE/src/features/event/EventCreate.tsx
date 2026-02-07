@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "../../components/common/Button";
+import { FilterPanel } from "../../components/common/FilterPanel";
+import { Pagination } from "../../components/common/Pagination";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
@@ -9,7 +11,7 @@ import { TextInput } from "../../components/form/TextInput";
 import { useForm } from "../../hooks/useForm";
 import { useProjectChange } from "../../hooks/useProjectChange";
 import { useI18n } from "../../i18n/I18nProvider";
-import { createEvent, deleteEvent, getAllEvents, updateEvent } from "./event.api";
+import { createEvent, deleteEvent, getEventsPage, updateEvent } from "./event.api";
 import { getAllLocations } from "../location/location.api";
 import { getAllCharacters } from "../character/character.api";
 import { getAllTimelines } from "../timeline/timeline.api";
@@ -215,6 +217,20 @@ export const EventCreate = () => {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [participantId, setParticipantId] = useState("");
   const [editParticipantId, setEditParticipantId] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [hasNext, setHasNext] = useState(false);
+  const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
+  const [filters, setFilters] = useState({
+    q: "",
+    name: "",
+    tag: "",
+    type: "",
+    timelineId: "",
+    locationId: "",
+    characterId: "",
+  });
+  const [refreshKey, setRefreshKey] = useState(0);
   const { notify } = useToast();
 
   const selectedTimeline = values.timelineId
@@ -227,12 +243,29 @@ export const EventCreate = () => {
 
   const loadItems = useCallback(async () => {
     try {
-      const data = await getAllEvents();
-      setItems(data ?? []);
+      const offset = (page - 1) * pageSize;
+      const response = await getEventsPage({
+        ...filters,
+        limit: pageSize + 1,
+        offset,
+      });
+      const data = response?.data ?? [];
+      const total = typeof response?.meta?.total === "number" ? response.meta.total : undefined;
+      const nextPage = total !== undefined ? offset + Math.min(data.length, pageSize) < total : data.length > pageSize;
+      const trimmed = nextPage ? data.slice(0, pageSize) : data;
+      setTotalCount(total);
+      if (trimmed.length === 0 && page > 1) {
+        setHasNext(false);
+        setItems([]);
+        setPage((prev) => Math.max(1, prev - 1));
+        return;
+      }
+      setItems(trimmed);
+      setHasNext(nextPage);
     } catch (err) {
       notify((err as Error).message, "error");
     }
-  }, [getAllEvents]);
+  }, [page, pageSize, filters, notify, getEventsPage]);
 
   const loadLocations = useCallback(async () => {
     try {
@@ -263,17 +296,49 @@ export const EventCreate = () => {
 
   useEffect(() => {
     void loadItems();
+  }, [loadItems, refreshKey]);
+
+  useEffect(() => {
     void loadLocations();
     void loadCharacters();
     void loadTimelines();
-  }, [loadItems, loadLocations, loadCharacters, loadTimelines]);
+  }, [loadLocations, loadCharacters, loadTimelines]);
 
   useProjectChange(() => {
-    void loadItems();
+    setPage(1);
+    setRefreshKey((prev) => prev + 1);
     void loadLocations();
     void loadCharacters();
     void loadTimelines();
   });
+
+  const handleFilterChange = (
+    key:
+      | "q"
+      | "name"
+      | "tag"
+      | "type"
+      | "timelineId"
+      | "locationId"
+      | "characterId",
+    value: string
+  ) => {
+    setPage(1);
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleClearFilters = () => {
+    setPage(1);
+    setFilters({
+      q: "",
+      name: "",
+      tag: "",
+      type: "",
+      timelineId: "",
+      locationId: "",
+      characterId: "",
+    });
+  };
 
   const mapEventToForm = (item: Event): EventFormState => ({
     name: item.name ?? "",
@@ -428,7 +493,8 @@ export const EventCreate = () => {
       notify(t("Event created successfully."), "success");
       reset();
       setShowForm(false);
-      await loadItems();
+      setPage(1);
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -489,7 +555,7 @@ export const EventCreate = () => {
         tags: editValues.tags,
       });
       notify(t("Event updated successfully."), "success");
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     } finally {
@@ -510,7 +576,7 @@ export const EventCreate = () => {
       if (editItem?.id === item.id) {
         handleEditCancel();
       }
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -530,7 +596,79 @@ export const EventCreate = () => {
             {showForm ? t("Close form") : t("Create new event")}
           </Button>
         </div>
+        <FilterPanel>
+          <TextInput
+            label="Search"
+            value={filters.q}
+            onChange={(value) => handleFilterChange("q", value)}
+            placeholder="Search..."
+          />
+          <TextInput
+            label="Name"
+            value={filters.name}
+            onChange={(value) => handleFilterChange("name", value)}
+          />
+          <TextInput
+            label="Tag"
+            value={filters.tag}
+            onChange={(value) => handleFilterChange("tag", value)}
+          />
+          <TextInput
+            label="Type"
+            value={filters.type}
+            onChange={(value) => handleFilterChange("type", value)}
+          />
+          <Select
+            label="Timeline"
+            value={filters.timelineId}
+            onChange={(value) => handleFilterChange("timelineId", value)}
+            options={timelines.map((timeline) => ({
+              value: timeline.id,
+              label: timeline.name,
+            }))}
+            placeholder="All"
+          />
+          <Select
+            label="Location"
+            value={filters.locationId}
+            onChange={(value) => handleFilterChange("locationId", value)}
+            options={locations.map((location) => ({
+              value: location.id,
+              label: location.name,
+            }))}
+            placeholder="All"
+          />
+          <Select
+            label="Character"
+            value={filters.characterId}
+            onChange={(value) => handleFilterChange("characterId", value)}
+            options={characters.map((character) => ({
+              value: character.id,
+              label: character.name,
+            }))}
+            placeholder="All"
+          />
+          <div className="form-field filter-actions">
+            <Button type="button" variant="ghost" onClick={handleClearFilters}>
+              Clear filters
+            </Button>
+          </div>
+        </FilterPanel>
         <EventList items={items} onEdit={handleEditOpen} onDelete={handleDelete} />
+        {(items.length > 0 || page > 1 || hasNext) && (
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            itemCount={items.length}
+            hasNext={hasNext}
+            totalCount={totalCount}
+            onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+            onPageSizeChange={(nextSize) => {
+              setPageSize(nextSize);
+              setPage(1);
+            }}
+          />
+        )}
       </div>
 
       {editItem && editValues && (

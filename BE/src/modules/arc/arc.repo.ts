@@ -55,6 +55,23 @@ SKIP toInteger($offset)
 LIMIT toInteger($limit)
 `;
 
+const COUNT_ARCS = `
+MATCH (a:${nodeLabels.arc})
+WHERE
+  ($name IS NULL OR toLower(a.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(a.tags, []))
+RETURN count(a) AS total
+`;
+
+const COUNT_ARCS_BY_SEARCH = `
+CALL db.index.fulltext.queryNodes("arc_search", $q) YIELD node, score
+WITH node AS a, score
+WHERE
+  ($name IS NULL OR toLower(a.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(a.tags, []))
+RETURN count(a) AS total
+`;
+
 const DELETE_ARC = `
 MATCH (a:${nodeLabels.arc} {id: $id})
 WITH a
@@ -136,6 +153,28 @@ export const getArcs = async (
       const node = record.get("a");
       return mapNode(node?.properties ?? {}) as ArcNode;
     });
+  } finally {
+    await session.close();
+  }
+};
+
+export const getArcCount = async (
+  database: string,
+  query: ArcListQuery
+): Promise<number> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const statement = query.q ? COUNT_ARCS_BY_SEARCH : COUNT_ARCS;
+    const result = await session.run(statement, {
+      q: query.q ?? "",
+      name: query.name ?? null,
+      tag: query.tag ?? null,
+    });
+    const total = result.records[0]?.get("total");
+    if (neo4j.isInt(total)) {
+      return total.toNumber();
+    }
+    return typeof total === "number" ? total : 0;
   } finally {
     await session.close();
   }

@@ -6,6 +6,7 @@ import {
   deleteLocation,
   deleteContainsLink,
   getAllLocations,
+  getLocationCount,
   getLocations,
   updateLocation,
 } from "./location.repo";
@@ -362,8 +363,11 @@ export const locationService = {
   ): Promise<{ data: LocationNode[]; meta: LocationListQuery }> => {
     const database = assertDatabaseName(dbName);
     const parsedQuery = parseLocationListQuery(query);
-    const data = await getLocations(database, parsedQuery);
-    return { data, meta: parsedQuery };
+    const [data, total] = await Promise.all([
+      getLocations(database, parsedQuery),
+      getLocationCount(database, parsedQuery),
+    ]);
+    return { data, meta: { ...parsedQuery, total } };
   },
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);

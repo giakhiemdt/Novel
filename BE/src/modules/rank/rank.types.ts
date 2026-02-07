@@ -1,5 +1,11 @@
+export type RankCondition = {
+  name: string;
+  description?: string;
+};
+
 export type RankInput = {
   id?: string;
+  systemId?: string;
   name: string;
   alias?: string[];
   tier?: string;
@@ -7,6 +13,7 @@ export type RankInput = {
   description?: string;
   notes?: string;
   tags?: string[];
+  color?: string;
 };
 
 export type RankNode = RankInput & {
@@ -14,7 +21,7 @@ export type RankNode = RankInput & {
   updatedAt: string;
   previousId?: string;
   nextId?: string;
-  conditions?: string[];
+  conditions?: RankCondition[];
 };
 
 export type RankListQuery = {
@@ -25,4 +32,6 @@ export type RankListQuery = {
   tag?: string;
   tier?: string;
   system?: string;
+  systemId?: string;
+  total?: number;
 };

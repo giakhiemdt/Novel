@@ -21,4 +21,5 @@ export type ChapterListQuery = {
   name?: string;
   tag?: string;
   arcId?: string;
+  total?: number;
 };

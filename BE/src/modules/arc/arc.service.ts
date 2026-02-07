@@ -3,6 +3,7 @@ import { generateId } from "../../shared/utils/generate-id";
 import {
   createArc,
   deleteArc,
+  getArcCount,
   getArcStructure,
   getArcs,
   updateArc,
@@ -234,8 +235,11 @@ export const arcService = {
   ): Promise<{ data: ArcNode[]; meta: ArcListQuery }> => {
     const database = assertDatabaseName(dbName);
     const parsedQuery = parseArcListQuery(query);
-    const data = await getArcs(database, parsedQuery);
-    return { data, meta: parsedQuery };
+    const [data, total] = await Promise.all([
+      getArcs(database, parsedQuery),
+      getArcCount(database, parsedQuery),
+    ]);
+    return { data, meta: { ...parsedQuery, total } };
   },
   getStructure: async (dbName: unknown): Promise<ArcStructureArc[]> => {
     const database = assertDatabaseName(dbName);

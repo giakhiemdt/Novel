@@ -103,6 +103,35 @@ SKIP toInteger($offset)
 LIMIT toInteger($limit)
 `;
 
+const COUNT_LOCATIONS = `
+MATCH (l:${nodeLabels.location})
+OPTIONAL MATCH (parent:${nodeLabels.location})-[r:${relationTypes.contains}]->(l)
+WHERE
+  ($name IS NULL OR toLower(l.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(l.tags, []))
+  AND ($type IS NULL OR l.type = $type)
+  AND ($category IS NULL OR l.category = $category)
+  AND ($isSecret IS NULL OR l.isSecret = $isSecret)
+  AND ($isHabitable IS NULL OR l.isHabitable = $isHabitable)
+  AND ($parentId IS NULL OR parent.id = $parentId)
+RETURN count(DISTINCT l) AS total
+`;
+
+const COUNT_LOCATIONS_BY_SEARCH = `
+CALL db.index.fulltext.queryNodes("location_search", $q) YIELD node, score
+WITH node AS l, score
+OPTIONAL MATCH (parent:${nodeLabels.location})-[r:${relationTypes.contains}]->(l)
+WHERE
+  ($name IS NULL OR toLower(l.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(l.tags, []))
+  AND ($type IS NULL OR l.type = $type)
+  AND ($category IS NULL OR l.category = $category)
+  AND ($isSecret IS NULL OR l.isSecret = $isSecret)
+  AND ($isHabitable IS NULL OR l.isHabitable = $isHabitable)
+  AND ($parentId IS NULL OR parent.id = $parentId)
+RETURN count(DISTINCT l) AS total
+`;
+
 const DELETE_LOCATION = `
 MATCH (l:${nodeLabels.location} {id: $id})
 WITH l
@@ -240,6 +269,35 @@ export const getLocations = async (
         contains: relation?.properties ?? undefined,
       } as LocationNode;
     });
+  } finally {
+    await session.close();
+  }
+};
+
+export const getLocationCount = async (
+  database: string,
+  query: LocationListQuery
+): Promise<number> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const statement = query.q ? COUNT_LOCATIONS_BY_SEARCH : COUNT_LOCATIONS;
+    const result = await session.run(statement, {
+      q: query.q ?? "",
+      name: query.name ?? null,
+      tag: query.tag ?? null,
+      type: query.type ?? null,
+      category: query.category ?? null,
+      isSecret:
+        typeof query.isSecret === "boolean" ? query.isSecret : null,
+      isHabitable:
+        typeof query.isHabitable === "boolean" ? query.isHabitable : null,
+      parentId: query.parentId ?? null,
+    });
+    const total = result.records[0]?.get("total");
+    if (neo4j.isInt(total)) {
+      return total.toNumber();
+    }
+    return typeof total === "number" ? total : 0;
   } finally {
     await session.close();
   }

@@ -32,7 +32,8 @@ export type EventParticipant = {
   characterName?: string;
 };
 
-export type Event = EventPayload & {
+export type Event = Omit<EventPayload, "id"> & {
+  id: string;
   createdAt?: string;
   updatedAt?: string;
   locationName?: string;

@@ -27,7 +27,20 @@ export const worldRuleRoutes: RouteConfig[] = [
           type: "object",
           properties: {
             data: { type: "array", items: { type: "object", additionalProperties: true } },
-            meta: { type: "object", additionalProperties: true },
+            meta: {
+              type: "object",
+              properties: {
+                q: { type: "string" },
+                limit: { type: "number" },
+                offset: { type: "number" },
+                title: { type: "string" },
+                category: { type: "string" },
+                status: { type: "string" },
+                scope: { type: "string" },
+                tag: { type: "string" },
+                total: { type: "number" },
+              },
+            },
           },
         },
       },

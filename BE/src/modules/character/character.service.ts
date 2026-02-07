@@ -4,6 +4,7 @@ import {
   createCharacter,
   deleteCharacter,
   getCharacters,
+  getCharacterCount,
   linkCharacterRank,
   linkCharacterRace,
   linkCharacterSpecialAbility,
@@ -203,13 +204,6 @@ const assertOptionalBoolean = (
   return value;
 };
 
-const assertRequiredNumber = (value: unknown, field: string): number => {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    throw new AppError(`${field} is required`, 400);
-  }
-  return value;
-};
-
 const assertRequiredGender = (value: unknown): CharacterInput["gender"] => {
   if (typeof value !== "string") {
     throw new AppError("gender is required", 400);
@@ -351,7 +345,6 @@ const validateCharacterPayload = (payload: unknown): CharacterInput => {
   const result: Record<string, unknown> = {
     name: assertRequiredString(data.name, "name"),
     gender: assertRequiredGender(data.gender),
-    age: assertRequiredNumber(data.age, "age"),
   };
 
   addIfDefined(result, "id", assertOptionalString(data.id, "id"));
@@ -372,6 +365,7 @@ const validateCharacterPayload = (payload: unknown): CharacterInput => {
     "isMainCharacter",
     assertOptionalBoolean(data.isMainCharacter, "isMainCharacter")
   );
+  addIfDefined(result, "age", assertOptionalNumber(data.age, "age"));
   addIfDefined(
     result,
     "appearance",
@@ -556,8 +550,14 @@ export const characterService = {
   ): Promise<{ data: CharacterNode[]; meta: CharacterListQuery }> => {
     const database = assertDatabaseName(dbName);
     const parsedQuery = parseCharacterListQuery(query);
-    const data = await getCharacters(database, parsedQuery);
-    return { data: data.map(withParsedExtra), meta: parsedQuery };
+    const [data, total] = await Promise.all([
+      getCharacters(database, parsedQuery),
+      getCharacterCount(database, parsedQuery),
+    ]);
+    return {
+      data: data.map(withParsedExtra),
+      meta: { ...parsedQuery, total },
+    };
   },
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);

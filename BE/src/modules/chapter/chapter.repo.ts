@@ -91,6 +91,27 @@ SKIP toInteger($offset)
 LIMIT toInteger($limit)
 `;
 
+const COUNT_CHAPTERS = `
+MATCH (c:${nodeLabels.chapter})
+OPTIONAL MATCH (a:${nodeLabels.arc})-[:${relationTypes.arcHasChapter}]->(c)
+WHERE
+  ($name IS NULL OR toLower(c.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(c.tags, []))
+  AND ($arcId IS NULL OR a.id = $arcId)
+RETURN count(DISTINCT c) AS total
+`;
+
+const COUNT_CHAPTERS_BY_SEARCH = `
+CALL db.index.fulltext.queryNodes("chapter_search", $q) YIELD node, score
+WITH node AS c, score
+OPTIONAL MATCH (a:${nodeLabels.arc})-[:${relationTypes.arcHasChapter}]->(c)
+WHERE
+  ($name IS NULL OR toLower(c.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(c.tags, []))
+  AND ($arcId IS NULL OR a.id = $arcId)
+RETURN count(DISTINCT c) AS total
+`;
+
 const DELETE_CHAPTER = `
 MATCH (c:${nodeLabels.chapter} {id: $id})
 WITH c
@@ -211,6 +232,29 @@ export const getChapters = async (
         arcId: arc?.properties?.id ?? undefined,
       } as ChapterNode;
     });
+  } finally {
+    await session.close();
+  }
+};
+
+export const getChapterCount = async (
+  database: string,
+  query: ChapterListQuery
+): Promise<number> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const statement = query.q ? COUNT_CHAPTERS_BY_SEARCH : COUNT_CHAPTERS;
+    const result = await session.run(statement, {
+      q: query.q ?? "",
+      name: query.name ?? null,
+      tag: query.tag ?? null,
+      arcId: query.arcId ?? null,
+    });
+    const total = result.records[0]?.get("total");
+    if (neo4j.isInt(total)) {
+      return total.toNumber();
+    }
+    return typeof total === "number" ? total : 0;
   } finally {
     await session.close();
   }

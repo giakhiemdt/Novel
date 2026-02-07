@@ -41,6 +41,7 @@ export const itemRoutes: RouteConfig[] = [
                 status: { type: "string" },
                 ownerId: { type: "string" },
                 ownerType: { type: "string" },
+                total: { type: "number" },
               },
             },
           },

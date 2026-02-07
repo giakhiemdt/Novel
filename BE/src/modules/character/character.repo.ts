@@ -113,6 +113,35 @@ SKIP toInteger($offset)
 LIMIT toInteger($limit)
 `;
 
+const COUNT_CHARACTERS = `
+MATCH (c:${nodeLabels.character})
+WHERE
+  ($name IS NULL OR toLower(c.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(c.tags, []))
+  AND ($race IS NULL OR c.race = $race)
+  AND ($specialAbility IS NULL OR $specialAbility IN coalesce(c.specialAbilities, []))
+  AND ($gender IS NULL OR c.gender = $gender)
+  AND ($status IS NULL OR c.status = $status)
+  AND ($level IS NULL OR c.level = $level)
+  AND ($isMainCharacter IS NULL OR c.isMainCharacter = $isMainCharacter)
+RETURN count(c) AS total
+`;
+
+const COUNT_CHARACTERS_BY_SEARCH = `
+CALL db.index.fulltext.queryNodes("character_search", $q) YIELD node, score
+WITH node AS c, score
+WHERE
+  ($name IS NULL OR toLower(c.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(c.tags, []))
+  AND ($race IS NULL OR c.race = $race)
+  AND ($specialAbility IS NULL OR $specialAbility IN coalesce(c.specialAbilities, []))
+  AND ($gender IS NULL OR c.gender = $gender)
+  AND ($status IS NULL OR c.status = $status)
+  AND ($level IS NULL OR c.level = $level)
+  AND ($isMainCharacter IS NULL OR c.isMainCharacter = $isMainCharacter)
+RETURN count(c) AS total
+`;
+
 const DELETE_CHARACTER = `
 MATCH (c:${nodeLabels.character} {id: $id})
 WITH c
@@ -265,6 +294,37 @@ export const getCharacters = async (
       const node = record.get("c");
       return mapNode(node?.properties ?? {}) as CharacterNode;
     });
+  } finally {
+    await session.close();
+  }
+};
+
+export const getCharacterCount = async (
+  database: string,
+  query: CharacterListQuery
+): Promise<number> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const statement = query.q ? COUNT_CHARACTERS_BY_SEARCH : COUNT_CHARACTERS;
+    const result = await session.run(statement, {
+      q: query.q ?? "",
+      name: query.name ?? null,
+      tag: query.tag ?? null,
+      race: query.race ?? null,
+      specialAbility: query.specialAbility ?? null,
+      gender: query.gender ?? null,
+      status: query.status ?? null,
+      level: query.level ?? null,
+      isMainCharacter:
+        typeof query.isMainCharacter === "boolean"
+          ? query.isMainCharacter
+          : null,
+    });
+    const total = result.records[0]?.get("total");
+    if (neo4j.isInt(total)) {
+      return total.toNumber();
+    }
+    return typeof total === "number" ? total : 0;
   } finally {
     await session.close();
   }

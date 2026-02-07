@@ -25,7 +25,8 @@ export type LocationPayload = {
   tags?: string[];
 };
 
-export type Location = LocationPayload & {
+export type Location = Omit<LocationPayload, "id"> & {
+  id: string;
   createdAt?: string;
   updatedAt?: string;
   parentId?: string;

@@ -75,6 +75,41 @@ SKIP toInteger($offset)
 LIMIT toInteger($limit)
 `;
 
+const COUNT_SCENES = `
+MATCH (s:${nodeLabels.scene})
+OPTIONAL MATCH (c:${nodeLabels.chapter})-[:${relationTypes.chapterHasScene}]->(s)
+OPTIONAL MATCH (s)-[:${relationTypes.sceneReferencesEvent}]->(e:${nodeLabels.event})
+OPTIONAL MATCH (s)-[:${relationTypes.sceneTakesPlaceIn}]->(l:${nodeLabels.location})
+OPTIONAL MATCH (s)-[:${relationTypes.sceneFeaturesCharacter}]->(ch:${nodeLabels.character})
+WITH s, c, e, l, collect(ch.id) AS characterIds
+WHERE
+  ($name IS NULL OR toLower(s.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(s.tags, []))
+  AND ($chapterId IS NULL OR c.id = $chapterId)
+  AND ($eventId IS NULL OR e.id = $eventId)
+  AND ($locationId IS NULL OR l.id = $locationId)
+  AND ($characterId IS NULL OR $characterId IN characterIds)
+RETURN count(DISTINCT s) AS total
+`;
+
+const COUNT_SCENES_BY_SEARCH = `
+CALL db.index.fulltext.queryNodes("scene_search", $q) YIELD node, score
+WITH node AS s, score
+OPTIONAL MATCH (c:${nodeLabels.chapter})-[:${relationTypes.chapterHasScene}]->(s)
+OPTIONAL MATCH (s)-[:${relationTypes.sceneReferencesEvent}]->(e:${nodeLabels.event})
+OPTIONAL MATCH (s)-[:${relationTypes.sceneTakesPlaceIn}]->(l:${nodeLabels.location})
+OPTIONAL MATCH (s)-[:${relationTypes.sceneFeaturesCharacter}]->(ch:${nodeLabels.character})
+WITH s, c, e, l, collect(ch.id) AS characterIds
+WHERE
+  ($name IS NULL OR toLower(s.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(s.tags, []))
+  AND ($chapterId IS NULL OR c.id = $chapterId)
+  AND ($eventId IS NULL OR e.id = $eventId)
+  AND ($locationId IS NULL OR l.id = $locationId)
+  AND ($characterId IS NULL OR $characterId IN characterIds)
+RETURN count(DISTINCT s) AS total
+`;
+
 const DELETE_SCENE = `
 MATCH (s:${nodeLabels.scene} {id: $id})
 WITH s
@@ -235,6 +270,32 @@ export const getScenes = async (
         characterIds: characterIds ?? [],
       } as SceneNode;
     });
+  } finally {
+    await session.close();
+  }
+};
+
+export const getSceneCount = async (
+  database: string,
+  query: SceneListQuery
+): Promise<number> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const statement = query.q ? COUNT_SCENES_BY_SEARCH : COUNT_SCENES;
+    const result = await session.run(statement, {
+      q: query.q ?? "",
+      name: query.name ?? null,
+      tag: query.tag ?? null,
+      chapterId: query.chapterId ?? null,
+      eventId: query.eventId ?? null,
+      locationId: query.locationId ?? null,
+      characterId: query.characterId ?? null,
+    });
+    const total = result.records[0]?.get("total");
+    if (neo4j.isInt(total)) {
+      return total.toNumber();
+    }
+    return typeof total === "number" ? total : 0;
   } finally {
     await session.close();
   }

@@ -4,11 +4,12 @@ import { nodeLabels } from "../../shared/constants/node-labels";
 import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
 import { relationTypes } from "../../shared/constants/relation-types";
-import { RankListQuery, RankNode } from "./rank.types";
+import { RankCondition, RankListQuery, RankNode } from "./rank.types";
 
 const CREATE_RANK = `
 CREATE (r:${nodeLabels.rank} {
   id: $id,
+  systemId: $systemId,
   name: $name,
   alias: $alias,
   tier: $tier,
@@ -16,6 +17,7 @@ CREATE (r:${nodeLabels.rank} {
   description: $description,
   notes: $notes,
   tags: $tags,
+  color: $color,
   createdAt: $createdAt,
   updatedAt: $updatedAt
 })
@@ -25,6 +27,7 @@ RETURN r
 const UPDATE_RANK = `
 MATCH (r:${nodeLabels.rank} {id: $id})
 SET
+  r.systemId = $systemId,
   r.name = $name,
   r.alias = $alias,
   r.tier = $tier,
@@ -32,12 +35,15 @@ SET
   r.description = $description,
   r.notes = $notes,
   r.tags = $tags,
+  r.color = $color,
   r.updatedAt = $updatedAt
 RETURN r
 `;
 
 const GET_RANKS = `
 MATCH (r:${nodeLabels.rank})
+OPTIONAL MATCH (rs:${nodeLabels.rankSystem})-[:${relationTypes.hasRank}]->(r)
+WITH r, head(collect(rs)) AS rs
 OPTIONAL MATCH (prev:${nodeLabels.rank})-[rel:${relationTypes.rankNext}]->(r)
 OPTIONAL MATCH (r)-[:${relationTypes.rankNext}]->(next:${nodeLabels.rank})
 WHERE
@@ -45,7 +51,8 @@ WHERE
   AND ($tag IS NULL OR $tag IN coalesce(r.tags, []))
   AND ($tier IS NULL OR r.tier = $tier)
   AND ($system IS NULL OR r.system = $system)
-RETURN r, prev, next, rel
+  AND ($systemId IS NULL OR coalesce(r.systemId, rs.id) = $systemId)
+RETURN r, prev, next, rel, rs
 ORDER BY r.createdAt DESC
 SKIP toInteger($offset)
 LIMIT toInteger($limit)
@@ -54,6 +61,8 @@ LIMIT toInteger($limit)
 const GET_RANKS_BY_SEARCH = `
 CALL db.index.fulltext.queryNodes("rank_search", $q) YIELD node, score
 WITH node AS r, score
+OPTIONAL MATCH (rs:${nodeLabels.rankSystem})-[:${relationTypes.hasRank}]->(r)
+WITH r, score, head(collect(rs)) AS rs
 OPTIONAL MATCH (prev:${nodeLabels.rank})-[rel:${relationTypes.rankNext}]->(r)
 OPTIONAL MATCH (r)-[:${relationTypes.rankNext}]->(next:${nodeLabels.rank})
 WHERE
@@ -61,10 +70,38 @@ WHERE
   AND ($tag IS NULL OR $tag IN coalesce(r.tags, []))
   AND ($tier IS NULL OR r.tier = $tier)
   AND ($system IS NULL OR r.system = $system)
-RETURN r, prev, next, rel
+  AND ($systemId IS NULL OR coalesce(r.systemId, rs.id) = $systemId)
+RETURN r, prev, next, rel, rs
 ORDER BY score DESC, r.createdAt DESC
 SKIP toInteger($offset)
 LIMIT toInteger($limit)
+`;
+
+const COUNT_RANKS = `
+MATCH (r:${nodeLabels.rank})
+OPTIONAL MATCH (rs:${nodeLabels.rankSystem})-[:${relationTypes.hasRank}]->(r)
+WITH r, head(collect(rs)) AS rs
+WHERE
+  ($name IS NULL OR toLower(r.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(r.tags, []))
+  AND ($tier IS NULL OR r.tier = $tier)
+  AND ($system IS NULL OR r.system = $system)
+  AND ($systemId IS NULL OR coalesce(r.systemId, rs.id) = $systemId)
+RETURN count(r) AS total
+`;
+
+const COUNT_RANKS_BY_SEARCH = `
+CALL db.index.fulltext.queryNodes("rank_search", $q) YIELD node, score
+WITH node AS r, score
+OPTIONAL MATCH (rs:${nodeLabels.rankSystem})-[:${relationTypes.hasRank}]->(r)
+WITH r, score, head(collect(rs)) AS rs
+WHERE
+  ($name IS NULL OR toLower(r.name) CONTAINS toLower($name))
+  AND ($tag IS NULL OR $tag IN coalesce(r.tags, []))
+  AND ($tier IS NULL OR r.tier = $tier)
+  AND ($system IS NULL OR r.system = $system)
+  AND ($systemId IS NULL OR coalesce(r.systemId, rs.id) = $systemId)
+RETURN count(r) AS total
 `;
 
 const CHECK_NEXT = `
@@ -83,7 +120,15 @@ const LINK_PREVIOUS = `
 MATCH (prev:${nodeLabels.rank} {id: $previousId})
 MATCH (current:${nodeLabels.rank} {id: $currentId})
 MERGE (prev)-[rel:${relationTypes.rankNext}]->(current)
-SET rel.conditions = $conditions
+SET rel.conditions = $conditionNames,
+    rel.conditionDescriptions = $conditionDescriptions
+RETURN rel
+`;
+
+const UPDATE_LINK_CONDITIONS = `
+MATCH (prev:${nodeLabels.rank} {id: $previousId})-[rel:${relationTypes.rankNext}]->(current:${nodeLabels.rank} {id: $currentId})
+SET rel.conditions = $conditionNames,
+    rel.conditionDescriptions = $conditionDescriptions
 RETURN rel
 `;
 
@@ -91,6 +136,20 @@ const UNLINK_PREVIOUS_BY_ID = `
 MATCH (prev:${nodeLabels.rank} {id: $previousId})-[rel:${relationTypes.rankNext}]->(current:${nodeLabels.rank} {id: $currentId})
 DELETE rel
 RETURN 1 AS deleted
+`;
+
+const CHECK_RANK_SYSTEM_EXISTS = `
+MATCH (rs:${nodeLabels.rankSystem} {id: $systemId})
+RETURN count(rs) > 0 AS exists
+`;
+
+const LINK_RANK_TO_SYSTEM = `
+MATCH (r:${nodeLabels.rank} {id: $rankId})
+MATCH (rs:${nodeLabels.rankSystem} {id: $systemId})
+OPTIONAL MATCH (:${nodeLabels.rankSystem})-[old:${relationTypes.hasRank}]->(r)
+DELETE old
+MERGE (rs)-[:${relationTypes.hasRank}]->(r)
+RETURN rs.id AS systemId
 `;
 
 const GET_RANK_BY_NAME = `
@@ -109,6 +168,7 @@ RETURN 1 AS deleted
 
 const RANK_PARAMS = [
   "id",
+  "systemId",
   "name",
   "alias",
   "tier",
@@ -116,11 +176,42 @@ const RANK_PARAMS = [
   "description",
   "notes",
   "tags",
+  "color",
   "createdAt",
   "updatedAt",
 ];
 
 const RANK_UPDATE_PARAMS = RANK_PARAMS.filter((key) => key !== "createdAt");
+
+const mapRelationConditions = (
+  relationProps: Record<string, unknown> | undefined
+): RankCondition[] | undefined => {
+  if (!relationProps) {
+    return undefined;
+  }
+  const namesRaw = relationProps.conditions;
+  if (!Array.isArray(namesRaw)) {
+    return undefined;
+  }
+  const descriptionsRaw = Array.isArray(relationProps.conditionDescriptions)
+    ? relationProps.conditionDescriptions
+    : [];
+  const mapped = namesRaw
+    .map((value, index) => {
+      const name = typeof value === "string" ? value.trim() : "";
+      if (!name) {
+        return null;
+      }
+      const descriptionValue = descriptionsRaw[index];
+      const description =
+        typeof descriptionValue === "string" && descriptionValue.trim().length > 0
+          ? descriptionValue.trim()
+          : undefined;
+      return { name, description } as RankCondition;
+    })
+    .filter((value): value is RankCondition => Boolean(value));
+  return mapped.length > 0 ? mapped : undefined;
+};
 
 export const createRank = async (
   data: RankNode,
@@ -170,6 +261,7 @@ export const getRanks = async (
       tag: query.tag ?? null,
       tier: query.tier ?? null,
       system: query.system ?? null,
+      systemId: query.systemId ?? null,
       offset: query.offset ?? 0,
       limit: query.limit ?? 50,
     });
@@ -178,13 +270,46 @@ export const getRanks = async (
       const previous = record.get("prev");
       const next = record.get("next");
       const rel = record.get("rel");
+      const rankSystem = record.get("rs");
+      const mapped = mapNode(node?.properties ?? {}) as RankNode;
       return {
-        ...(mapNode(node?.properties ?? {}) as RankNode),
+        ...mapped,
+        systemId:
+          mapped.systemId ??
+          (rankSystem?.properties?.id as string | undefined) ??
+          undefined,
         previousId: previous?.properties?.id ?? undefined,
         nextId: next?.properties?.id ?? undefined,
-        conditions: rel?.properties?.conditions ?? undefined,
+        conditions: mapRelationConditions(
+          rel?.properties as Record<string, unknown> | undefined
+        ),
       } as RankNode;
     });
+  } finally {
+    await session.close();
+  }
+};
+
+export const getRankCount = async (
+  database: string,
+  query: RankListQuery
+): Promise<number> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const statement = query.q ? COUNT_RANKS_BY_SEARCH : COUNT_RANKS;
+    const result = await session.run(statement, {
+      q: query.q ?? "",
+      name: query.name ?? null,
+      tag: query.tag ?? null,
+      tier: query.tier ?? null,
+      system: query.system ?? null,
+      systemId: query.systemId ?? null,
+    });
+    const total = result.records[0]?.get("total");
+    if (neo4j.isInt(total)) {
+      return total.toNumber();
+    }
+    return typeof total === "number" ? total : 0;
   } finally {
     await session.close();
   }
@@ -221,11 +346,39 @@ export const getRankByName = async (
   }
 };
 
+export const rankSystemExists = async (
+  database: string,
+  systemId: string
+): Promise<boolean> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const result = await session.run(CHECK_RANK_SYSTEM_EXISTS, { systemId });
+    const exists = result.records[0]?.get("exists");
+    return exists === true;
+  } finally {
+    await session.close();
+  }
+};
+
+export const attachRankToSystem = async (
+  database: string,
+  rankId: string,
+  systemId: string
+): Promise<boolean> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    const result = await session.run(LINK_RANK_TO_SYSTEM, { rankId, systemId });
+    return result.records.length > 0;
+  } finally {
+    await session.close();
+  }
+};
+
 export const linkRank = async (
   database: string,
   currentId: string,
   previousId: string,
-  conditions: string[] = []
+  conditions: RankCondition[] = []
 ): Promise<void> => {
   const session = getSessionForDatabase(database, neo4j.session.WRITE);
   try {
@@ -250,7 +403,14 @@ export const linkRank = async (
         throw new Error("CURRENT rank already has PREVIOUS");
       }
 
-      await tx.run(LINK_PREVIOUS, { previousId, currentId, conditions });
+      await tx.run(LINK_PREVIOUS, {
+        previousId,
+        currentId,
+        conditionNames: conditions.map((condition) => condition.name),
+        conditionDescriptions: conditions.map(
+          (condition) => condition.description ?? ""
+        ),
+      });
     });
   } finally {
     await session.close();
@@ -265,6 +425,28 @@ export const unlinkRank = async (
   const session = getSessionForDatabase(database, neo4j.session.WRITE);
   try {
     await session.run(UNLINK_PREVIOUS_BY_ID, { currentId, previousId });
+  } finally {
+    await session.close();
+  }
+};
+
+export const updateRankLinkConditions = async (
+  database: string,
+  currentId: string,
+  previousId: string,
+  conditions: RankCondition[] = []
+): Promise<boolean> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    const result = await session.run(UPDATE_LINK_CONDITIONS, {
+      currentId,
+      previousId,
+      conditionNames: conditions.map((condition) => condition.name),
+      conditionDescriptions: conditions.map(
+        (condition) => condition.description ?? ""
+      ),
+    });
+    return result.records.length > 0;
   } finally {
     await session.close();
   }

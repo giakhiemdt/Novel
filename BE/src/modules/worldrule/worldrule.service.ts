@@ -1,6 +1,12 @@
 import { AppError } from "../../shared/errors/app-error";
 import { generateId } from "../../shared/utils/generate-id";
-import { createRule, deleteRule, getRules, updateRule } from "./worldrule.repo";
+import {
+  createRule,
+  deleteRule,
+  getRuleCount,
+  getRules,
+  updateRule,
+} from "./worldrule.repo";
 import {
   WorldRuleInput,
   WorldRuleListQuery,
@@ -286,8 +292,11 @@ export const worldRuleService = {
   ): Promise<{ data: WorldRuleNode[]; meta: WorldRuleListQuery }> => {
     const database = assertDatabaseName(dbName);
     const parsedQuery = parseRuleListQuery(query);
-    const data = await getRules(database, parsedQuery);
-    return { data, meta: parsedQuery };
+    const [data, total] = await Promise.all([
+      getRules(database, parsedQuery),
+      getRuleCount(database, parsedQuery),
+    ]);
+    return { data, meta: { ...parsedQuery, total } };
   },
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);

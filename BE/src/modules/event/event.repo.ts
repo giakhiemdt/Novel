@@ -181,6 +181,41 @@ SKIP toInteger($offset)
 LIMIT toInteger($limit)
 `;
 
+const COUNT_EVENTS = `
+MATCH (e:${nodeLabels.event})
+OPTIONAL MATCH (e)-[:${relationTypes.occursIn}]->(l:${nodeLabels.location})
+OPTIONAL MATCH (e)-[on:${relationTypes.occursOn}]->(t:${nodeLabels.timeline})
+WITH e, l, t, on
+WHERE
+  ($timelineId IS NULL OR t.id = $timelineId)
+  AND ($locationId IS NULL OR l.id = $locationId OR e.locationId = $locationId)
+  AND ($characterId IS NULL OR EXISTS {
+    MATCH (c:${nodeLabels.character} {id: $characterId})-[:${relationTypes.participatesIn}]->(e)
+  })
+  AND ($tag IS NULL OR $tag IN coalesce(e.tags, []))
+  AND ($name IS NULL OR toLower(e.name) CONTAINS toLower($name))
+  AND ($type IS NULL OR e.type = $type)
+RETURN count(DISTINCT e) AS total
+`;
+
+const COUNT_EVENTS_BY_SEARCH = `
+CALL db.index.fulltext.queryNodes("event_search", $q) YIELD node, score
+WITH node AS e, score
+OPTIONAL MATCH (e)-[:${relationTypes.occursIn}]->(l:${nodeLabels.location})
+OPTIONAL MATCH (e)-[on:${relationTypes.occursOn}]->(t:${nodeLabels.timeline})
+WITH e, l, t, on, score
+WHERE
+  ($timelineId IS NULL OR t.id = $timelineId)
+  AND ($locationId IS NULL OR l.id = $locationId OR e.locationId = $locationId)
+  AND ($characterId IS NULL OR EXISTS {
+    MATCH (c:${nodeLabels.character} {id: $characterId})-[:${relationTypes.participatesIn}]->(e)
+  })
+  AND ($tag IS NULL OR $tag IN coalesce(e.tags, []))
+  AND ($name IS NULL OR toLower(e.name) CONTAINS toLower($name))
+  AND ($type IS NULL OR e.type = $type)
+RETURN count(DISTINCT e) AS total
+`;
+
 const EVENT_PARAMS = [
   "id",
   "name",
@@ -341,6 +376,32 @@ export const deleteEvent = async (
   try {
     const result = await session.run(DELETE_EVENT, { id });
     return result.records.length > 0;
+  } finally {
+    await session.close();
+  }
+};
+
+export const getEventCount = async (
+  database: string,
+  query: EventListQuery
+): Promise<number> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const statement = query.q ? COUNT_EVENTS_BY_SEARCH : COUNT_EVENTS;
+    const result = await session.run(statement, {
+      q: query.q ?? "",
+      timelineId: query.timelineId ?? null,
+      locationId: query.locationId ?? null,
+      characterId: query.characterId ?? null,
+      tag: query.tag ?? null,
+      name: query.name ?? null,
+      type: query.type ?? null,
+    });
+    const total = result.records[0]?.get("total");
+    if (neo4j.isInt(total)) {
+      return total.toNumber();
+    }
+    return typeof total === "number" ? total : 0;
   } finally {
     await session.close();
   }

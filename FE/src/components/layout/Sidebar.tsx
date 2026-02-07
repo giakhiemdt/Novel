@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import { type ChangeEvent, type FormEvent, useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { Button } from "../common/Button";
 import { useToast } from "../common/Toast";

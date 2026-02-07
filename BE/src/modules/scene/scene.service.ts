@@ -8,6 +8,7 @@ import {
   createScene,
   deleteScene,
   getCharacterIds,
+  getSceneCount,
   getScenes,
   linkSceneChapter,
   linkSceneEvent,
@@ -417,8 +418,11 @@ export const sceneService = {
   ): Promise<{ data: SceneNode[]; meta: SceneListQuery }> => {
     const database = assertDatabaseName(dbName);
     const parsedQuery = parseSceneListQuery(query);
-    const data = await getScenes(database, parsedQuery);
-    return { data, meta: parsedQuery };
+    const [data, total] = await Promise.all([
+      getScenes(database, parsedQuery),
+      getSceneCount(database, parsedQuery),
+    ]);
+    return { data, meta: { ...parsedQuery, total } };
   },
   linkEvent: async (
     sceneId: string,

@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "../../components/common/Button";
+import { FilterPanel } from "../../components/common/FilterPanel";
+import { Pagination } from "../../components/common/Pagination";
 import { useToast } from "../../components/common/Toast";
 import { useForm } from "../../hooks/useForm";
 import { useProjectChange } from "../../hooks/useProjectChange";
 import {
   createTimeline,
   deleteTimeline,
-  getAllTimelines,
+  getTimelinesPage,
   linkTimeline,
   relinkTimeline,
   unlinkTimeline,
@@ -16,6 +18,7 @@ import type { Event } from "../event/event.types";
 import { TimelineBoard } from "./TimelineBoard";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
+import { Select } from "../../components/form/Select";
 import { TextArea } from "../../components/form/TextArea";
 import { TextInput } from "../../components/form/TextInput";
 import { validateTimeline } from "./timeline.schema";
@@ -51,25 +54,64 @@ export const TimelineCreate = () => {
   const [selected, setSelected] = useState<Timeline | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [hasNext, setHasNext] = useState(false);
+  const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
+  const [filters, setFilters] = useState({
+    q: "",
+    name: "",
+    tag: "",
+    code: "",
+    isOngoing: undefined as boolean | undefined,
+  });
+  const [refreshKey, setRefreshKey] = useState(0);
   const { notify } = useToast();
   const [links, setLinks] = useState<Record<string, { previousId?: string }>>({});
+  const pendingSelectId = useRef<string | null>(null);
 
-  const loadItems = useCallback(async (selectId?: string) => {
+  const loadEvents = useCallback(async () => {
+    try {
+      const eventData = await getAllEvents();
+      setEvents(eventData ?? []);
+    } catch (err) {
+      notify((err as Error).message, "error");
+    }
+  }, [notify, getAllEvents]);
+
+  const loadItems = useCallback(async () => {
     setLoading(true);
     try {
-      const [data, eventData] = await Promise.all([
-        getAllTimelines(),
-        getAllEvents(),
-      ]);
-      setItems(data ?? []);
-      setEvents(eventData ?? []);
-      if (!data || data.length === 0) {
+      const offset = (page - 1) * pageSize;
+      const response = await getTimelinesPage({
+        ...filters,
+        limit: pageSize + 1,
+        offset,
+      });
+      const timelines = response?.data ?? [];
+      const total = typeof response?.meta?.total === "number" ? response.meta.total : undefined;
+      const nextPage =
+        total !== undefined
+          ? offset + Math.min(timelines.length, pageSize) < total
+          : timelines.length > pageSize;
+      const trimmed = nextPage ? timelines.slice(0, pageSize) : timelines;
+      setTotalCount(total);
+      if (trimmed.length === 0 && page > 1) {
+        setHasNext(false);
+        setItems([]);
+        setSelected(null);
+        setPage((prev) => Math.max(1, prev - 1));
+        return;
+      }
+      setItems(trimmed);
+      setHasNext(nextPage);
+      if (!trimmed || trimmed.length === 0) {
         setSelected(null);
         return;
       }
       setLinks((prev) => {
         const next: Record<string, { previousId?: string }> = {};
-        data.forEach((item) => {
+        trimmed.forEach((item) => {
           if (item.previousId) {
             next[item.id] = { previousId: item.previousId };
           } else if (prev[item.id]) {
@@ -78,31 +120,67 @@ export const TimelineCreate = () => {
         });
         return next;
       });
+      const selectId = pendingSelectId.current;
       if (selectId) {
-        const match = data.find((item) => item.id === selectId);
-        setSelected(match ?? data[0]);
+        const match = trimmed.find((item) => item.id === selectId);
+        setSelected(match ?? trimmed[0]);
+        pendingSelectId.current = null;
         return;
       }
       setSelected((prev) => {
         if (!prev) {
-          return data[0];
+          return trimmed[0];
         }
-        return data.find((item) => item.id === prev.id) ?? data[0];
+        return trimmed.find((item) => item.id === prev.id) ?? trimmed[0];
       });
     } catch (err) {
       notify((err as Error).message, "error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, pageSize, filters, notify, getTimelinesPage]);
 
   useEffect(() => {
     void loadItems();
-  }, [loadItems]);
+  }, [loadItems, refreshKey]);
+
+  useEffect(() => {
+    void loadEvents();
+  }, [loadEvents]);
 
   useProjectChange(() => {
-    void loadItems();
+    setPage(1);
+    setRefreshKey((prev) => prev + 1);
+    pendingSelectId.current = null;
+    void loadEvents();
   });
+
+  const handleFilterChange = (
+    key: "q" | "name" | "tag" | "code",
+    value: string
+  ) => {
+    setPage(1);
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleBooleanFilterChange = (value: string) => {
+    setPage(1);
+    setFilters((prev) => ({
+      ...prev,
+      isOngoing: value === "" ? undefined : value === "true",
+    }));
+  };
+
+  const handleClearFilters = () => {
+    setPage(1);
+    setFilters({
+      q: "",
+      name: "",
+      tag: "",
+      code: "",
+      isOngoing: undefined,
+    });
+  };
 
   const buildPayload = (): TimelinePayload => ({
     name: values.name,
@@ -140,7 +218,9 @@ export const TimelineCreate = () => {
       notify(t("Timeline created successfully."), "success");
       reset();
       setIsFormOpen(false);
-      await loadItems(created.id);
+      pendingSelectId.current = created.id;
+      setPage(1);
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -187,7 +267,7 @@ export const TimelineCreate = () => {
       await deleteTimeline(item.id);
       notify(t("Timeline deleted."), "success");
       setSelected(null);
-      await loadItems();
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -195,6 +275,58 @@ export const TimelineCreate = () => {
 
   return (
     <div className="timeline-page">
+      <FilterPanel>
+        <TextInput
+          label="Search"
+          value={filters.q}
+          onChange={(value) => handleFilterChange("q", value)}
+          placeholder="Search..."
+        />
+        <TextInput
+          label="Name"
+          value={filters.name}
+          onChange={(value) => handleFilterChange("name", value)}
+        />
+        <TextInput
+          label="Tag"
+          value={filters.tag}
+          onChange={(value) => handleFilterChange("tag", value)}
+        />
+        <TextInput
+          label="Code"
+          value={filters.code}
+          onChange={(value) => handleFilterChange("code", value)}
+        />
+        <Select
+          label="Ongoing"
+          value={filters.isOngoing === undefined ? "" : String(filters.isOngoing)}
+          onChange={(value) => handleBooleanFilterChange(value)}
+          options={[
+            { value: "true", label: "Yes" },
+            { value: "false", label: "No" },
+          ]}
+          placeholder="All"
+        />
+        <div className="form-field filter-actions">
+          <Button type="button" variant="ghost" onClick={handleClearFilters}>
+            Clear filters
+          </Button>
+        </div>
+      </FilterPanel>
+      {(items.length > 0 || page > 1 || hasNext) && (
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          itemCount={items.length}
+          hasNext={hasNext}
+          totalCount={totalCount}
+          onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+          onPageSizeChange={(nextSize) => {
+            setPageSize(nextSize);
+            setPage(1);
+          }}
+        />
+      )}
       <>
         <TimelineBoard
           items={items}

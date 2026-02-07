@@ -43,6 +43,7 @@ export const eventRoutes: RouteConfig[] = [
                 tag: { type: "string" },
                 name: { type: "string" },
                 type: { type: "string" },
+                total: { type: "number" },
               },
             },
           },

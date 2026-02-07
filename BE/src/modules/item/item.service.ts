@@ -6,6 +6,7 @@ import {
   checkOwnerExists,
   createItem,
   deleteItem,
+  getItemCount,
   getEventsByItem,
   getItems,
   getItemsByEvent,
@@ -397,8 +398,11 @@ export const itemService = {
   ): Promise<{ data: ItemNode[]; meta: ItemListQuery }> => {
     const database = assertDatabaseName(dbName);
     const parsedQuery = parseItemListQuery(query);
-    const data = await getItems(database, parsedQuery);
-    return { data, meta: parsedQuery };
+    const [data, total] = await Promise.all([
+      getItems(database, parsedQuery),
+      getItemCount(database, parsedQuery),
+    ]);
+    return { data, meta: { ...parsedQuery, total } };
   },
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);
