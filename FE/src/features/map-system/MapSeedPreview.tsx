@@ -149,6 +149,16 @@ const classifyBiome = (
 };
 
 type TrianglePoint = { x: number; y: number };
+type MeshPoint = TrianglePoint & { r: number };
+type MeshFace = { a: number; b: number; c: number };
+type CircumTriangle = {
+  a: number;
+  b: number;
+  c: number;
+  cx: number;
+  cy: number;
+  r2: number;
+};
 
 const sampleLandDensity = (
   heightMap: number[][],
@@ -178,6 +188,256 @@ const sampleLandDensity = (
   return clamp(sum, 0, 1);
 };
 
+const hashString32 = (value: string): number => {
+  let h = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    h ^= value.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+};
+
+const createSeededRng = (seed: string) => {
+  let state = hashString32(seed) || 1;
+  return () => {
+    state |= 0;
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+const buildAdaptiveMeshPoints = (
+  layers: GeneratedMapLayers,
+  seaLevel: number,
+  width: number,
+  height: number,
+  seed: string
+): MeshPoint[] => {
+  const rng = createSeededRng(`${seed}|mesh`);
+  const points: MeshPoint[] = [];
+  const cellSize = 6;
+  const gridCols = Math.ceil(width / cellSize) + 2;
+  const gridRows = Math.ceil(height / cellSize) + 2;
+  const grid: number[][] = Array.from({ length: gridCols * gridRows }, () => []);
+  const maxRadius = 28;
+  const neighborRange = Math.ceil(maxRadius / cellSize) + 1;
+
+  const gridIndex = (x: number, y: number) => {
+    const gx = clamp(Math.floor(x / cellSize), 0, gridCols - 1);
+    const gy = clamp(Math.floor(y / cellSize), 0, gridRows - 1);
+    return gy * gridCols + gx;
+  };
+
+  const canPlace = (x: number, y: number, r: number): boolean => {
+    const cx = clamp(Math.floor(x / cellSize), 0, gridCols - 1);
+    const cy = clamp(Math.floor(y / cellSize), 0, gridRows - 1);
+    for (let gy = cy - neighborRange; gy <= cy + neighborRange; gy += 1) {
+      if (gy < 0 || gy >= gridRows) {
+        continue;
+      }
+      for (let gx = cx - neighborRange; gx <= cx + neighborRange; gx += 1) {
+        if (gx < 0 || gx >= gridCols) {
+          continue;
+        }
+        const bucket = grid[gy * gridCols + gx];
+        for (const index of bucket) {
+          const p = points[index];
+          const minDist = Math.min(r, p.r) * 0.92;
+          const dx = x - p.x;
+          const dy = y - p.y;
+          if (dx * dx + dy * dy < minDist * minDist) {
+            return false;
+          }
+        }
+      }
+    }
+    return true;
+  };
+
+  const pushPoint = (x: number, y: number, r: number) => {
+    const clampedX = clamp(x, 0, width);
+    const clampedY = clamp(y, 0, height);
+    if (!canPlace(clampedX, clampedY, r)) {
+      return;
+    }
+    const index = points.length;
+    points.push({ x: clampedX, y: clampedY, r });
+    grid[gridIndex(clampedX, clampedY)].push(index);
+  };
+
+  const borderStep = 52;
+  for (let x = 0; x <= width; x += borderStep) {
+    pushPoint(x, 0, 24);
+    pushPoint(x, height, 24);
+  }
+  for (let y = 0; y <= height; y += borderStep) {
+    pushPoint(0, y, 24);
+    pushPoint(width, y, 24);
+  }
+  pushPoint(0, 0, 24);
+  pushPoint(width, 0, 24);
+  pushPoint(0, height, 24);
+  pushPoint(width, height, 24);
+
+  const targetCount = clamp(Math.floor((width * height) / 260), 550, 1600);
+  const attemptLimit = targetCount * 35;
+
+  for (let attempts = 0; attempts < attemptLimit && points.length < targetCount; attempts += 1) {
+    const x = rng() * width;
+    const y = rng() * height;
+    const u = x / Math.max(1, width - 1);
+    const v = y / Math.max(1, height - 1);
+    const altitude = sampleBilinear(layers.height, u, v);
+    const landDensity = sampleLandDensity(layers.height, seaLevel, u, v);
+    const altNorm = clamp(
+      (altitude - seaLevel) / Math.max(0.001, 1 - seaLevel),
+      0,
+      1
+    );
+    const coastFactor = 1 - clamp(Math.abs(altitude - seaLevel) / 0.08, 0, 1);
+    const detail = clamp(
+      landDensity * 0.55 + altNorm * 0.3 + coastFactor * 0.35,
+      0,
+      1
+    );
+    const acceptProb = 0.08 + detail * 0.92;
+    if (rng() > acceptProb) {
+      continue;
+    }
+
+    const r = clamp(26 - detail * 20, 4.8, 26);
+    pushPoint(x, y, r);
+  }
+
+  return points;
+};
+
+const makeCircumTriangle = (
+  points: TrianglePoint[],
+  a: number,
+  b: number,
+  c: number
+): CircumTriangle | null => {
+  const p1 = points[a];
+  const p2 = points[b];
+  const p3 = points[c];
+
+  const d =
+    2 *
+    (p1.x * (p2.y - p3.y) +
+      p2.x * (p3.y - p1.y) +
+      p3.x * (p1.y - p2.y));
+
+  if (Math.abs(d) < 1e-9) {
+    return null;
+  }
+
+  const p1Sq = p1.x * p1.x + p1.y * p1.y;
+  const p2Sq = p2.x * p2.x + p2.y * p2.y;
+  const p3Sq = p3.x * p3.x + p3.y * p3.y;
+
+  const cx =
+    (p1Sq * (p2.y - p3.y) +
+      p2Sq * (p3.y - p1.y) +
+      p3Sq * (p1.y - p2.y)) /
+    d;
+  const cy =
+    (p1Sq * (p3.x - p2.x) +
+      p2Sq * (p1.x - p3.x) +
+      p3Sq * (p2.x - p1.x)) /
+    d;
+
+  const dx = p1.x - cx;
+  const dy = p1.y - cy;
+  const r2 = dx * dx + dy * dy;
+
+  return { a, b, c, cx, cy, r2 };
+};
+
+const triangulateAdaptiveMesh = (
+  points: MeshPoint[],
+  width: number,
+  height: number
+): MeshFace[] => {
+  const baseCount = points.length;
+  if (baseCount < 3) {
+    return [];
+  }
+
+  const all: TrianglePoint[] = points.map((p) => ({ x: p.x, y: p.y }));
+  const margin = Math.max(width, height) * 6;
+  const s0 = all.length;
+  all.push({ x: -margin, y: -margin });
+  const s1 = all.length;
+  all.push({ x: width + margin, y: -margin });
+  const s2 = all.length;
+  all.push({ x: width * 0.5, y: height + margin });
+
+  const superTri = makeCircumTriangle(all, s0, s1, s2);
+  if (!superTri) {
+    return [];
+  }
+
+  let triangles: CircumTriangle[] = [superTri];
+
+  for (let i = 0; i < baseCount; i += 1) {
+    const p = all[i];
+    const badIndices: number[] = [];
+    for (let ti = 0; ti < triangles.length; ti += 1) {
+      const tri = triangles[ti];
+      const dx = p.x - tri.cx;
+      const dy = p.y - tri.cy;
+      if (dx * dx + dy * dy <= tri.r2) {
+        badIndices.push(ti);
+      }
+    }
+
+    if (badIndices.length === 0) {
+      continue;
+    }
+
+    const edgeMap = new Map<string, { a: number; b: number; count: number }>();
+    const addEdge = (a: number, b: number) => {
+      const key = a < b ? `${a}_${b}` : `${b}_${a}`;
+      const existing = edgeMap.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        edgeMap.set(key, { a, b, count: 1 });
+      }
+    };
+
+    for (const index of badIndices) {
+      const tri = triangles[index];
+      addEdge(tri.a, tri.b);
+      addEdge(tri.b, tri.c);
+      addEdge(tri.c, tri.a);
+    }
+
+    const badSet = new Set(badIndices);
+    triangles = triangles.filter((_, index) => !badSet.has(index));
+
+    for (const edge of edgeMap.values()) {
+      if (edge.count !== 1) {
+        continue;
+      }
+      const newTri = makeCircumTriangle(all, edge.a, edge.b, i);
+      if (newTri) {
+        triangles.push(newTri);
+      }
+    }
+  }
+
+  return triangles
+    .filter(
+      (tri) =>
+        tri.a < baseCount && tri.b < baseCount && tri.c < baseCount
+    )
+    .map((tri) => ({ a: tri.a, b: tri.b, c: tri.c }));
+};
+
 const MAX_LOCAL_CACHE_SIZE = 20;
 
 export const MapSeedPreview = ({
@@ -193,6 +453,9 @@ export const MapSeedPreview = ({
   const workerRef = useRef<Worker | null>(null);
   const activeRequestIdRef = useRef(0);
   const localCacheRef = useRef(new Map<string, GeneratedMapLayers>());
+  const meshCacheRef = useRef(
+    new Map<string, { points: MeshPoint[]; faces: MeshFace[] }>()
+  );
   const latestOptionsRef = useRef<{
     seed: string;
     width: number;
@@ -384,18 +647,52 @@ export const MapSeedPreview = ({
       return color;
     };
 
-    const drawTriangle = (
-      p1: TrianglePoint,
-      p2: TrianglePoint,
-      p3: TrianglePoint,
-      strokeAlpha: number
-    ) => {
+    const meshKey = `${cacheKey}|mesh-random-v1|${previewWidth}x${previewHeight}`;
+    let mesh = meshCacheRef.current.get(meshKey);
+    if (!mesh) {
+      const points = buildAdaptiveMeshPoints(
+        layers,
+        options.seaLevel,
+        previewWidth,
+        previewHeight,
+        options.seed
+      );
+      const faces = triangulateAdaptiveMesh(points, previewWidth, previewHeight);
+      mesh = { points, faces };
+      if (meshCacheRef.current.has(meshKey)) {
+        meshCacheRef.current.delete(meshKey);
+      }
+      meshCacheRef.current.set(meshKey, mesh);
+      if (meshCacheRef.current.size > 8) {
+        const oldestKey = meshCacheRef.current.keys().next().value;
+        if (typeof oldestKey === "string") {
+          meshCacheRef.current.delete(oldestKey);
+        }
+      }
+    } else {
+      meshCacheRef.current.delete(meshKey);
+      meshCacheRef.current.set(meshKey, mesh);
+    }
+
+    for (const face of mesh.faces) {
+      const p1 = mesh.points[face.a];
+      const p2 = mesh.points[face.b];
+      const p3 = mesh.points[face.c];
       const cx = (p1.x + p2.x + p3.x) / 3;
       const cy = (p1.y + p2.y + p3.y) / 3;
       const u = clamp(cx / Math.max(1, previewWidth - 1), 0, 1);
       const v = clamp(cy / Math.max(1, previewHeight - 1), 0, 1);
+      const altitude = sampleBilinear(layers.height, u, v);
+      const fillBase = sampleColorAt(u, v);
 
-      const fill = sampleColorAt(u, v);
+      const jitterRaw = Math.sin((cx + 17.3) * 12.9898 + (cy + 9.1) * 78.233);
+      const jitter01 = jitterRaw - Math.floor(jitterRaw);
+      const jitter = (jitter01 - 0.5) * 0.08;
+      const fill =
+        jitter >= 0
+          ? mixColor(fillBase, "#ffffff", jitter)
+          : mixColor(fillBase, "#0b1a25", -jitter);
+
       ctx.fillStyle = fill;
       ctx.beginPath();
       ctx.moveTo(p1.x, p1.y);
@@ -404,54 +701,17 @@ export const MapSeedPreview = ({
       ctx.closePath();
       ctx.fill();
 
-      if (strokeAlpha > 0) {
-        ctx.strokeStyle = `rgba(18, 34, 46, ${strokeAlpha})`;
-        ctx.lineWidth = 0.35;
-        ctx.stroke();
-      }
-    };
-
-    const drawTrianglePass = (
-      step: number,
-      minDensity: number,
-      maxDensity: number,
-      strokeAlpha: number
-    ) => {
-      for (let y = -step, row = 0; y < previewHeight + step; y += step, row += 1) {
-        const y0 = y;
-        const y1 = y + step;
-        const offset0 = row % 2 === 0 ? 0 : step * 0.5;
-        const offset1 = row % 2 === 0 ? step * 0.5 : 0;
-
-        for (let x = -step; x < previewWidth + step; x += step) {
-          const p00 = { x: x + offset0, y: y0 };
-          const p01 = { x: x + step + offset0, y: y0 };
-          const p10 = { x: x + offset1, y: y1 };
-          const p11 = { x: x + step + offset1, y: y1 };
-
-          const c1u = clamp((p00.x + p10.x + p01.x) / 3 / previewWidth, 0, 1);
-          const c1v = clamp((p00.y + p10.y + p01.y) / 3 / previewHeight, 0, 1);
-          const d1 = sampleLandDensity(layers.height, options.seaLevel, c1u, c1v);
-          if (d1 >= minDensity && d1 < maxDensity) {
-            drawTriangle(p00, p10, p01, strokeAlpha);
-          }
-
-          const c2u = clamp((p01.x + p10.x + p11.x) / 3 / previewWidth, 0, 1);
-          const c2v = clamp((p01.y + p10.y + p11.y) / 3 / previewHeight, 0, 1);
-          const d2 = sampleLandDensity(layers.height, options.seaLevel, c2u, c2v);
-          if (d2 >= minDensity && d2 < maxDensity) {
-            drawTriangle(p01, p10, p11, strokeAlpha);
-          }
-        }
-      }
-    };
-
-    // Far ocean: coarse triangles.
-    drawTrianglePass(24, 0, 0.2, 0.08);
-    // Near coast: medium density.
-    drawTrianglePass(12, 0.12, 0.55, 0.1);
-    // Land: fine mesh for details.
-    drawTrianglePass(6, 0.45, 1.01, 0.12);
+      const altNorm = clamp(
+        (altitude - options.seaLevel) / Math.max(0.001, 1 - options.seaLevel),
+        0,
+        1
+      );
+      const strokeAlpha = 0.025 + altNorm * 0.14;
+      const strokeWidth = 0.12 + altNorm * 0.68;
+      ctx.strokeStyle = `rgba(13, 27, 40, ${strokeAlpha})`;
+      ctx.lineWidth = strokeWidth;
+      ctx.stroke();
+    }
 
     const cellW = previewWidth / layers.cellsX;
     const cellH = previewHeight / layers.cellsY;
@@ -508,7 +768,15 @@ export const MapSeedPreview = ({
     ctx.strokeStyle = "rgba(15, 23, 42, 0.28)";
     ctx.lineWidth = 1;
     ctx.strokeRect(0.5, 0.5, previewWidth - 1, previewHeight - 1);
-  }, [layers, options.seaLevel, showBiomes, showHeight, showRivers]);
+  }, [
+    cacheKey,
+    layers,
+    options.seaLevel,
+    options.seed,
+    showBiomes,
+    showHeight,
+    showRivers,
+  ]);
 
   return (
     <div className="map-seed-preview">
