@@ -83,6 +83,11 @@ const mixColor = (base: string, overlay: string, ratio: number): string => {
   );
 };
 
+const colorWithAlpha = (hex: string, alpha: number): string => {
+  const c = hexToRgb(hex);
+  return `rgba(${c.r}, ${c.g}, ${c.b}, ${clamp(alpha, 0, 1)})`;
+};
+
 const normalizeClimate = (value: string): ClimatePreset => {
   if (value === "arid" || value === "cold") {
     return value;
@@ -152,6 +157,7 @@ type TrianglePoint = { x: number; y: number };
 type MeshPoint = TrianglePoint & { r: number };
 type MeshFace = { a: number; b: number; c: number };
 type MeshCell = { site: number; vertices: TrianglePoint[] };
+type MeshBoundary = { a: number; b: number; p1: TrianglePoint; p2: TrianglePoint };
 type CircumTriangle = {
   a: number;
   b: number;
@@ -174,28 +180,28 @@ const QUALITY_SETTINGS: Record<
   }
 > = {
   low: {
-    targetPoints: 1800,
-    minRadius: 4.9,
-    maxRadius: 20,
+    targetPoints: 3600,
+    minRadius: 3.25,
+    maxRadius: 12.8,
     coastResolution: { cols: 92, rows: 46 },
-    meshLineAlpha: 0.1,
-    meshLineWidth: 0.52,
+    meshLineAlpha: 0.06,
+    meshLineWidth: 0.3,
   },
   medium: {
-    targetPoints: 3200,
-    minRadius: 3.9,
-    maxRadius: 15.5,
+    targetPoints: 6400,
+    minRadius: 2.45,
+    maxRadius: 9.8,
     coastResolution: { cols: 132, rows: 66 },
-    meshLineAlpha: 0.09,
-    meshLineWidth: 0.46,
+    meshLineAlpha: 0.05,
+    meshLineWidth: 0.24,
   },
   high: {
-    targetPoints: 5000,
-    minRadius: 2.95,
-    maxRadius: 12.5,
+    targetPoints: 10000,
+    minRadius: 1.78,
+    maxRadius: 7.2,
     coastResolution: { cols: 186, rows: 93 },
-    meshLineAlpha: 0.075,
-    meshLineWidth: 0.38,
+    meshLineAlpha: 0.042,
+    meshLineWidth: 0.18,
   },
 };
 
@@ -258,7 +264,7 @@ const buildAdaptiveMeshPoints = (
   const setting = QUALITY_SETTINGS[quality];
   const rng = createSeededRng(`${seed}|mesh`);
   const points: MeshPoint[] = [];
-  const cellSize = quality === "high" ? 5 : quality === "medium" ? 6 : 7;
+  const cellSize = quality === "high" ? 3 : quality === "medium" ? 4 : 5;
   const gridCols = Math.ceil(width / cellSize) + 2;
   const gridRows = Math.ceil(height / cellSize) + 2;
   const grid: number[][] = Array.from({ length: gridCols * gridRows }, () => []);
@@ -308,7 +314,7 @@ const buildAdaptiveMeshPoints = (
     grid[gridIndex(clampedX, clampedY)].push(index);
   };
 
-  const borderStep = quality === "high" ? 36 : quality === "medium" ? 46 : 56;
+  const borderStep = quality === "high" ? 24 : quality === "medium" ? 30 : 38;
   for (let x = 0; x <= width; x += borderStep) {
     pushPoint(x, 0, 24);
     pushPoint(x, height, 24);
@@ -488,14 +494,14 @@ const triangulateAdaptiveMesh = (
     .map((tri) => ({ a: tri.a, b: tri.b, c: tri.c }));
 };
 
-const buildVoronoiCells = (
+const buildVoronoiTopology = (
   points: MeshPoint[],
   faces: MeshFace[],
   width: number,
   height: number
-): MeshCell[] => {
+): { cells: MeshCell[]; boundaries: MeshBoundary[] } => {
   if (points.length === 0 || faces.length === 0) {
-    return [];
+    return { cells: [], boundaries: [] };
   }
   const plainPoints: TrianglePoint[] = points.map((point) => ({
     x: point.x,
@@ -573,7 +579,44 @@ const buildVoronoiCells = (
     cells.push({ site, vertices });
   }
 
-  return cells;
+  const edgeToFaces = new Map<string, { a: number; b: number; faceIds: number[] }>();
+  const trackEdge = (a: number, b: number, faceId: number) => {
+    const aa = a < b ? a : b;
+    const bb = a < b ? b : a;
+    const key = `${aa}_${bb}`;
+    const item = edgeToFaces.get(key);
+    if (item) {
+      item.faceIds.push(faceId);
+      return;
+    }
+    edgeToFaces.set(key, { a: aa, b: bb, faceIds: [faceId] });
+  };
+
+  faces.forEach((face, faceId) => {
+    trackEdge(face.a, face.b, faceId);
+    trackEdge(face.b, face.c, faceId);
+    trackEdge(face.c, face.a, faceId);
+  });
+
+  const boundaries: MeshBoundary[] = [];
+  for (const edge of edgeToFaces.values()) {
+    if (edge.faceIds.length < 2) {
+      continue;
+    }
+    const c1 = centers[edge.faceIds[0]];
+    const c2 = centers[edge.faceIds[1]];
+    if (!c1 || !c2) {
+      continue;
+    }
+    boundaries.push({
+      a: edge.a,
+      b: edge.b,
+      p1: { x: clamp(c1.x, 0, width), y: clamp(c1.y, 0, height) },
+      p2: { x: clamp(c2.x, 0, width), y: clamp(c2.y, 0, height) },
+    });
+  }
+
+  return { cells, boundaries };
 };
 
 const interpolateZero = (
@@ -726,7 +769,15 @@ export const MapSeedPreview = ({
   const activeRequestIdRef = useRef(0);
   const localCacheRef = useRef(new Map<string, GeneratedMapLayers>());
   const meshCacheRef = useRef(
-    new Map<string, { points: MeshPoint[]; faces: MeshFace[]; cells: MeshCell[] }>()
+    new Map<
+      string,
+      {
+        points: MeshPoint[];
+        faces: MeshFace[];
+        cells: MeshCell[];
+        boundaries: MeshBoundary[];
+      }
+    >()
   );
   const latestOptionsRef = useRef<{
     seed: string;
@@ -914,7 +965,8 @@ export const MapSeedPreview = ({
             0,
             1
           );
-          color = mixColor(color, "#10243a", depth * 0.4);
+          const deepWater = clamp((depth - 0.28) / 0.72, 0, 1);
+          color = mixColor(color, "#1d476b", deepWater * 0.22);
         }
       }
       return color;
@@ -922,7 +974,7 @@ export const MapSeedPreview = ({
 
     const qualitySetting = QUALITY_SETTINGS[meshQuality];
 
-    const meshKey = `${cacheKey}|mesh-polygons-v1|q:${meshQuality}|${previewWidth}x${previewHeight}`;
+    const meshKey = `${cacheKey}|mesh-polygons-v2|q:${meshQuality}|${previewWidth}x${previewHeight}`;
     let mesh = meshCacheRef.current.get(meshKey);
     if (!mesh) {
       const points = buildAdaptiveMeshPoints(
@@ -934,8 +986,18 @@ export const MapSeedPreview = ({
         meshQuality
       );
       const faces = triangulateAdaptiveMesh(points, previewWidth, previewHeight);
-      const cells = buildVoronoiCells(points, faces, previewWidth, previewHeight);
-      mesh = { points, faces, cells };
+      const topology = buildVoronoiTopology(
+        points,
+        faces,
+        previewWidth,
+        previewHeight
+      );
+      mesh = {
+        points,
+        faces,
+        cells: topology.cells,
+        boundaries: topology.boundaries,
+      };
       if (meshCacheRef.current.has(meshKey)) {
         meshCacheRef.current.delete(meshKey);
       }
@@ -951,7 +1013,10 @@ export const MapSeedPreview = ({
       meshCacheRef.current.set(meshKey, mesh);
     }
 
-    const paintCell = (vertices: TrianglePoint[]) => {
+    const siteVisual = new Map<number, { biome: BiomeKind; color: string }>();
+
+    const paintCell = (cell: MeshCell) => {
+      const vertices = cell.vertices;
       let cx = 0;
       let cy = 0;
       for (const vertex of vertices) {
@@ -963,7 +1028,16 @@ export const MapSeedPreview = ({
       const u = clamp(cx / Math.max(1, previewWidth - 1), 0, 1);
       const v = clamp(cy / Math.max(1, previewHeight - 1), 0, 1);
       const altitude = sampleBilinear(layers.height, u, v);
+      const moisture = sampleBilinear(layers.moisture, u, v);
+      const temperature = sampleBilinear(layers.temperature, u, v);
+      const biome = classifyBiome(
+        altitude,
+        options.seaLevel,
+        moisture,
+        temperature
+      );
       const fillBase = sampleColorAt(u, v);
+      siteVisual.set(cell.site, { biome, color: fillBase });
 
       const jitterRaw = Math.sin((cx + 17.3) * 12.9898 + (cy + 9.1) * 78.233);
       const jitter01 = jitterRaw - Math.floor(jitterRaw);
@@ -994,17 +1068,66 @@ export const MapSeedPreview = ({
     };
 
     for (const cell of mesh.cells) {
-      paintCell(cell.vertices);
+      paintCell(cell);
     }
 
-    drawSmoothCoastline(
-      ctx,
-      layers,
-      options.seaLevel,
-      previewWidth,
-      previewHeight,
-      meshQuality
-    );
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    ctx.filter =
+      meshQuality === "high"
+        ? "blur(1.25px)"
+        : meshQuality === "medium"
+          ? "blur(1.05px)"
+          : "blur(0.9px)";
+    for (const boundary of mesh.boundaries) {
+      const left = siteVisual.get(boundary.a);
+      const right = siteVisual.get(boundary.b);
+      if (!left || !right || left.biome === right.biome) {
+        continue;
+      }
+      const isCoast =
+        (left.biome === "ocean" && right.biome !== "ocean") ||
+        (left.biome !== "ocean" && right.biome === "ocean");
+      if (isCoast) {
+        continue;
+      }
+      const blended = mixColor(left.color, right.color, 0.5);
+      ctx.strokeStyle = colorWithAlpha(blended, 0.19);
+      ctx.lineWidth =
+        meshQuality === "high" ? 1.65 : meshQuality === "medium" ? 1.45 : 1.25;
+      ctx.beginPath();
+      ctx.moveTo(boundary.p1.x, boundary.p1.y);
+      ctx.lineTo(boundary.p2.x, boundary.p2.y);
+      ctx.stroke();
+    }
+
+    ctx.filter = "none";
+    for (const boundary of mesh.boundaries) {
+      const left = siteVisual.get(boundary.a);
+      const right = siteVisual.get(boundary.b);
+      if (!left || !right || left.biome === right.biome) {
+        continue;
+      }
+      const isCoast =
+        (left.biome === "ocean" && right.biome !== "ocean") ||
+        (left.biome !== "ocean" && right.biome === "ocean");
+      const blended = mixColor(left.color, right.color, 0.5);
+      ctx.strokeStyle = colorWithAlpha(blended, isCoast ? 0.03 : 0.12);
+      ctx.lineWidth = isCoast
+        ? meshQuality === "high"
+          ? 0.58
+          : 0.52
+        : meshQuality === "high"
+          ? 1.05
+          : 0.92;
+      ctx.beginPath();
+      ctx.moveTo(boundary.p1.x, boundary.p1.y);
+      ctx.lineTo(boundary.p2.x, boundary.p2.y);
+      ctx.stroke();
+    }
+    ctx.restore();
 
     const cellW = previewWidth / layers.cellsX;
     const cellH = previewHeight / layers.cellsY;
