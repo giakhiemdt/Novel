@@ -166,8 +166,11 @@ const classifyBiome = (
     return "beach";
   }
 
-  if (altitude > 0.9) {
+  if (altitude > 0.96) {
     return temperature < 0.28 ? "snow" : "rock";
+  }
+  if (altitude > 0.9 && temperature < 0.24) {
+    return "snow";
   }
 
   if (temperature < 0.16) {
@@ -212,29 +215,32 @@ type ContinentBlob = {
   rx: number;
   ry: number;
   weight: number;
+  angle: number;
 };
 
 const buildContinentBlobs = (seed: string): ContinentBlob[] => {
   const blobs: ContinentBlob[] = [];
-  const majorCount = 3 + Math.floor(hash01(seed, 41, 53, 1301) * 2);
-  const minorCount = 5 + Math.floor(hash01(seed, 67, 79, 1309) * 3);
+  const majorCount = 4 + Math.floor(hash01(seed, 41, 53, 1301) * 3);
+  const minorCount = 8 + Math.floor(hash01(seed, 67, 79, 1309) * 5);
 
   for (let i = 0; i < majorCount; i += 1) {
-    const cx = 0.5 + (hash01(seed, i * 37 + 11, i * 19 + 17, 1319) - 0.5) * 0.5;
-    const cy = 0.5 + (hash01(seed, i * 41 + 23, i * 29 + 31, 1327) - 0.5) * 0.44;
-    const rx = 0.2 + hash01(seed, i * 17 + 7, i * 13 + 5, 1361) * 0.19;
-    const ry = 0.16 + hash01(seed, i * 23 + 9, i * 11 + 3, 1367) * 0.18;
-    const weight = 0.72 + hash01(seed, i * 31 + 2, i * 7 + 13, 1373) * 0.28;
-    blobs.push({ cx, cy, rx, ry, weight });
+    const cx = 0.5 + (hash01(seed, i * 37 + 11, i * 19 + 17, 1319) - 0.5) * 0.62;
+    const cy = 0.5 + (hash01(seed, i * 41 + 23, i * 29 + 31, 1327) - 0.5) * 0.54;
+    const rx = 0.14 + hash01(seed, i * 17 + 7, i * 13 + 5, 1361) * 0.16;
+    const ry = 0.12 + hash01(seed, i * 23 + 9, i * 11 + 3, 1367) * 0.15;
+    const weight = 0.64 + hash01(seed, i * 31 + 2, i * 7 + 13, 1373) * 0.3;
+    const angle = hash01(seed, i * 59 + 19, i * 43 + 31, 1381) * Math.PI * 2;
+    blobs.push({ cx, cy, rx, ry, weight, angle });
   }
 
   for (let i = 0; i < minorCount; i += 1) {
-    const cx = 0.5 + (hash01(seed, i * 47 + 5, i * 13 + 37, 1409) - 0.5) * 0.72;
-    const cy = 0.5 + (hash01(seed, i * 29 + 29, i * 17 + 43, 1423) - 0.5) * 0.62;
-    const rx = 0.09 + hash01(seed, i * 13 + 59, i * 19 + 11, 1433) * 0.14;
-    const ry = 0.08 + hash01(seed, i * 31 + 73, i * 23 + 17, 1447) * 0.13;
-    const weight = 0.3 + hash01(seed, i * 11 + 47, i * 41 + 19, 1459) * 0.36;
-    blobs.push({ cx, cy, rx, ry, weight });
+    const cx = 0.5 + (hash01(seed, i * 47 + 5, i * 13 + 37, 1409) - 0.5) * 0.82;
+    const cy = 0.5 + (hash01(seed, i * 29 + 29, i * 17 + 43, 1423) - 0.5) * 0.72;
+    const rx = 0.06 + hash01(seed, i * 13 + 59, i * 19 + 11, 1433) * 0.11;
+    const ry = 0.05 + hash01(seed, i * 31 + 73, i * 23 + 17, 1447) * 0.1;
+    const weight = 0.22 + hash01(seed, i * 11 + 47, i * 41 + 19, 1459) * 0.34;
+    const angle = hash01(seed, i * 71 + 23, i * 67 + 29, 1471) * Math.PI * 2;
+    blobs.push({ cx, cy, rx, ry, weight, angle });
   }
 
   return blobs;
@@ -244,8 +250,12 @@ const sampleContinentMask = (u: number, v: number, blobs: ContinentBlob[]): numb
   let sum = 0;
   let peak = 0;
   for (const blob of blobs) {
-    const dx = (u - blob.cx) / blob.rx;
-    const dy = (v - blob.cy) / blob.ry;
+    const dxRaw = u - blob.cx;
+    const dyRaw = v - blob.cy;
+    const cosA = Math.cos(blob.angle);
+    const sinA = Math.sin(blob.angle);
+    const dx = (dxRaw * cosA + dyRaw * sinA) / blob.rx;
+    const dy = (-dxRaw * sinA + dyRaw * cosA) / blob.ry;
     const d2 = dx * dx + dy * dy;
     const influence = Math.exp(-d2 * 1.9) * blob.weight;
     sum += influence;
@@ -253,7 +263,7 @@ const sampleContinentMask = (u: number, v: number, blobs: ContinentBlob[]): numb
       peak = influence;
     }
   }
-  return clamp(sum * 0.58 + peak * 0.9, 0, 1);
+  return clamp(sum * 0.42 + peak * 0.58, 0, 1);
 };
 
 const applyOceanRim = (
@@ -397,19 +407,27 @@ export const generateMapLayers = (options: MapGeneratorOptions): GeneratedMapLay
       const ridgeRaw = fbm2D(options.seed, wx, wy, 7.8, 3, 2.0, 0.55, 505);
       const ridge = 1 - Math.abs(ridgeRaw * 2 - 1);
       const continentMaskRaw = sampleContinentMask(wx, wy, continentBlobs);
-      const continentMask = smoothstep(clamp((continentMaskRaw - 0.2) / 0.62, 0, 1));
+      const continentMask = smoothstep(clamp((continentMaskRaw - 0.24) / 0.55, 0, 1));
       const edgeDistance = Math.min(ux, 1 - ux, uy, 1 - uy);
       const edgeMask = smootherstep(clamp((edgeDistance - 0.04) / 0.28, 0, 1));
       const edgePenalty = 1 - edgeMask;
+      const coastCutNoise = fbm2D(options.seed, wx, wy, 6.3, 3, 2.0, 0.5, 1259);
+      const riftNoise = Math.abs(
+        fbm2D(options.seed, wx + 0.17, wy - 0.09, 2.9, 4, 2.0, 0.54, 1211) * 2 - 1
+      );
 
       let altitude =
-        continental * 0.31 +
-        regional * 0.24 +
-        detail * 0.15 +
-        ridge * 0.13 +
-        continentMask * 0.43;
-      altitude = altitude - distanceFromCenter * 0.12;
-      altitude = altitude - edgePenalty * edgePenalty * 0.85 + edgeMask * 0.08 + 0.04;
+        continental * 0.24 +
+        regional * 0.2 +
+        detail * 0.14 +
+        ridge * 0.1 +
+        continentMask * 0.34;
+      altitude = altitude - distanceFromCenter * 0.08;
+      altitude = altitude - edgePenalty * edgePenalty * 0.84 + edgeMask * 0.07 + 0.03;
+      const coastAffinity = clamp(1 - Math.abs(continentMask - 0.46) / 0.46, 0, 1);
+      altitude -= Math.max(0, coastCutNoise - 0.6) * coastAffinity * 0.2;
+      altitude -= Math.max(0, riftNoise - 0.72) * 0.28;
+      altitude = Math.pow(clamp(altitude, 0, 1), 1.16);
       altitude = clamp(altitude, 0, 1);
 
       const latitude = 1 - Math.abs(uy * 2 - 1);
@@ -440,7 +458,12 @@ export const generateMapLayers = (options: MapGeneratorOptions): GeneratedMapLay
 
   for (let y = 0; y < cellsY; y += 1) {
     for (let x = 0; x < cellsX; x += 1) {
-      const altitude = height[y][x];
+      const mountainBase = clamp(seaLevel + 0.22, 0, 1);
+      let altitude = height[y][x];
+      if (altitude > mountainBase) {
+        altitude = mountainBase + (altitude - mountainBase) * 0.38;
+      }
+      height[y][x] = clamp(altitude, 0, 1);
       const land = altitude > seaLevel && isLand[y][x];
       isLand[y][x] = land;
       biome[y][x] = classifyBiome(
