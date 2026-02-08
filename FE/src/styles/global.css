@@ -2150,6 +2150,13 @@ h3 {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
+  align-items: center;
+}
+
+.map-seed-preview__label {
+  font-size: var(--text-body-xs);
+  color: var(--color-ink-muted);
+  margin-right: 2px;
 }
 
 .map-layer-chip {

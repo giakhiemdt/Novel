@@ -159,6 +159,36 @@ type CircumTriangle = {
   cy: number;
   r2: number;
 };
+type MeshQuality = "low" | "medium" | "high";
+
+const QUALITY_SETTINGS: Record<
+  MeshQuality,
+  {
+    targetPoints: number;
+    minRadius: number;
+    maxRadius: number;
+    coastResolution: { cols: number; rows: number };
+  }
+> = {
+  low: {
+    targetPoints: 1300,
+    minRadius: 5.8,
+    maxRadius: 24,
+    coastResolution: { cols: 92, rows: 46 },
+  },
+  medium: {
+    targetPoints: 2200,
+    minRadius: 4.6,
+    maxRadius: 20,
+    coastResolution: { cols: 132, rows: 66 },
+  },
+  high: {
+    targetPoints: 3400,
+    minRadius: 3.6,
+    maxRadius: 17,
+    coastResolution: { cols: 186, rows: 93 },
+  },
+};
 
 const sampleLandDensity = (
   heightMap: number[][],
@@ -213,15 +243,17 @@ const buildAdaptiveMeshPoints = (
   seaLevel: number,
   width: number,
   height: number,
-  seed: string
+  seed: string,
+  quality: MeshQuality
 ): MeshPoint[] => {
+  const setting = QUALITY_SETTINGS[quality];
   const rng = createSeededRng(`${seed}|mesh`);
   const points: MeshPoint[] = [];
-  const cellSize = 6;
+  const cellSize = quality === "high" ? 5 : quality === "medium" ? 6 : 7;
   const gridCols = Math.ceil(width / cellSize) + 2;
   const gridRows = Math.ceil(height / cellSize) + 2;
   const grid: number[][] = Array.from({ length: gridCols * gridRows }, () => []);
-  const maxRadius = 28;
+  const maxRadius = setting.maxRadius + 2;
   const neighborRange = Math.ceil(maxRadius / cellSize) + 1;
 
   const gridIndex = (x: number, y: number) => {
@@ -267,7 +299,7 @@ const buildAdaptiveMeshPoints = (
     grid[gridIndex(clampedX, clampedY)].push(index);
   };
 
-  const borderStep = 52;
+  const borderStep = quality === "high" ? 36 : quality === "medium" ? 46 : 56;
   for (let x = 0; x <= width; x += borderStep) {
     pushPoint(x, 0, 24);
     pushPoint(x, height, 24);
@@ -281,8 +313,13 @@ const buildAdaptiveMeshPoints = (
   pushPoint(0, height, 24);
   pushPoint(width, height, 24);
 
-  const targetCount = clamp(Math.floor((width * height) / 260), 550, 1600);
-  const attemptLimit = targetCount * 35;
+  const areaFactor = (width * height) / (720 * 360);
+  const targetCount = clamp(
+    Math.floor(setting.targetPoints * areaFactor),
+    Math.floor(setting.targetPoints * 0.65),
+    Math.floor(setting.targetPoints * 1.65)
+  );
+  const attemptLimit = targetCount * 38;
 
   for (let attempts = 0; attempts < attemptLimit && points.length < targetCount; attempts += 1) {
     const x = rng() * width;
@@ -307,7 +344,11 @@ const buildAdaptiveMeshPoints = (
       continue;
     }
 
-    const r = clamp(26 - detail * 20, 4.8, 26);
+    const r = clamp(
+      setting.maxRadius - detail * (setting.maxRadius - setting.minRadius),
+      setting.minRadius,
+      setting.maxRadius
+    );
     pushPoint(x, y, r);
   }
 
@@ -438,6 +479,131 @@ const triangulateAdaptiveMesh = (
     .map((tri) => ({ a: tri.a, b: tri.b, c: tri.c }));
 };
 
+const interpolateZero = (
+  p1: TrianglePoint,
+  v1: number,
+  p2: TrianglePoint,
+  v2: number
+): TrianglePoint => {
+  const denom = v1 - v2;
+  if (Math.abs(denom) < 1e-9) {
+    return { x: (p1.x + p2.x) * 0.5, y: (p1.y + p2.y) * 0.5 };
+  }
+  const t = clamp(v1 / denom, 0, 1);
+  return {
+    x: p1.x + (p2.x - p1.x) * t,
+    y: p1.y + (p2.y - p1.y) * t,
+  };
+};
+
+const drawSmoothCoastline = (
+  ctx: CanvasRenderingContext2D,
+  layers: GeneratedMapLayers,
+  seaLevel: number,
+  width: number,
+  height: number,
+  quality: MeshQuality
+) => {
+  const resolution = QUALITY_SETTINGS[quality].coastResolution;
+  const cols = resolution.cols;
+  const rows = resolution.rows;
+
+  const scalar: number[][] = Array.from({ length: rows }, () =>
+    Array.from({ length: cols }, () => 0)
+  );
+
+  for (let j = 0; j < rows; j += 1) {
+    const v = j / Math.max(1, rows - 1);
+    for (let i = 0; i < cols; i += 1) {
+      const u = i / Math.max(1, cols - 1);
+      scalar[j][i] = sampleBilinear(layers.height, u, v) - seaLevel;
+    }
+  }
+
+  const edgePoint = (
+    edge: number,
+    x: number,
+    y: number,
+    a: number,
+    b: number,
+    c: number,
+    d: number
+  ): TrianglePoint => {
+    const pA = { x, y };
+    const pB = { x: x + 1, y };
+    const pC = { x: x + 1, y: y + 1 };
+    const pD = { x, y: y + 1 };
+    if (edge === 0) return interpolateZero(pA, a, pB, b);
+    if (edge === 1) return interpolateZero(pB, b, pC, c);
+    if (edge === 2) return interpolateZero(pD, d, pC, c);
+    return interpolateZero(pA, a, pD, d);
+  };
+
+  const segmentsByCase: Record<number, Array<[number, number]>> = {
+    0: [],
+    1: [[3, 0]],
+    2: [[0, 1]],
+    3: [[3, 1]],
+    4: [[1, 2]],
+    5: [
+      [3, 2],
+      [0, 1],
+    ],
+    6: [[0, 2]],
+    7: [[3, 2]],
+    8: [[2, 3]],
+    9: [[0, 2]],
+    10: [
+      [0, 1],
+      [2, 3],
+    ],
+    11: [[1, 2]],
+    12: [[3, 1]],
+    13: [[0, 1]],
+    14: [[3, 0]],
+    15: [],
+  };
+
+  const sx = width / Math.max(1, cols - 1);
+  const sy = height / Math.max(1, rows - 1);
+
+  ctx.save();
+  ctx.strokeStyle = "rgba(203, 217, 228, 0.55)";
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = quality === "high" ? 2.2 : quality === "medium" ? 1.9 : 1.6;
+  ctx.beginPath();
+
+  for (let j = 0; j < rows - 1; j += 1) {
+    for (let i = 0; i < cols - 1; i += 1) {
+      const a = scalar[j][i];
+      const b = scalar[j][i + 1];
+      const c = scalar[j + 1][i + 1];
+      const d = scalar[j + 1][i];
+      const mask =
+        (a > 0 ? 1 : 0) |
+        (b > 0 ? 2 : 0) |
+        (c > 0 ? 4 : 0) |
+        (d > 0 ? 8 : 0);
+
+      const segments = segmentsByCase[mask];
+      if (!segments || segments.length === 0) {
+        continue;
+      }
+
+      for (const [e1, e2] of segments) {
+        const p1 = edgePoint(e1, i, j, a, b, c, d);
+        const p2 = edgePoint(e2, i, j, a, b, c, d);
+        ctx.moveTo(p1.x * sx, p1.y * sy);
+        ctx.lineTo(p2.x * sx, p2.y * sy);
+      }
+    }
+  }
+
+  ctx.stroke();
+  ctx.restore();
+};
+
 const MAX_LOCAL_CACHE_SIZE = 20;
 
 export const MapSeedPreview = ({
@@ -467,6 +633,7 @@ export const MapSeedPreview = ({
   const [showHeight, setShowHeight] = useState(true);
   const [showBiomes, setShowBiomes] = useState(true);
   const [showRivers, setShowRivers] = useState(true);
+  const [meshQuality, setMeshQuality] = useState<MeshQuality>("medium");
   const [isGenerating, setIsGenerating] = useState(false);
   const [layers, setLayers] = useState<GeneratedMapLayers | null>(null);
 
@@ -647,7 +814,7 @@ export const MapSeedPreview = ({
       return color;
     };
 
-    const meshKey = `${cacheKey}|mesh-random-v1|${previewWidth}x${previewHeight}`;
+    const meshKey = `${cacheKey}|mesh-random-v2|q:${meshQuality}|${previewWidth}x${previewHeight}`;
     let mesh = meshCacheRef.current.get(meshKey);
     if (!mesh) {
       const points = buildAdaptiveMeshPoints(
@@ -655,7 +822,8 @@ export const MapSeedPreview = ({
         options.seaLevel,
         previewWidth,
         previewHeight,
-        options.seed
+        options.seed,
+        meshQuality
       );
       const faces = triangulateAdaptiveMesh(points, previewWidth, previewHeight);
       mesh = { points, faces };
@@ -712,6 +880,15 @@ export const MapSeedPreview = ({
       ctx.lineWidth = strokeWidth;
       ctx.stroke();
     }
+
+    drawSmoothCoastline(
+      ctx,
+      layers,
+      options.seaLevel,
+      previewWidth,
+      previewHeight,
+      meshQuality
+    );
 
     const cellW = previewWidth / layers.cellsX;
     const cellH = previewHeight / layers.cellsY;
@@ -771,6 +948,7 @@ export const MapSeedPreview = ({
   }, [
     cacheKey,
     layers,
+    meshQuality,
     options.seaLevel,
     options.seed,
     showBiomes,
@@ -791,6 +969,29 @@ export const MapSeedPreview = ({
           )}
         </div>
         <div className="map-seed-preview__layers" aria-label={t("Layers")}>
+          <span className="map-seed-preview__label">{t("Mesh Quality")}</span>
+          <button
+            type="button"
+            className={`map-layer-chip${meshQuality === "low" ? " map-layer-chip--active" : ""}`}
+            onClick={() => setMeshQuality("low")}
+          >
+            {t("Low")}
+          </button>
+          <button
+            type="button"
+            className={`map-layer-chip${meshQuality === "medium" ? " map-layer-chip--active" : ""}`}
+            onClick={() => setMeshQuality("medium")}
+          >
+            {t("Medium")}
+          </button>
+          <button
+            type="button"
+            className={`map-layer-chip${meshQuality === "high" ? " map-layer-chip--active" : ""}`}
+            onClick={() => setMeshQuality("high")}
+          >
+            {t("High")}
+          </button>
+          <span className="map-seed-preview__label">{t("Layers")}</span>
           <button
             type="button"
             className={`map-layer-chip${showHeight ? " map-layer-chip--active" : ""}`}
