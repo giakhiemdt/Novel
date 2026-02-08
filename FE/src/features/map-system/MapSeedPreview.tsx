@@ -4,12 +4,14 @@ import {
   type BiomeKind,
   type ClimatePreset,
   type GeneratedMapLayers,
-  type MapGeneratorWorkerRequest,
-  type MapGeneratorWorkerResponse,
-  createMapCacheKey,
-  generateMapLayers,
 } from "./map-generator";
 import { buildSimulationMesh } from "./sim/mesh";
+import {
+  createSimulationTerrainCacheKey,
+  generateSimulationLayers,
+  type SimulationTerrainWorkerRequest,
+  type SimulationTerrainWorkerResponse,
+} from "./sim/terrain";
 import type {
   SimulationMeshBuildInput,
   SimulationMeshQuality,
@@ -849,7 +851,10 @@ export const MapSeedPreview = ({
     }),
     [seed, safeWidth, safeHeight, safeSeaLevel, climatePreset]
   );
-  const cacheKey = useMemo(() => createMapCacheKey(options), [options]);
+  const cacheKey = useMemo(
+    () => createSimulationTerrainCacheKey(options),
+    [options]
+  );
 
   useEffect(() => {
     latestOptionsRef.current = options;
@@ -862,11 +867,11 @@ export const MapSeedPreview = ({
 
     try {
       const worker = new Worker(
-        new URL("./map-generator.worker.ts", import.meta.url),
+        new URL("./sim/terrain.worker.ts", import.meta.url),
         { type: "module" }
       );
 
-      worker.onmessage = (event: MessageEvent<MapGeneratorWorkerResponse>) => {
+      worker.onmessage = (event: MessageEvent<SimulationTerrainWorkerResponse>) => {
         const payload = event.data;
         if (!payload || payload.requestId !== activeRequestIdRef.current) {
           return;
@@ -893,8 +898,8 @@ export const MapSeedPreview = ({
           setIsGenerating(false);
           return;
         }
-        const fallbackKey = createMapCacheKey(fallbackOptions);
-        const computed = generateMapLayers(fallbackOptions);
+        const fallbackKey = createSimulationTerrainCacheKey(fallbackOptions);
+        const computed = generateSimulationLayers(fallbackOptions);
         if (localCacheRef.current.has(fallbackKey)) {
           localCacheRef.current.delete(fallbackKey);
         }
@@ -998,7 +1003,7 @@ export const MapSeedPreview = ({
 
     const worker = workerRef.current;
     if (!worker) {
-      const computed = generateMapLayers(options);
+      const computed = generateSimulationLayers(options);
       localCacheRef.current.set(cacheKey, computed);
       if (localCacheRef.current.size > MAX_LOCAL_CACHE_SIZE) {
         const oldestKey = localCacheRef.current.keys().next().value;
@@ -1011,7 +1016,7 @@ export const MapSeedPreview = ({
       return;
     }
 
-    const payload: MapGeneratorWorkerRequest = {
+    const payload: SimulationTerrainWorkerRequest = {
       requestId,
       cacheKey,
       options,
