@@ -36,12 +36,30 @@ export type GeneratedMapLayers = {
 
 export type MapGeneratorWorkerRequest = {
   requestId: number;
+  cacheKey: string;
   options: MapGeneratorOptions;
 };
 
 export type MapGeneratorWorkerResponse = {
   requestId: number;
+  cacheKey: string;
+  cacheHit: boolean;
   layers: GeneratedMapLayers;
+};
+
+export const createMapCacheKey = (options: MapGeneratorOptions): string => {
+  const cellsX = options.cellsX ?? 120;
+  const cellsY = options.cellsY ?? 60;
+  const seaLevel = clamp(options.seaLevel, 0, 1).toFixed(4);
+  return [
+    options.seed,
+    String(options.width),
+    String(options.height),
+    seaLevel,
+    options.climatePreset,
+    String(cellsX),
+    String(cellsY),
+  ].join("|");
 };
 
 const clamp = (value: number, min: number, max: number) =>

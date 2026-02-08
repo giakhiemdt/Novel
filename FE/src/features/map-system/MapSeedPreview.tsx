@@ -6,6 +6,7 @@ import {
   type GeneratedMapLayers,
   type MapGeneratorWorkerRequest,
   type MapGeneratorWorkerResponse,
+  createMapCacheKey,
   generateMapLayers,
 } from "./map-generator";
 
@@ -89,6 +90,8 @@ const normalizeClimate = (value: string): ClimatePreset => {
   return "temperate";
 };
 
+const MAX_LOCAL_CACHE_SIZE = 20;
+
 export const MapSeedPreview = ({
   seed,
   width,
@@ -101,6 +104,7 @@ export const MapSeedPreview = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const activeRequestIdRef = useRef(0);
+  const localCacheRef = useRef(new Map<string, GeneratedMapLayers>());
   const latestOptionsRef = useRef<{
     seed: string;
     width: number;
@@ -129,6 +133,7 @@ export const MapSeedPreview = ({
     }),
     [seed, safeWidth, safeHeight, safeSeaLevel, climatePreset]
   );
+  const cacheKey = useMemo(() => createMapCacheKey(options), [options]);
 
   useEffect(() => {
     latestOptionsRef.current = options;
@@ -150,6 +155,18 @@ export const MapSeedPreview = ({
         if (!payload || payload.requestId !== activeRequestIdRef.current) {
           return;
         }
+        if (payload.cacheKey) {
+          if (localCacheRef.current.has(payload.cacheKey)) {
+            localCacheRef.current.delete(payload.cacheKey);
+          }
+          localCacheRef.current.set(payload.cacheKey, payload.layers);
+          if (localCacheRef.current.size > MAX_LOCAL_CACHE_SIZE) {
+            const oldestKey = localCacheRef.current.keys().next().value;
+            if (typeof oldestKey === "string") {
+              localCacheRef.current.delete(oldestKey);
+            }
+          }
+        }
         setLayers(payload.layers);
         setIsGenerating(false);
       };
@@ -160,7 +177,19 @@ export const MapSeedPreview = ({
           setIsGenerating(false);
           return;
         }
-        setLayers(generateMapLayers(fallbackOptions));
+        const fallbackKey = createMapCacheKey(fallbackOptions);
+        const computed = generateMapLayers(fallbackOptions);
+        if (localCacheRef.current.has(fallbackKey)) {
+          localCacheRef.current.delete(fallbackKey);
+        }
+        localCacheRef.current.set(fallbackKey, computed);
+        if (localCacheRef.current.size > MAX_LOCAL_CACHE_SIZE) {
+          const oldestKey = localCacheRef.current.keys().next().value;
+          if (typeof oldestKey === "string") {
+            localCacheRef.current.delete(oldestKey);
+          }
+        }
+        setLayers(computed);
         setIsGenerating(false);
       };
 
@@ -178,21 +207,40 @@ export const MapSeedPreview = ({
   useEffect(() => {
     const requestId = activeRequestIdRef.current + 1;
     activeRequestIdRef.current = requestId;
+
+    const localCached = localCacheRef.current.get(cacheKey);
+    if (localCached) {
+      localCacheRef.current.delete(cacheKey);
+      localCacheRef.current.set(cacheKey, localCached);
+      setLayers(localCached);
+      setIsGenerating(false);
+      return;
+    }
+
     setIsGenerating(true);
 
     const worker = workerRef.current;
     if (!worker) {
-      setLayers(generateMapLayers(options));
+      const computed = generateMapLayers(options);
+      localCacheRef.current.set(cacheKey, computed);
+      if (localCacheRef.current.size > MAX_LOCAL_CACHE_SIZE) {
+        const oldestKey = localCacheRef.current.keys().next().value;
+        if (typeof oldestKey === "string") {
+          localCacheRef.current.delete(oldestKey);
+        }
+      }
+      setLayers(computed);
       setIsGenerating(false);
       return;
     }
 
     const payload: MapGeneratorWorkerRequest = {
       requestId,
+      cacheKey,
       options,
     };
     worker.postMessage(payload);
-  }, [options]);
+  }, [options, cacheKey]);
 
   useEffect(() => {
     if (!layers) {
