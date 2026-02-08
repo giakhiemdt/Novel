@@ -9,6 +9,14 @@ import {
   createMapCacheKey,
   generateMapLayers,
 } from "./map-generator";
+import { buildSimulationMesh } from "./sim/mesh";
+import type {
+  SimulationMeshBuildInput,
+  SimulationMeshQuality,
+  SimulationMeshResult,
+  SimulationMeshWorkerRequest,
+  SimulationMeshWorkerResponse,
+} from "./sim/types";
 
 export type MapSeedPreviewProps = {
   seed: string;
@@ -169,7 +177,7 @@ type CircumTriangle = {
   cy: number;
   r2: number;
 };
-type MeshQuality = "low" | "medium" | "high";
+type MeshQuality = SimulationMeshQuality;
 
 const QUALITY_SETTINGS: Record<
   MeshQuality,
@@ -804,19 +812,11 @@ export const MapSeedPreview = ({
   const { t } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const workerRef = useRef<Worker | null>(null);
+  const simWorkerRef = useRef<Worker | null>(null);
   const activeRequestIdRef = useRef(0);
+  const activeMeshRequestIdRef = useRef(0);
   const localCacheRef = useRef(new Map<string, GeneratedMapLayers>());
-  const meshCacheRef = useRef(
-    new Map<
-      string,
-      {
-        points: MeshPoint[];
-        faces: MeshFace[];
-        cells: MeshCell[];
-        boundaries: MeshBoundary[];
-      }
-    >()
-  );
+  const meshCacheRef = useRef(new Map<string, SimulationMeshResult>());
   const latestOptionsRef = useRef<{
     seed: string;
     width: number;
@@ -824,6 +824,8 @@ export const MapSeedPreview = ({
     seaLevel: number;
     climatePreset: ClimatePreset;
   } | null>(null);
+  const latestMeshInputRef = useRef<SimulationMeshBuildInput | null>(null);
+  const latestMeshCacheKeyRef = useRef<string>("");
 
   const [showHeight, setShowHeight] = useState(true);
   const [showBiomes, setShowBiomes] = useState(true);
@@ -831,6 +833,7 @@ export const MapSeedPreview = ({
   const [meshQuality, setMeshQuality] = useState<MeshQuality>("medium");
   const [isGenerating, setIsGenerating] = useState(false);
   const [layers, setLayers] = useState<GeneratedMapLayers | null>(null);
+  const [simMesh, setSimMesh] = useState<SimulationMeshResult | null>(null);
 
   const safeWidth = clamp(width, 64, 4096);
   const safeHeight = clamp(height, 64, 4096);
@@ -918,6 +921,67 @@ export const MapSeedPreview = ({
   }, []);
 
   useEffect(() => {
+    if (typeof Worker === "undefined") {
+      return;
+    }
+
+    try {
+      const worker = new Worker(new URL("./sim/sim.worker.ts", import.meta.url), {
+        type: "module",
+      });
+
+      worker.onmessage = (event: MessageEvent<SimulationMeshWorkerResponse>) => {
+        const payload = event.data;
+        if (!payload || payload.requestId !== activeMeshRequestIdRef.current) {
+          return;
+        }
+        if (payload.cacheKey) {
+          if (meshCacheRef.current.has(payload.cacheKey)) {
+            meshCacheRef.current.delete(payload.cacheKey);
+          }
+          meshCacheRef.current.set(payload.cacheKey, payload.mesh);
+          if (meshCacheRef.current.size > 10) {
+            const oldestKey = meshCacheRef.current.keys().next().value;
+            if (typeof oldestKey === "string") {
+              meshCacheRef.current.delete(oldestKey);
+            }
+          }
+        }
+        setSimMesh(payload.mesh);
+      };
+
+      worker.onerror = () => {
+        const fallbackInput = latestMeshInputRef.current;
+        const fallbackKey = latestMeshCacheKeyRef.current;
+        if (!fallbackInput || !fallbackKey) {
+          return;
+        }
+        const computed = buildSimulationMesh(fallbackInput);
+        if (meshCacheRef.current.has(fallbackKey)) {
+          meshCacheRef.current.delete(fallbackKey);
+        }
+        meshCacheRef.current.set(fallbackKey, computed);
+        if (meshCacheRef.current.size > 10) {
+          const oldestKey = meshCacheRef.current.keys().next().value;
+          if (typeof oldestKey === "string") {
+            meshCacheRef.current.delete(oldestKey);
+          }
+        }
+        setSimMesh(computed);
+      };
+
+      simWorkerRef.current = worker;
+    } catch {
+      simWorkerRef.current = null;
+    }
+
+    return () => {
+      simWorkerRef.current?.terminate();
+      simWorkerRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
     const requestId = activeRequestIdRef.current + 1;
     activeRequestIdRef.current = requestId;
 
@@ -957,6 +1021,70 @@ export const MapSeedPreview = ({
 
   useEffect(() => {
     if (!layers) {
+      setSimMesh(null);
+      return;
+    }
+
+    const previewWidth = 720;
+    const previewHeight = 360;
+    const meshKey = `${cacheKey}|sim-mesh-v1|q:${meshQuality}|${previewWidth}x${previewHeight}`;
+    const cached = meshCacheRef.current.get(meshKey);
+    if (cached) {
+      meshCacheRef.current.delete(meshKey);
+      meshCacheRef.current.set(meshKey, cached);
+      setSimMesh(cached);
+      return;
+    }
+
+    const input: SimulationMeshBuildInput = {
+      seed: options.seed,
+      width: previewWidth,
+      height: previewHeight,
+      seaLevel: options.seaLevel,
+      quality: meshQuality,
+      layers: {
+        cellsX: layers.cellsX,
+        cellsY: layers.cellsY,
+        height: layers.height,
+        biome: layers.biome,
+      },
+    };
+    latestMeshInputRef.current = input;
+    latestMeshCacheKeyRef.current = meshKey;
+
+    setSimMesh(null);
+    const requestId = activeMeshRequestIdRef.current + 1;
+    activeMeshRequestIdRef.current = requestId;
+    const worker = simWorkerRef.current;
+    if (!worker) {
+      const computed = buildSimulationMesh(input);
+      meshCacheRef.current.set(meshKey, computed);
+      if (meshCacheRef.current.size > 10) {
+        const oldestKey = meshCacheRef.current.keys().next().value;
+        if (typeof oldestKey === "string") {
+          meshCacheRef.current.delete(oldestKey);
+        }
+      }
+      setSimMesh(computed);
+      return;
+    }
+
+    const payload: SimulationMeshWorkerRequest = {
+      requestId,
+      cacheKey: meshKey,
+      input,
+    };
+    worker.postMessage(payload);
+  }, [
+    cacheKey,
+    layers,
+    meshQuality,
+    options.seed,
+    options.seaLevel,
+  ]);
+
+  useEffect(() => {
+    if (!layers || !simMesh) {
       return;
     }
 
@@ -1011,45 +1139,7 @@ export const MapSeedPreview = ({
     };
 
     const qualitySetting = QUALITY_SETTINGS[meshQuality];
-
-    const meshKey = `${cacheKey}|mesh-polygons-v2|q:${meshQuality}|${previewWidth}x${previewHeight}`;
-    let mesh = meshCacheRef.current.get(meshKey);
-    if (!mesh) {
-      const points = buildAdaptiveMeshPoints(
-        layers,
-        options.seaLevel,
-        previewWidth,
-        previewHeight,
-        options.seed,
-        meshQuality
-      );
-      const faces = triangulateAdaptiveMesh(points, previewWidth, previewHeight);
-      const topology = buildVoronoiTopology(
-        points,
-        faces,
-        previewWidth,
-        previewHeight
-      );
-      mesh = {
-        points,
-        faces,
-        cells: topology.cells,
-        boundaries: topology.boundaries,
-      };
-      if (meshCacheRef.current.has(meshKey)) {
-        meshCacheRef.current.delete(meshKey);
-      }
-      meshCacheRef.current.set(meshKey, mesh);
-      if (meshCacheRef.current.size > 8) {
-        const oldestKey = meshCacheRef.current.keys().next().value;
-        if (typeof oldestKey === "string") {
-          meshCacheRef.current.delete(oldestKey);
-        }
-      }
-    } else {
-      meshCacheRef.current.delete(meshKey);
-      meshCacheRef.current.set(meshKey, mesh);
-    }
+    const mesh = simMesh;
 
     const siteVisual = new Map<number, { biome: BiomeKind; color: string }>();
 
@@ -1223,11 +1313,10 @@ export const MapSeedPreview = ({
     ctx.lineWidth = 1;
     ctx.strokeRect(0.5, 0.5, previewWidth - 1, previewHeight - 1);
   }, [
-    cacheKey,
     layers,
+    simMesh,
     meshQuality,
     options.seaLevel,
-    options.seed,
     showBiomes,
     showHeight,
     showRivers,
