@@ -6,7 +6,7 @@ import {
   type MapGeneratorOptions,
 } from "../map-generator";
 
-const SIM_TERRAIN_VERSION = "sim-terrain-v1";
+const SIM_TERRAIN_VERSION = "sim-terrain-v2";
 
 export type SimulationTerrainWorkerRequest = {
   requestId: number;
@@ -82,93 +82,172 @@ const getNeighbors = (x: number, y: number, maxX: number, maxY: number) => {
   return out;
 };
 
-const hash01 = (seed: string, x: number, y: number, salt = 0): number => {
-  let h = 2166136261 ^ salt;
-  for (let i = 0; i < seed.length; i += 1) {
-    h ^= seed.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  h ^= x + 0x9e3779b9;
-  h = Math.imul(h ^ (h >>> 16), 2246822507);
-  h ^= y + 0x85ebca6b;
-  h = Math.imul(h ^ (h >>> 13), 3266489909);
-  return ((h >>> 0) % 1000000) / 1000000;
-};
-
-const buildRiverLayer = (
-  seed: string,
+const buildFlowAndRiverLayer = (
   height: number[][],
   moisture: number[][],
   isLand: boolean[][],
   seaLevel: number
-): boolean[][] => {
+): {
+  river: boolean[][];
+  flow: number[][];
+  receiver: number[];
+} => {
   const cellsY = height.length;
   const cellsX = height[0]?.length ?? 0;
   const river: boolean[][] = Array.from({ length: cellsY }, () =>
     Array.from({ length: cellsX }, () => false)
   );
+  const flow: number[][] = Array.from({ length: cellsY }, () =>
+    Array.from({ length: cellsX }, () => 0)
+  );
+  const receiver = Array.from({ length: cellsX * cellsY }, () => -1);
+  const order: Array<{ idx: number; h: number }> = [];
 
-  const sources: Array<{ x: number; y: number; score: number }> = [];
+  for (let y = 0; y < cellsY; y += 1) {
+    for (let x = 0; x < cellsX; x += 1) {
+      const idx = y * cellsX + x;
+      const altitude = height[y][x];
+      const neighbors = getNeighbors(x, y, cellsX, cellsY);
+
+      let bestLowerIdx = -1;
+      let bestLowerHeight = altitude;
+      let bestAnyIdx = -1;
+      let bestAnyHeight = Number.POSITIVE_INFINITY;
+      for (const n of neighbors) {
+        const nh = height[n.y][n.x];
+        if (nh < bestAnyHeight) {
+          bestAnyHeight = nh;
+          bestAnyIdx = n.y * cellsX + n.x;
+        }
+        if (nh < bestLowerHeight - 1e-6) {
+          bestLowerHeight = nh;
+          bestLowerIdx = n.y * cellsX + n.x;
+        }
+      }
+
+      if (!isLand[y][x]) {
+        receiver[idx] = -1;
+      } else if (bestLowerIdx >= 0) {
+        receiver[idx] = bestLowerIdx;
+      } else if (bestAnyIdx >= 0 && bestAnyHeight <= altitude + 0.018) {
+        receiver[idx] = bestAnyIdx;
+      } else {
+        receiver[idx] = -1;
+      }
+
+      flow[y][x] = isLand[y][x]
+        ? 0.18 + moisture[y][x] * 0.78
+        : 0.06 + moisture[y][x] * 0.2;
+      order.push({ idx, h: altitude });
+    }
+  }
+
+  order.sort((a, b) => b.h - a.h);
+  for (const item of order) {
+    const x = item.idx % cellsX;
+    const y = Math.floor(item.idx / cellsX);
+    const next = receiver[item.idx];
+    if (next < 0) {
+      continue;
+    }
+    const nx = next % cellsX;
+    const ny = Math.floor(next / cellsX);
+    flow[ny][nx] += flow[y][x] * 0.985;
+  }
+
+  let maxFlow = 0;
   for (let y = 0; y < cellsY; y += 1) {
     for (let x = 0; x < cellsX; x += 1) {
       if (!isLand[y][x]) {
         continue;
       }
-      const altitude = height[y][x];
-      const wetness = moisture[y][x];
-      if (altitude > seaLevel + 0.13 && wetness > 0.44) {
-        const variance = hash01(seed, x, y, 909);
-        sources.push({
-          x,
-          y,
-          score: altitude * 0.65 + wetness * 0.35 + variance * 0.06,
-        });
+      if (flow[y][x] > maxFlow) {
+        maxFlow = flow[y][x];
+      }
+    }
+  }
+  const baseThreshold = Math.max(0.48, maxFlow * 0.028);
+  for (let y = 0; y < cellsY; y += 1) {
+    for (let x = 0; x < cellsX; x += 1) {
+      if (!isLand[y][x]) {
+        continue;
+      }
+      if (height[y][x] <= seaLevel + 0.004) {
+        continue;
+      }
+      const idx = y * cellsX + x;
+      if (receiver[idx] < 0) {
+        continue;
+      }
+      const moistureFactor = 1.16 - moisture[y][x] * 0.34;
+      const localThreshold = baseThreshold * clamp(moistureFactor, 0.8, 1.22);
+      if (flow[y][x] >= localThreshold) {
+        river[y][x] = true;
       }
     }
   }
 
-  sources.sort((a, b) => b.score - a.score);
-  const sourceCount = clamp(Math.floor((cellsX * cellsY) / 900), 9, 48);
+  return { river, flow, receiver };
+};
 
-  for (let i = 0; i < Math.min(sourceCount, sources.length); i += 1) {
-    const source = sources[i];
-    let cx = source.x;
-    let cy = source.y;
-    const visited = new Set<string>();
-
-    for (let step = 0; step < 260; step += 1) {
-      const key = `${cx},${cy}`;
-      if (visited.has(key)) {
-        break;
+const carveRivers = (
+  height: number[][],
+  flow: number[][],
+  receiver: number[],
+  river: boolean[][],
+  isLand: boolean[][],
+  seaLevel: number
+) => {
+  const cellsY = height.length;
+  const cellsX = height[0]?.length ?? 0;
+  let maxFlow = 0;
+  for (let y = 0; y < cellsY; y += 1) {
+    for (let x = 0; x < cellsX; x += 1) {
+      if (flow[y][x] > maxFlow) {
+        maxFlow = flow[y][x];
       }
-      visited.add(key);
-      river[cy][cx] = true;
+    }
+  }
+  if (maxFlow <= 0) {
+    return;
+  }
 
-      if (!isLand[cy][cx] || height[cy][cx] <= seaLevel + 0.005) {
-        break;
+  const delta: number[][] = Array.from({ length: cellsY }, () =>
+    Array.from({ length: cellsX }, () => 0)
+  );
+  for (let y = 0; y < cellsY; y += 1) {
+    for (let x = 0; x < cellsX; x += 1) {
+      if (!river[y][x] || !isLand[y][x]) {
+        continue;
+      }
+      const idx = y * cellsX + x;
+      const next = receiver[idx];
+      const normFlow = flow[y][x] / maxFlow;
+      const incision = clamp((normFlow - 0.018) * 0.078, 0.002, 0.05);
+      delta[y][x] -= incision;
+
+      if (next >= 0) {
+        const nx = next % cellsX;
+        const ny = Math.floor(next / cellsX);
+        delta[ny][nx] -= incision * 0.38;
       }
 
-      const here = height[cy][cx];
-      const neighbors = getNeighbors(cx, cy, cellsX, cellsY);
-      let next = { x: cx, y: cy };
-      let nextHeight = here;
+      const neighbors = getNeighbors(x, y, cellsX, cellsY);
       for (const n of neighbors) {
-        const nh = height[n.y][n.x];
-        if (nh < nextHeight) {
-          next = n;
-          nextHeight = nh;
+        if (!isLand[n.y][n.x]) {
+          continue;
         }
+        delta[n.y][n.x] -= incision * 0.18;
       }
-
-      if (next.x === cx && next.y === cy) {
-        break;
-      }
-      cx = next.x;
-      cy = next.y;
     }
   }
 
-  return river;
+  for (let y = 0; y < cellsY; y += 1) {
+    for (let x = 0; x < cellsX; x += 1) {
+      const floor = isLand[y][x] ? seaLevel - 0.01 : 0;
+      height[y][x] = clamp(Math.max(floor, height[y][x] + delta[y][x]), 0, 1);
+    }
+  }
 };
 
 const ensureOceanBorder = (height: number[][], seaLevel: number) => {
@@ -286,6 +365,32 @@ export const generateSimulationLayers = (
       );
       moisture[y][x] = clamp(moisture[y][x] + (1 - altitudeNorm) * 0.035, 0, 1);
       temperature[y][x] = clamp(temperature[y][x] - altitudeNorm * 0.07, 0, 1);
+      isLand[y][x] = altitude > seaLevel;
+    }
+  }
+
+  const hydroFirst = buildFlowAndRiverLayer(height, moisture, isLand, seaLevel);
+  carveRivers(
+    height,
+    hydroFirst.flow,
+    hydroFirst.receiver,
+    hydroFirst.river,
+    isLand,
+    seaLevel
+  );
+
+  for (let y = 0; y < cellsY; y += 1) {
+    for (let x = 0; x < cellsX; x += 1) {
+      const altitude = height[y][x];
+      const altitudeNorm = clamp(
+        (altitude - seaLevel) / Math.max(0.001, 1 - seaLevel),
+        0,
+        1
+      );
+      if (hydroFirst.river[y][x]) {
+        moisture[y][x] = clamp(moisture[y][x] + 0.08, 0, 1);
+      }
+      temperature[y][x] = clamp(temperature[y][x] - altitudeNorm * 0.02, 0, 1);
       const land = altitude > seaLevel;
       isLand[y][x] = land;
       biome[y][x] = classifyBiome(
@@ -298,7 +403,8 @@ export const generateSimulationLayers = (
     }
   }
 
-  const river = buildRiverLayer(options.seed, height, moisture, isLand, seaLevel);
+  const hydroFinal = buildFlowAndRiverLayer(height, moisture, isLand, seaLevel);
+  const river = hydroFinal.river;
 
   return {
     cellsX: base.cellsX,
