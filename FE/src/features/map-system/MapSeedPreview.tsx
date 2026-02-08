@@ -32,6 +32,11 @@ export type MapSeedPreviewProps = {
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
+const smootherstep = (t: number) => {
+  const c = clamp(t, 0, 1);
+  return c * c * c * (c * (c * 6 - 15) + 10);
+};
+
 const biomeColorMap: Record<BiomeKind, string> = {
   ocean: "#3f78a4",
   beach: "#cbb989",
@@ -139,19 +144,22 @@ const classifyBiome = (
   if (altitude <= seaLevel) {
     return "ocean";
   }
-  if (altitude <= seaLevel + 0.01) {
+  if (altitude <= seaLevel + 0.008) {
     return "beach";
   }
-  if (altitude > 0.96) {
+  if (altitude > 0.985) {
     return temperature < 0.28 ? "snow" : "rock";
   }
-  if (altitude > 0.9 && temperature < 0.24) {
+  if (altitude > 0.94 && moisture < 0.28) {
+    return "rock";
+  }
+  if (altitude > 0.91 && temperature < 0.24) {
     return "snow";
   }
-  if (temperature < 0.16) {
+  if (temperature < 0.13) {
     return "snow";
   }
-  if (temperature < 0.3) {
+  if (temperature < 0.28) {
     return moisture > 0.42 ? "taiga" : "tundra";
   }
   if (moisture < 0.17) {
@@ -787,18 +795,145 @@ const drawSmoothCoastline = (
   ctx.save();
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  ctx.filter = quality === "high" ? "blur(1.8px)" : quality === "medium" ? "blur(1.45px)" : "blur(1.1px)";
-  ctx.strokeStyle = "rgba(92, 159, 206, 0.34)";
-  ctx.lineWidth = quality === "high" ? 5.8 : quality === "medium" ? 4.8 : 3.9;
+  ctx.filter = quality === "high" ? "blur(1.6px)" : quality === "medium" ? "blur(1.3px)" : "blur(1px)";
+  ctx.strokeStyle = "rgba(132, 189, 222, 0.1)";
+  ctx.lineWidth = quality === "high" ? 4.8 : quality === "medium" ? 4.1 : 3.4;
   traceCoastSegments();
   ctx.stroke();
 
   ctx.filter = "none";
-  ctx.strokeStyle = "rgba(37, 96, 142, 0.26)";
-  ctx.lineWidth = quality === "high" ? 1.5 : quality === "medium" ? 1.35 : 1.2;
+  ctx.strokeStyle = "rgba(67, 124, 168, 0.045)";
+  ctx.lineWidth = quality === "high" ? 0.78 : quality === "medium" ? 0.7 : 0.62;
   traceCoastSegments();
   ctx.stroke();
   ctx.restore();
+};
+
+type RiverPoint = { x: number; y: number };
+
+const edgeKey = (a: number, b: number) => (a < b ? `${a}_${b}` : `${b}_${a}`);
+
+const buildRiverPaths = (
+  river: boolean[][],
+  cellW: number,
+  cellH: number
+): RiverPoint[][] => {
+  const rows = river.length;
+  const cols = river[0]?.length ?? 0;
+  if (rows === 0 || cols === 0) {
+    return [];
+  }
+
+  const dirs = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ] as const;
+  const indexOf = (x: number, y: number) => y * cols + x;
+  const centerOf = (x: number, y: number): RiverPoint => ({
+    x: x * cellW + cellW / 2,
+    y: y * cellH + cellH / 2,
+  });
+  const neighborsOf = (x: number, y: number) => {
+    const out: Array<{ x: number; y: number; idx: number }> = [];
+    for (const [dx, dy] of dirs) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || nx >= cols || ny < 0 || ny >= rows || !river[ny][nx]) {
+        continue;
+      }
+      out.push({ x: nx, y: ny, idx: indexOf(nx, ny) });
+    }
+    return out;
+  };
+
+  const riverCells: Array<{ x: number; y: number; idx: number; degree: number }> = [];
+  for (let y = 0; y < rows; y += 1) {
+    for (let x = 0; x < cols; x += 1) {
+      if (!river[y][x]) {
+        continue;
+      }
+      const idx = indexOf(x, y);
+      const degree = neighborsOf(x, y).length;
+      riverCells.push({ x, y, idx, degree });
+    }
+  }
+
+  const visitedEdges = new Set<string>();
+  const paths: RiverPoint[][] = [];
+  const traceFrom = (start: { x: number; y: number; idx: number }) => {
+    const path: RiverPoint[] = [];
+    let current = start;
+    let previous = -1;
+    let guard = 0;
+    while (guard < rows * cols) {
+      guard += 1;
+      path.push(centerOf(current.x, current.y));
+      const neighbors = neighborsOf(current.x, current.y).filter(
+        (item) => item.idx !== previous
+      );
+      if (neighbors.length === 0) {
+        break;
+      }
+
+      let next = neighbors.find(
+        (item) => !visitedEdges.has(edgeKey(current.idx, item.idx))
+      );
+      if (!next) {
+        break;
+      }
+
+      const key = edgeKey(current.idx, next.idx);
+      visitedEdges.add(key);
+      previous = current.idx;
+      current = next;
+    }
+    if (path.length > 1) {
+      paths.push(path);
+    }
+  };
+
+  for (const cell of riverCells) {
+    if (cell.degree <= 1) {
+      traceFrom(cell);
+    }
+  }
+  for (const cell of riverCells) {
+    const neighbors = neighborsOf(cell.x, cell.y);
+    const hasUnvisited = neighbors.some(
+      (n) => !visitedEdges.has(edgeKey(cell.idx, n.idx))
+    );
+    if (hasUnvisited) {
+      traceFrom(cell);
+    }
+  }
+
+  return paths;
+};
+
+const drawCurvedPath = (
+  ctx: CanvasRenderingContext2D,
+  points: RiverPoint[]
+) => {
+  if (points.length < 2) {
+    return;
+  }
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  if (points.length === 2) {
+    ctx.lineTo(points[1].x, points[1].y);
+    return;
+  }
+  for (let i = 1; i < points.length - 1; i += 1) {
+    const p = points[i];
+    const n = points[i + 1];
+    const mx = (p.x + n.x) * 0.5;
+    const my = (p.y + n.y) * 0.5;
+    ctx.quadraticCurveTo(p.x, p.y, mx, my);
+  }
+  const last = points[points.length - 1];
+  ctx.lineTo(last.x, last.y);
 };
 
 const MAX_LOCAL_CACHE_SIZE = 20;
@@ -832,6 +967,7 @@ export const MapSeedPreview = ({
   const [showHeight, setShowHeight] = useState(true);
   const [showBiomes, setShowBiomes] = useState(true);
   const [showRivers, setShowRivers] = useState(true);
+  const [showCells, setShowCells] = useState(false);
   const [meshQuality, setMeshQuality] = useState<MeshQuality>("medium");
   const [isGenerating, setIsGenerating] = useState(false);
   const [layers, setLayers] = useState<GeneratedMapLayers | null>(null);
@@ -1140,6 +1276,13 @@ export const MapSeedPreview = ({
           color = mixColor(color, "#1d476b", deepWater * 0.22);
         }
       }
+
+      if (showBiomes && isLand) {
+        const coastBand = clamp((altitude - options.seaLevel) / 0.02, 0, 1);
+        if (coastBand < 1) {
+          color = mixColor(biomeColorMap.beach, color, smootherstep(coastBand));
+        }
+      }
       return color;
     };
 
@@ -1177,11 +1320,19 @@ export const MapSeedPreview = ({
             1
           );
           const wave = Math.sin((u * 73 + v * 61) * Math.PI) * 0.5 + 0.5;
+          const shelf = clamp((0.14 - depth) / 0.14, 0, 1);
+          color = mixColor(color, "#87c4e0", shelf * 0.18 * wave);
           color = mixColor(color, "#6eaed0", (1 - depth) * 0.06 * wave);
           if (light < 0.5) {
             color = mixColor(color, "#163755", (0.5 - light) * 0.25);
           }
         }
+
+        const grainSeed = Math.sin((px + 13.17) * 19.913 + (py + 7.31) * 37.719);
+        const grain = (grainSeed - Math.floor(grainSeed)) - 0.5;
+        color = grain >= 0
+          ? mixColor(color, "#ffffff", grain * 0.05)
+          : mixColor(color, "#0c1a26", -grain * 0.05);
 
         const rgb = hexToRgb(color);
         const index = (py * previewWidth + px) * 4;
@@ -1192,6 +1343,14 @@ export const MapSeedPreview = ({
       }
     }
     ctx.putImageData(terrainImage, 0, 0);
+    drawSmoothCoastline(
+      ctx,
+      layers,
+      options.seaLevel,
+      previewWidth,
+      previewHeight,
+      meshQuality
+    );
 
     const siteVisual = new Map<number, { biome: BiomeKind; color: string }>();
 
@@ -1233,19 +1392,24 @@ export const MapSeedPreview = ({
       analyzeCell(cell);
     }
 
-    ctx.save();
-    ctx.strokeStyle =
-      meshQuality === "high"
-        ? "rgba(32, 60, 78, 0.08)"
-        : meshQuality === "medium"
-          ? "rgba(32, 60, 78, 0.095)"
-          : "rgba(32, 60, 78, 0.11)";
-    ctx.lineWidth = qualitySetting.meshLineWidth;
-    for (const cell of mesh.cells) {
-      drawCellPath(cell.vertices);
-      ctx.stroke();
+    if (showCells) {
+      ctx.save();
+      ctx.strokeStyle =
+        meshQuality === "high"
+          ? "rgba(24, 52, 71, 0.035)"
+          : meshQuality === "medium"
+            ? "rgba(24, 52, 71, 0.045)"
+            : "rgba(24, 52, 71, 0.058)";
+      ctx.lineWidth =
+        meshQuality === "high"
+          ? qualitySetting.meshLineWidth * 0.62
+          : qualitySetting.meshLineWidth * 0.7;
+      for (const cell of mesh.cells) {
+        drawCellPath(cell.vertices);
+        ctx.stroke();
+      }
+      ctx.restore();
     }
-    ctx.restore();
 
     ctx.save();
     ctx.lineCap = "round";
@@ -1267,9 +1431,12 @@ export const MapSeedPreview = ({
       const isCoast =
         (left.biome === "ocean" && right.biome !== "ocean") ||
         (left.biome !== "ocean" && right.biome === "ocean");
-      ctx.strokeStyle = colorWithAlpha(blended, isCoast ? 0.11 : 0.16);
+      ctx.strokeStyle = colorWithAlpha(
+        blended,
+        isCoast ? (showCells ? 0.08 : 0.05) : showCells ? 0.13 : 0.08
+      );
       ctx.lineWidth =
-        meshQuality === "high" ? 1.3 : meshQuality === "medium" ? 1.18 : 1.05;
+        meshQuality === "high" ? 1.2 : meshQuality === "medium" ? 1.08 : 0.98;
       ctx.beginPath();
       ctx.moveTo(boundary.p1.x, boundary.p1.y);
       ctx.lineTo(boundary.p2.x, boundary.p2.y);
@@ -1287,14 +1454,17 @@ export const MapSeedPreview = ({
         (left.biome === "ocean" && right.biome !== "ocean") ||
         (left.biome !== "ocean" && right.biome === "ocean");
       const blended = mixColor(left.color, right.color, 0.5);
-      ctx.strokeStyle = colorWithAlpha(blended, isCoast ? 0.035 : 0.09);
+      ctx.strokeStyle = colorWithAlpha(
+        blended,
+        isCoast ? (showCells ? 0.024 : 0.01) : showCells ? 0.075 : 0.045
+      );
       ctx.lineWidth = isCoast
         ? meshQuality === "high"
-          ? 0.72
-          : 0.64
+          ? 0.66
+          : 0.58
         : meshQuality === "high"
-          ? 0.92
-          : 0.84;
+          ? 0.84
+          : 0.76;
       ctx.beginPath();
       ctx.moveTo(boundary.p1.x, boundary.p1.y);
       ctx.lineTo(boundary.p2.x, boundary.p2.y);
@@ -1306,52 +1476,31 @@ export const MapSeedPreview = ({
     const cellH = previewHeight / layers.cellsY;
 
     if (showRivers) {
-      ctx.strokeStyle = "rgba(102, 202, 255, 0.92)";
-      ctx.lineWidth = Math.max(1, Math.min(cellW, cellH) * 0.35);
+      const riverPaths = buildRiverPaths(layers.river, cellW, cellH);
+      ctx.save();
       ctx.lineCap = "round";
-
-      for (let y = 0; y < layers.cellsY; y += 1) {
-        for (let x = 0; x < layers.cellsX; x += 1) {
-          if (!layers.river[y][x]) {
-            continue;
-          }
-
-          const cx = x * cellW + cellW / 2;
-          const cy = y * cellH + cellH / 2;
-          let linked = false;
-
-          const right = x + 1;
-          if (right < layers.cellsX && layers.river[y][right]) {
-            ctx.beginPath();
-            ctx.moveTo(cx, cy);
-            ctx.lineTo(right * cellW + cellW / 2, cy);
-            ctx.stroke();
-            linked = true;
-          }
-
-          const down = y + 1;
-          if (down < layers.cellsY && layers.river[down][x]) {
-            ctx.beginPath();
-            ctx.moveTo(cx, cy);
-            ctx.lineTo(cx, down * cellH + cellH / 2);
-            ctx.stroke();
-            linked = true;
-          }
-
-          if (!linked) {
-            ctx.fillStyle = "rgba(102, 202, 255, 0.95)";
-            ctx.beginPath();
-            ctx.arc(
-              cx,
-              cy,
-              Math.max(0.7, Math.min(cellW, cellH) * 0.25),
-              0,
-              Math.PI * 2
-            );
-            ctx.fill();
-          }
-        }
+      ctx.lineJoin = "round";
+      ctx.filter =
+        meshQuality === "high"
+          ? "blur(0.75px)"
+          : meshQuality === "medium"
+            ? "blur(0.6px)"
+            : "blur(0.45px)";
+      ctx.strokeStyle = "rgba(83, 188, 242, 0.34)";
+      ctx.lineWidth = Math.max(1.1, Math.min(cellW, cellH) * 0.5);
+      for (const path of riverPaths) {
+        drawCurvedPath(ctx, path);
+        ctx.stroke();
       }
+
+      ctx.filter = "none";
+      ctx.strokeStyle = "rgba(120, 220, 255, 0.94)";
+      ctx.lineWidth = Math.max(0.8, Math.min(cellW, cellH) * 0.24);
+      for (const path of riverPaths) {
+        drawCurvedPath(ctx, path);
+        ctx.stroke();
+      }
+      ctx.restore();
     }
 
     ctx.strokeStyle = "rgba(15, 23, 42, 0.28)";
@@ -1365,6 +1514,7 @@ export const MapSeedPreview = ({
     showBiomes,
     showHeight,
     showRivers,
+    showCells,
   ]);
 
   return (
@@ -1423,6 +1573,13 @@ export const MapSeedPreview = ({
             onClick={() => setShowRivers((prev) => !prev)}
           >
             {t("Rivers")}
+          </button>
+          <button
+            type="button"
+            className={`map-layer-chip${showCells ? " map-layer-chip--active" : ""}`}
+            onClick={() => setShowCells((prev) => !prev)}
+          >
+            {t("Cells")}
           </button>
         </div>
       </div>

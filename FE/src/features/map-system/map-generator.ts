@@ -47,7 +47,7 @@ export type MapGeneratorWorkerResponse = {
   layers: GeneratedMapLayers;
 };
 
-const MAP_GENERATOR_VERSION = "v3";
+const MAP_GENERATOR_VERSION = "v4";
 
 export const createMapCacheKey = (options: MapGeneratorOptions): string => {
   const cellsX = options.cellsX ?? 120;
@@ -162,21 +162,24 @@ const classifyBiome = (
     return "ocean";
   }
 
-  if (altitude <= seaLevel + 0.01) {
+  if (altitude <= seaLevel + 0.008) {
     return "beach";
   }
 
-  if (altitude > 0.96) {
+  if (altitude > 0.985) {
     return temperature < 0.28 ? "snow" : "rock";
   }
-  if (altitude > 0.9 && temperature < 0.24) {
+  if (altitude > 0.94 && moisture < 0.28) {
+    return "rock";
+  }
+  if (altitude > 0.91 && temperature < 0.24) {
     return "snow";
   }
 
-  if (temperature < 0.16) {
+  if (temperature < 0.13) {
     return "snow";
   }
-  if (temperature < 0.3) {
+  if (temperature < 0.28) {
     return moisture > 0.42 ? "taiga" : "tundra";
   }
 
@@ -475,6 +478,11 @@ export const generateMapLayers = (options: MapGeneratorOptions): GeneratedMapLay
       const riftNoise = Math.abs(
         fbm2D(options.seed, wx + 0.17, wy - 0.09, 2.9, 4, 2.0, 0.54, 1211) * 2 - 1
       );
+      const tectonicWarp = fbm2D(options.seed, wx - 0.21, wy + 0.19, 1.35, 4, 2.0, 0.53, 1709) * 2 - 1;
+      const plateSplit = Math.abs(
+        fbm2D(options.seed, wx + 0.29, wy + 0.11, 1.95, 4, 2.0, 0.52, 1741) * 2 - 1
+      );
+      const directionalDrift = nx * 0.16 + ny * -0.11;
 
       let altitude =
         continental * 0.24 +
@@ -482,11 +490,13 @@ export const generateMapLayers = (options: MapGeneratorOptions): GeneratedMapLay
         detail * 0.14 +
         ridge * 0.1 +
         continentMask * 0.34;
-      altitude = altitude - distanceFromCenter * 0.08;
-      altitude = altitude - edgePenalty * edgePenalty * 0.84 + edgeMask * 0.07 + 0.03;
+      altitude += tectonicWarp * 0.085 + directionalDrift * 0.05;
+      altitude = altitude - distanceFromCenter * 0.038;
+      altitude = altitude - edgePenalty * edgePenalty * 0.9 + edgeMask * 0.07 + 0.03;
       const coastAffinity = clamp(1 - Math.abs(continentMask - 0.46) / 0.46, 0, 1);
       altitude -= Math.max(0, coastCutNoise - 0.6) * coastAffinity * 0.2;
       altitude -= Math.max(0, riftNoise - 0.72) * 0.28;
+      altitude -= Math.max(0, plateSplit - 0.68) * 0.2;
       altitude = Math.pow(clamp(altitude, 0, 1), 1.16);
       altitude = clamp(altitude, 0, 1);
 

@@ -6,7 +6,7 @@ import {
   type MapGeneratorOptions,
 } from "../map-generator";
 
-const SIM_TERRAIN_VERSION = "sim-terrain-v2";
+const SIM_TERRAIN_VERSION = "sim-terrain-v3";
 
 export type SimulationTerrainWorkerRequest = {
   requestId: number;
@@ -24,6 +24,19 @@ export type SimulationTerrainWorkerResponse = {
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
+const hash01 = (seed: string, x: number, y: number, salt = 0): number => {
+  let h = 2166136261 ^ salt;
+  for (let i = 0; i < seed.length; i += 1) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  h ^= x + 0x9e3779b9;
+  h = Math.imul(h ^ (h >>> 16), 2246822507);
+  h ^= y + 0x85ebca6b;
+  h = Math.imul(h ^ (h >>> 13), 3266489909);
+  return ((h >>> 0) % 1000000) / 1000000;
+};
+
 const classifyBiome = (
   isLand: boolean,
   altitude: number,
@@ -35,21 +48,24 @@ const classifyBiome = (
     return "ocean";
   }
 
-  if (altitude <= seaLevel + 0.01) {
+  if (altitude <= seaLevel + 0.008) {
     return "beach";
   }
 
-  if (altitude > 0.96) {
+  if (altitude > 0.985) {
     return temperature < 0.28 ? "snow" : "rock";
   }
-  if (altitude > 0.9 && temperature < 0.24) {
+  if (altitude > 0.94 && moisture < 0.28) {
+    return "rock";
+  }
+  if (altitude > 0.91 && temperature < 0.24) {
     return "snow";
   }
 
-  if (temperature < 0.16) {
+  if (temperature < 0.13) {
     return "snow";
   }
-  if (temperature < 0.3) {
+  if (temperature < 0.28) {
     return moisture > 0.42 ? "taiga" : "tundra";
   }
 
@@ -363,8 +379,38 @@ export const generateSimulationLayers = (
         0,
         1
       );
-      moisture[y][x] = clamp(moisture[y][x] + (1 - altitudeNorm) * 0.035, 0, 1);
-      temperature[y][x] = clamp(temperature[y][x] - altitudeNorm * 0.07, 0, 1);
+      const latitude =
+        1 - Math.abs((y / Math.max(1, cellsY - 1)) * 2 - 1);
+      const moistureNoise = hash01(
+        options.seed,
+        x * 3 + 17,
+        y * 5 + 31,
+        2011
+      ) * 2 - 1;
+      const temperatureNoise = hash01(
+        options.seed,
+        x * 7 + 43,
+        y * 11 + 19,
+        2027
+      ) * 2 - 1;
+      const rainShadow = Math.max(0, altitudeNorm - 0.4) * (0.09 + (1 - latitude) * 0.06);
+      moisture[y][x] = clamp(
+        moisture[y][x] +
+          (1 - altitudeNorm) * 0.04 +
+          (latitude - 0.35) * 0.05 +
+          moistureNoise * 0.075 -
+          rainShadow,
+        0,
+        1
+      );
+      temperature[y][x] = clamp(
+        temperature[y][x] -
+          altitudeNorm * 0.12 +
+          (latitude - 0.5) * 0.09 +
+          temperatureNoise * 0.08,
+        0,
+        1
+      );
       isLand[y][x] = altitude > seaLevel;
     }
   }
@@ -387,10 +433,39 @@ export const generateSimulationLayers = (
         0,
         1
       );
+      const latitude =
+        1 - Math.abs((y / Math.max(1, cellsY - 1)) * 2 - 1);
       if (hydroFirst.river[y][x]) {
         moisture[y][x] = clamp(moisture[y][x] + 0.08, 0, 1);
       }
-      temperature[y][x] = clamp(temperature[y][x] - altitudeNorm * 0.02, 0, 1);
+      const moistureJitter = hash01(
+        options.seed,
+        x * 13 + 5,
+        y * 17 + 29,
+        2053
+      ) * 2 - 1;
+      const temperatureJitter = hash01(
+        options.seed,
+        x * 19 + 7,
+        y * 23 + 47,
+        2081
+      ) * 2 - 1;
+      moisture[y][x] = clamp(
+        moisture[y][x] +
+          moistureJitter * 0.045 -
+          Math.max(0, altitudeNorm - 0.3) * 0.04 +
+          (latitude - 0.45) * 0.03,
+        0,
+        1
+      );
+      temperature[y][x] = clamp(
+        temperature[y][x] -
+          altitudeNorm * 0.035 +
+          temperatureJitter * 0.04 +
+          (latitude - 0.5) * 0.03,
+        0,
+        1
+      );
       const land = altitude > seaLevel;
       isLand[y][x] = land;
       biome[y][x] = classifyBiome(
