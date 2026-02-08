@@ -151,6 +151,7 @@ const classifyBiome = (
 type TrianglePoint = { x: number; y: number };
 type MeshPoint = TrianglePoint & { r: number };
 type MeshFace = { a: number; b: number; c: number };
+type MeshCell = { site: number; vertices: TrianglePoint[] };
 type CircumTriangle = {
   a: number;
   b: number;
@@ -168,7 +169,6 @@ const QUALITY_SETTINGS: Record<
     minRadius: number;
     maxRadius: number;
     coastResolution: { cols: number; rows: number };
-    renderSubdivision: number;
     meshLineAlpha: number;
     meshLineWidth: number;
   }
@@ -178,27 +178,24 @@ const QUALITY_SETTINGS: Record<
     minRadius: 5.8,
     maxRadius: 24,
     coastResolution: { cols: 92, rows: 46 },
-    renderSubdivision: 0,
-    meshLineAlpha: 0.12,
-    meshLineWidth: 0.22,
+    meshLineAlpha: 0.1,
+    meshLineWidth: 0.52,
   },
   medium: {
     targetPoints: 2200,
     minRadius: 4.6,
     maxRadius: 20,
     coastResolution: { cols: 132, rows: 66 },
-    renderSubdivision: 0,
-    meshLineAlpha: 0.1,
-    meshLineWidth: 0.2,
+    meshLineAlpha: 0.09,
+    meshLineWidth: 0.46,
   },
   high: {
     targetPoints: 3400,
     minRadius: 3.6,
     maxRadius: 17,
     coastResolution: { cols: 186, rows: 93 },
-    renderSubdivision: 1,
-    meshLineAlpha: 0.085,
-    meshLineWidth: 0.18,
+    meshLineAlpha: 0.075,
+    meshLineWidth: 0.38,
   },
 };
 
@@ -491,6 +488,94 @@ const triangulateAdaptiveMesh = (
     .map((tri) => ({ a: tri.a, b: tri.b, c: tri.c }));
 };
 
+const buildVoronoiCells = (
+  points: MeshPoint[],
+  faces: MeshFace[],
+  width: number,
+  height: number
+): MeshCell[] => {
+  if (points.length === 0 || faces.length === 0) {
+    return [];
+  }
+  const plainPoints: TrianglePoint[] = points.map((point) => ({
+    x: point.x,
+    y: point.y,
+  }));
+  const centers: Array<TrianglePoint | null> = faces.map((face) => {
+    const circum = makeCircumTriangle(plainPoints, face.a, face.b, face.c);
+    if (!circum) {
+      const p1 = plainPoints[face.a];
+      const p2 = plainPoints[face.b];
+      const p3 = plainPoints[face.c];
+      return {
+        x: (p1.x + p2.x + p3.x) / 3,
+        y: (p1.y + p2.y + p3.y) / 3,
+      };
+    }
+    return {
+      x: clamp(circum.cx, 0, width),
+      y: clamp(circum.cy, 0, height),
+    };
+  });
+
+  const faceRefs: number[][] = Array.from({ length: points.length }, () => []);
+  faces.forEach((face, index) => {
+    faceRefs[face.a].push(index);
+    faceRefs[face.b].push(index);
+    faceRefs[face.c].push(index);
+  });
+
+  const cells: MeshCell[] = [];
+  for (let site = 0; site < points.length; site += 1) {
+    const refs = faceRefs[site];
+    if (refs.length < 3) {
+      continue;
+    }
+    const origin = points[site];
+    const uniqueRefs = Array.from(new Set(refs)).filter(
+      (index) => centers[index] !== null
+    );
+    if (uniqueRefs.length < 3) {
+      continue;
+    }
+    uniqueRefs.sort((a, b) => {
+      const pa = centers[a]!;
+      const pb = centers[b]!;
+      const aa = Math.atan2(pa.y - origin.y, pa.x - origin.x);
+      const ab = Math.atan2(pb.y - origin.y, pb.x - origin.x);
+      return aa - ab;
+    });
+
+    const vertices: TrianglePoint[] = [];
+    for (const index of uniqueRefs) {
+      const p = centers[index]!;
+      const x = clamp(p.x, 0, width);
+      const y = clamp(p.y, 0, height);
+      const last = vertices[vertices.length - 1];
+      if (!last || (Math.abs(last.x - x) > 0.35 || Math.abs(last.y - y) > 0.35)) {
+        vertices.push({ x, y });
+      }
+    }
+    if (vertices.length < 3) {
+      continue;
+    }
+
+    let area2 = 0;
+    for (let i = 0; i < vertices.length; i += 1) {
+      const a = vertices[i];
+      const b = vertices[(i + 1) % vertices.length];
+      area2 += a.x * b.y - b.x * a.y;
+    }
+    if (Math.abs(area2) < 2.5) {
+      continue;
+    }
+
+    cells.push({ site, vertices });
+  }
+
+  return cells;
+};
+
 const interpolateZero = (
   p1: TrianglePoint,
   v1: number,
@@ -632,7 +717,7 @@ export const MapSeedPreview = ({
   const activeRequestIdRef = useRef(0);
   const localCacheRef = useRef(new Map<string, GeneratedMapLayers>());
   const meshCacheRef = useRef(
-    new Map<string, { points: MeshPoint[]; faces: MeshFace[] }>()
+    new Map<string, { points: MeshPoint[]; faces: MeshFace[]; cells: MeshCell[] }>()
   );
   const latestOptionsRef = useRef<{
     seed: string;
@@ -828,7 +913,7 @@ export const MapSeedPreview = ({
 
     const qualitySetting = QUALITY_SETTINGS[meshQuality];
 
-    const meshKey = `${cacheKey}|mesh-random-v2|q:${meshQuality}|${previewWidth}x${previewHeight}`;
+    const meshKey = `${cacheKey}|mesh-polygons-v1|q:${meshQuality}|${previewWidth}x${previewHeight}`;
     let mesh = meshCacheRef.current.get(meshKey);
     if (!mesh) {
       const points = buildAdaptiveMeshPoints(
@@ -840,7 +925,8 @@ export const MapSeedPreview = ({
         meshQuality
       );
       const faces = triangulateAdaptiveMesh(points, previewWidth, previewHeight);
-      mesh = { points, faces };
+      const cells = buildVoronoiCells(points, faces, previewWidth, previewHeight);
+      mesh = { points, faces, cells };
       if (meshCacheRef.current.has(meshKey)) {
         meshCacheRef.current.delete(meshKey);
       }
@@ -856,13 +942,15 @@ export const MapSeedPreview = ({
       meshCacheRef.current.set(meshKey, mesh);
     }
 
-    const paintTriangle = (
-      p1: TrianglePoint,
-      p2: TrianglePoint,
-      p3: TrianglePoint
-    ) => {
-      const cx = (p1.x + p2.x + p3.x) / 3;
-      const cy = (p1.y + p2.y + p3.y) / 3;
+    const paintCell = (vertices: TrianglePoint[]) => {
+      let cx = 0;
+      let cy = 0;
+      for (const vertex of vertices) {
+        cx += vertex.x;
+        cy += vertex.y;
+      }
+      cx /= vertices.length;
+      cy /= vertices.length;
       const u = clamp(cx / Math.max(1, previewWidth - 1), 0, 1);
       const v = clamp(cy / Math.max(1, previewHeight - 1), 0, 1);
       const altitude = sampleBilinear(layers.height, u, v);
@@ -878,9 +966,10 @@ export const MapSeedPreview = ({
 
       ctx.fillStyle = fill;
       ctx.beginPath();
-      ctx.moveTo(p1.x, p1.y);
-      ctx.lineTo(p2.x, p2.y);
-      ctx.lineTo(p3.x, p3.y);
+      ctx.moveTo(vertices[0].x, vertices[0].y);
+      for (let i = 1; i < vertices.length; i += 1) {
+        ctx.lineTo(vertices[i].x, vertices[i].y);
+      }
       ctx.closePath();
       ctx.fill();
 
@@ -895,34 +984,8 @@ export const MapSeedPreview = ({
       ctx.stroke();
     };
 
-    for (const face of mesh.faces) {
-      const p1 = mesh.points[face.a];
-      const p2 = mesh.points[face.b];
-      const p3 = mesh.points[face.c];
-      if (qualitySetting.renderSubdivision <= 0) {
-        paintTriangle(p1, p2, p3);
-        continue;
-      }
-
-      let triangles: [TrianglePoint, TrianglePoint, TrianglePoint][] = [[
-        p1,
-        p2,
-        p3,
-      ]];
-      for (let level = 0; level < qualitySetting.renderSubdivision; level += 1) {
-        const next: [TrianglePoint, TrianglePoint, TrianglePoint][] = [];
-        for (const [a, b, c] of triangles) {
-          const ab: TrianglePoint = { x: (a.x + b.x) * 0.5, y: (a.y + b.y) * 0.5 };
-          const bc: TrianglePoint = { x: (b.x + c.x) * 0.5, y: (b.y + c.y) * 0.5 };
-          const ca: TrianglePoint = { x: (c.x + a.x) * 0.5, y: (c.y + a.y) * 0.5 };
-          next.push([a, ab, ca], [ab, b, bc], [ca, bc, c], [ab, bc, ca]);
-        }
-        triangles = next;
-      }
-
-      for (const [a, b, c] of triangles) {
-        paintTriangle(a, b, c);
-      }
+    for (const cell of mesh.cells) {
+      paintCell(cell.vertices);
     }
 
     drawSmoothCoastline(
