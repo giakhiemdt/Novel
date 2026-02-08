@@ -47,11 +47,14 @@ export type MapGeneratorWorkerResponse = {
   layers: GeneratedMapLayers;
 };
 
+const MAP_GENERATOR_VERSION = "v2";
+
 export const createMapCacheKey = (options: MapGeneratorOptions): string => {
   const cellsX = options.cellsX ?? 120;
   const cellsY = options.cellsY ?? 60;
   const seaLevel = clamp(options.seaLevel, 0, 1).toFixed(4);
   return [
+    MAP_GENERATOR_VERSION,
     options.seed,
     String(options.width),
     String(options.height),
@@ -92,6 +95,10 @@ const hash01 = (seed: string, x: number, y: number, salt = 0): number => {
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const smoothstep = (t: number) => t * t * (3 - 2 * t);
+const smootherstep = (t: number) => {
+  const c = clamp(t, 0, 1);
+  return c * c * c * (c * (c * 6 - 15) + 10);
+};
 
 const valueNoise2D = (
   seed: string,
@@ -199,6 +206,83 @@ const getNeighbors = (x: number, y: number, maxX: number, maxY: number) => {
   return out;
 };
 
+type ContinentBlob = {
+  cx: number;
+  cy: number;
+  rx: number;
+  ry: number;
+  weight: number;
+};
+
+const buildContinentBlobs = (seed: string): ContinentBlob[] => {
+  const blobs: ContinentBlob[] = [];
+  const majorCount = 3 + Math.floor(hash01(seed, 41, 53, 1301) * 2);
+  const minorCount = 5 + Math.floor(hash01(seed, 67, 79, 1309) * 3);
+
+  for (let i = 0; i < majorCount; i += 1) {
+    const cx = 0.5 + (hash01(seed, i * 37 + 11, i * 19 + 17, 1319) - 0.5) * 0.5;
+    const cy = 0.5 + (hash01(seed, i * 41 + 23, i * 29 + 31, 1327) - 0.5) * 0.44;
+    const rx = 0.2 + hash01(seed, i * 17 + 7, i * 13 + 5, 1361) * 0.19;
+    const ry = 0.16 + hash01(seed, i * 23 + 9, i * 11 + 3, 1367) * 0.18;
+    const weight = 0.72 + hash01(seed, i * 31 + 2, i * 7 + 13, 1373) * 0.28;
+    blobs.push({ cx, cy, rx, ry, weight });
+  }
+
+  for (let i = 0; i < minorCount; i += 1) {
+    const cx = 0.5 + (hash01(seed, i * 47 + 5, i * 13 + 37, 1409) - 0.5) * 0.72;
+    const cy = 0.5 + (hash01(seed, i * 29 + 29, i * 17 + 43, 1423) - 0.5) * 0.62;
+    const rx = 0.09 + hash01(seed, i * 13 + 59, i * 19 + 11, 1433) * 0.14;
+    const ry = 0.08 + hash01(seed, i * 31 + 73, i * 23 + 17, 1447) * 0.13;
+    const weight = 0.3 + hash01(seed, i * 11 + 47, i * 41 + 19, 1459) * 0.36;
+    blobs.push({ cx, cy, rx, ry, weight });
+  }
+
+  return blobs;
+};
+
+const sampleContinentMask = (u: number, v: number, blobs: ContinentBlob[]): number => {
+  let sum = 0;
+  let peak = 0;
+  for (const blob of blobs) {
+    const dx = (u - blob.cx) / blob.rx;
+    const dy = (v - blob.cy) / blob.ry;
+    const d2 = dx * dx + dy * dy;
+    const influence = Math.exp(-d2 * 1.9) * blob.weight;
+    sum += influence;
+    if (influence > peak) {
+      peak = influence;
+    }
+  }
+  return clamp(sum * 0.58 + peak * 0.9, 0, 1);
+};
+
+const applyOceanRim = (
+  height: number[][],
+  isLand: boolean[][],
+  seaLevel: number,
+  rimCells: number
+) => {
+  const cellsY = height.length;
+  const cellsX = height[0]?.length ?? 0;
+  const shallowSea = clamp(seaLevel - 0.025, 0, 1);
+  const deepSea = clamp(seaLevel - 0.1, 0, 1);
+
+  for (let y = 0; y < cellsY; y += 1) {
+    for (let x = 0; x < cellsX; x += 1) {
+      const dist = Math.min(x, cellsX - 1 - x, y, cellsY - 1 - y);
+      if (dist >= rimCells) {
+        continue;
+      }
+      const t = clamp(dist / Math.max(1, rimCells), 0, 1);
+      const maxAllowed = lerp(deepSea, shallowSea, smootherstep(t));
+      if (height[y][x] > maxAllowed) {
+        height[y][x] = maxAllowed;
+      }
+      isLand[y][x] = false;
+    }
+  }
+};
+
 const buildRiverLayer = (
   seed: string,
   height: number[][],
@@ -291,6 +375,8 @@ export const generateMapLayers = (options: MapGeneratorOptions): GeneratedMapLay
     options.climatePreset === "cold" ? -0.16 : options.climatePreset === "arid" ? 0.08 : 0;
   const climateMoistShift =
     options.climatePreset === "arid" ? -0.2 : options.climatePreset === "cold" ? -0.06 : 0;
+  const continentBlobs = buildContinentBlobs(options.seed);
+  const rimCells = Math.max(3, Math.floor(Math.min(cellsX, cellsY) * 0.08));
 
   for (let y = 0; y < cellsY; y += 1) {
     for (let x = 0; x < cellsX; x += 1) {
@@ -305,13 +391,25 @@ export const generateMapLayers = (options: MapGeneratorOptions): GeneratedMapLay
       const wx = ux + warpX * 0.08;
       const wy = uy + warpY * 0.08;
 
-      const continental = fbm2D(options.seed, wx, wy, 1.25, 5, 2.0, 0.52, 101);
-      const detail = fbm2D(options.seed, wx, wy, 4.6, 4, 2.0, 0.52, 303);
+      const continental = fbm2D(options.seed, wx, wy, 0.96, 5, 2.0, 0.52, 101);
+      const regional = fbm2D(options.seed, wx, wy, 2.15, 4, 2.05, 0.54, 219);
+      const detail = fbm2D(options.seed, wx, wy, 5.1, 4, 2.0, 0.52, 303);
       const ridgeRaw = fbm2D(options.seed, wx, wy, 7.8, 3, 2.0, 0.55, 505);
       const ridge = 1 - Math.abs(ridgeRaw * 2 - 1);
+      const continentMaskRaw = sampleContinentMask(wx, wy, continentBlobs);
+      const continentMask = smoothstep(clamp((continentMaskRaw - 0.2) / 0.62, 0, 1));
+      const edgeDistance = Math.min(ux, 1 - ux, uy, 1 - uy);
+      const edgeMask = smootherstep(clamp((edgeDistance - 0.04) / 0.28, 0, 1));
+      const edgePenalty = 1 - edgeMask;
 
-      let altitude = continental * 0.58 + detail * 0.28 + ridge * 0.14;
-      altitude = altitude - distanceFromCenter * 0.45 + 0.18;
+      let altitude =
+        continental * 0.31 +
+        regional * 0.24 +
+        detail * 0.15 +
+        ridge * 0.13 +
+        continentMask * 0.43;
+      altitude = altitude - distanceFromCenter * 0.12;
+      altitude = altitude - edgePenalty * edgePenalty * 0.85 + edgeMask * 0.08 + 0.04;
       altitude = clamp(altitude, 0, 1);
 
       const latitude = 1 - Math.abs(uy * 2 - 1);
@@ -335,6 +433,23 @@ export const generateMapLayers = (options: MapGeneratorOptions): GeneratedMapLay
       temperature[y][x] = heat;
       isLand[y][x] = land;
       biome[y][x] = tileBiome;
+    }
+  }
+
+  applyOceanRim(height, isLand, seaLevel, rimCells);
+
+  for (let y = 0; y < cellsY; y += 1) {
+    for (let x = 0; x < cellsX; x += 1) {
+      const altitude = height[y][x];
+      const land = altitude > seaLevel && isLand[y][x];
+      isLand[y][x] = land;
+      biome[y][x] = classifyBiome(
+        land,
+        altitude,
+        seaLevel,
+        moisture[y][x],
+        temperature[y][x]
+      );
     }
   }
 
