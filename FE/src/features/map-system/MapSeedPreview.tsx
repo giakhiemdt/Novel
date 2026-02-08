@@ -90,6 +90,64 @@ const normalizeClimate = (value: string): ClimatePreset => {
   return "temperate";
 };
 
+const sampleBilinear = (matrix: number[][], u: number, v: number): number => {
+  const rows = matrix.length;
+  const cols = matrix[0]?.length ?? 0;
+  if (rows === 0 || cols === 0) {
+    return 0;
+  }
+  const x = clamp(u, 0, 1) * (cols - 1);
+  const y = clamp(v, 0, 1) * (rows - 1);
+  const x0 = Math.floor(x);
+  const y0 = Math.floor(y);
+  const x1 = Math.min(cols - 1, x0 + 1);
+  const y1 = Math.min(rows - 1, y0 + 1);
+  const tx = x - x0;
+  const ty = y - y0;
+
+  const v00 = matrix[y0][x0];
+  const v10 = matrix[y0][x1];
+  const v01 = matrix[y1][x0];
+  const v11 = matrix[y1][x1];
+
+  const top = v00 + (v10 - v00) * tx;
+  const bottom = v01 + (v11 - v01) * tx;
+  return top + (bottom - top) * ty;
+};
+
+const classifyBiome = (
+  altitude: number,
+  seaLevel: number,
+  moisture: number,
+  temperature: number
+): BiomeKind => {
+  if (altitude <= seaLevel) {
+    return "ocean";
+  }
+  if (altitude <= seaLevel + 0.018) {
+    return "beach";
+  }
+  if (altitude > 0.9) {
+    return temperature < 0.28 ? "snow" : "rock";
+  }
+  if (temperature < 0.16) {
+    return "snow";
+  }
+  if (temperature < 0.3) {
+    return moisture > 0.42 ? "taiga" : "tundra";
+  }
+  if (moisture < 0.17) {
+    return "desert";
+  }
+  if (moisture < 0.34) {
+    return temperature > 0.58 ? "savanna" : "grassland";
+  }
+  if (moisture < 0.66) {
+    return "forest";
+  }
+  return temperature > 0.45 ? "rainforest" : "forest";
+};
+
 const MAX_LOCAL_CACHE_SIZE = 20;
 
 export const MapSeedPreview = ({
@@ -266,12 +324,24 @@ export const MapSeedPreview = ({
     const cellH = previewHeight / layers.cellsY;
 
     ctx.clearRect(0, 0, previewWidth, previewHeight);
+    const imageData = ctx.createImageData(previewWidth, previewHeight);
+    const data = imageData.data;
 
-    for (let y = 0; y < layers.cellsY; y += 1) {
-      for (let x = 0; x < layers.cellsX; x += 1) {
-        const altitude = layers.height[y][x];
-        const isLand = layers.isLand[y][x];
-        const biome = layers.biome[y][x];
+    for (let py = 0; py < previewHeight; py += 1) {
+      const v = py / Math.max(1, previewHeight - 1);
+      for (let px = 0; px < previewWidth; px += 1) {
+        const u = px / Math.max(1, previewWidth - 1);
+
+        const altitude = sampleBilinear(layers.height, u, v);
+        const moisture = sampleBilinear(layers.moisture, u, v);
+        const temperature = sampleBilinear(layers.temperature, u, v);
+        const isLand = altitude > options.seaLevel;
+        const biome = classifyBiome(
+          altitude,
+          options.seaLevel,
+          moisture,
+          temperature
+        );
 
         let color = showBiomes
           ? biomeColorMap[biome]
@@ -291,10 +361,16 @@ export const MapSeedPreview = ({
           }
         }
 
-        ctx.fillStyle = color;
-        ctx.fillRect(x * cellW, y * cellH, Math.ceil(cellW), Math.ceil(cellH));
+        const rgb = hexToRgb(color);
+        const index = (py * previewWidth + px) * 4;
+        data[index] = rgb.r;
+        data[index + 1] = rgb.g;
+        data[index + 2] = rgb.b;
+        data[index + 3] = 255;
       }
     }
+
+    ctx.putImageData(imageData, 0, 0);
 
     if (showRivers) {
       ctx.strokeStyle = "rgba(102, 202, 255, 0.92)";

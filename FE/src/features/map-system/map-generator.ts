@@ -90,24 +90,58 @@ const hash01 = (seed: string, x: number, y: number, salt = 0): number => {
   return ((h >>> 0) % 1000000) / 1000000;
 };
 
-const fractalNoise = (
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+const smoothstep = (t: number) => t * t * (3 - 2 * t);
+
+const valueNoise2D = (
   seed: string,
   x: number,
   y: number,
-  scale = 1,
+  frequency: number,
   salt = 0
 ): number => {
-  const x1 = Math.floor((x * scale) / 3);
-  const y1 = Math.floor((y * scale) / 3);
-  const x2 = Math.floor((x * scale) / 7);
-  const y2 = Math.floor((y * scale) / 7);
-  const x3 = Math.floor((x * scale) / 13);
-  const y3 = Math.floor((y * scale) / 13);
+  const sx = x * frequency;
+  const sy = y * frequency;
 
-  const n1 = hash01(seed, x1, y1, salt + 11);
-  const n2 = hash01(seed, x2, y2, salt + 23);
-  const n3 = hash01(seed, x3, y3, salt + 37);
-  return n1 * 0.55 + n2 * 0.3 + n3 * 0.15;
+  const x0 = Math.floor(sx);
+  const y0 = Math.floor(sy);
+  const x1 = x0 + 1;
+  const y1 = y0 + 1;
+
+  const tx = smoothstep(sx - x0);
+  const ty = smoothstep(sy - y0);
+
+  const v00 = hash01(seed, x0, y0, salt + 11);
+  const v10 = hash01(seed, x1, y0, salt + 23);
+  const v01 = hash01(seed, x0, y1, salt + 37);
+  const v11 = hash01(seed, x1, y1, salt + 47);
+
+  const top = lerp(v00, v10, tx);
+  const bottom = lerp(v01, v11, tx);
+  return lerp(top, bottom, ty);
+};
+
+const fbm2D = (
+  seed: string,
+  x: number,
+  y: number,
+  frequency: number,
+  octaves: number,
+  lacunarity: number,
+  gain: number,
+  salt: number
+): number => {
+  let amplitude = 1;
+  let total = 0;
+  let sum = 0;
+  let freq = frequency;
+  for (let i = 0; i < octaves; i += 1) {
+    total += valueNoise2D(seed, x, y, freq, salt + i * 97) * amplitude;
+    sum += amplitude;
+    amplitude *= gain;
+    freq *= lacunarity;
+  }
+  return sum > 0 ? total / sum : 0;
 };
 
 const classifyBiome = (
@@ -246,8 +280,6 @@ export const generateMapLayers = (options: MapGeneratorOptions): GeneratedMapLay
   const cellsY = clamp(options.cellsY ?? 60, 32, 140);
 
   const seaLevel = clamp(options.seaLevel, 0, 1);
-  const widthScale = Math.max(1, Math.floor(options.width / cellsX));
-  const heightScale = Math.max(1, Math.floor(options.height / cellsY));
 
   const height = make2D(cellsY, cellsX, () => 0);
   const moisture = make2D(cellsY, cellsX, () => 0);
@@ -262,31 +294,36 @@ export const generateMapLayers = (options: MapGeneratorOptions): GeneratedMapLay
 
   for (let y = 0; y < cellsY; y += 1) {
     for (let x = 0; x < cellsX; x += 1) {
-      const sampleX = x * widthScale;
-      const sampleY = y * heightScale;
-
-      const nx = x / (cellsX - 1) - 0.5;
-      const ny = y / (cellsY - 1) - 0.5;
+      const ux = x / Math.max(1, cellsX - 1);
+      const uy = y / Math.max(1, cellsY - 1);
+      const nx = ux - 0.5;
+      const ny = uy - 0.5;
       const distanceFromCenter = Math.sqrt(nx * nx + ny * ny);
 
-      const continental = fractalNoise(options.seed, sampleX, sampleY, 1, 101);
-      const detail = fractalNoise(options.seed, sampleX, sampleY, 2.7, 303);
-      const ridge = fractalNoise(options.seed, sampleX, sampleY, 4.2, 505);
+      const warpX = fbm2D(options.seed, ux, uy, 1.6, 3, 2.15, 0.52, 17) * 2 - 1;
+      const warpY = fbm2D(options.seed, ux, uy, 1.6, 3, 2.15, 0.52, 29) * 2 - 1;
+      const wx = ux + warpX * 0.08;
+      const wy = uy + warpY * 0.08;
+
+      const continental = fbm2D(options.seed, wx, wy, 1.25, 5, 2.0, 0.52, 101);
+      const detail = fbm2D(options.seed, wx, wy, 4.6, 4, 2.0, 0.52, 303);
+      const ridgeRaw = fbm2D(options.seed, wx, wy, 7.8, 3, 2.0, 0.55, 505);
+      const ridge = 1 - Math.abs(ridgeRaw * 2 - 1);
 
       let altitude = continental * 0.58 + detail * 0.28 + ridge * 0.14;
-      altitude = altitude - distanceFromCenter * 0.52 + 0.22;
+      altitude = altitude - distanceFromCenter * 0.45 + 0.18;
       altitude = clamp(altitude, 0, 1);
 
-      const latitude = 1 - Math.abs((y / (cellsY - 1)) * 2 - 1);
+      const latitude = 1 - Math.abs(uy * 2 - 1);
       let wetness =
-        fractalNoise(options.seed, sampleX, sampleY, 2, 707) * 0.65 +
+        fbm2D(options.seed, wx, wy, 3.4, 4, 2.0, 0.55, 707) * 0.65 +
         latitude * 0.2 +
         (1 - Math.max(0, altitude - seaLevel)) * 0.15;
       wetness = clamp(wetness + climateMoistShift, 0, 1);
 
       let heat =
         latitude * 0.72 +
-        fractalNoise(options.seed, sampleX, sampleY, 1.6, 809) * 0.28 -
+        fbm2D(options.seed, wx, wy, 2.8, 4, 2.0, 0.55, 809) * 0.28 -
         Math.max(0, altitude - 0.55) * 0.34;
       heat = clamp(heat + climateTempShift, 0, 1);
 
