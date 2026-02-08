@@ -129,11 +129,14 @@ const classifyBiome = (
   if (altitude <= seaLevel) {
     return "ocean";
   }
-  if (altitude <= seaLevel + 0.012) {
+  if (altitude <= seaLevel + 0.01) {
     return "beach";
   }
-  if (altitude > 0.9) {
+  if (altitude > 0.96) {
     return temperature < 0.28 ? "snow" : "rock";
+  }
+  if (altitude > 0.9 && temperature < 0.24) {
+    return "snow";
   }
   if (temperature < 0.16) {
     return "snow";

@@ -47,7 +47,7 @@ export type MapGeneratorWorkerResponse = {
   layers: GeneratedMapLayers;
 };
 
-const MAP_GENERATOR_VERSION = "v2";
+const MAP_GENERATOR_VERSION = "v3";
 
 export const createMapCacheKey = (options: MapGeneratorOptions): string => {
   const cellsX = options.cellsX ?? 120;
@@ -162,7 +162,7 @@ const classifyBiome = (
     return "ocean";
   }
 
-  if (altitude <= seaLevel + 0.018) {
+  if (altitude <= seaLevel + 0.01) {
     return "beach";
   }
 
@@ -289,6 +289,66 @@ const applyOceanRim = (
         height[y][x] = maxAllowed;
       }
       isLand[y][x] = false;
+    }
+  }
+};
+
+const smoothCoastalHeight = (
+  height: number[][],
+  seaLevel: number,
+  iterations: number
+) => {
+  const cellsY = height.length;
+  const cellsX = height[0]?.length ?? 0;
+  if (cellsY === 0 || cellsX === 0) {
+    return;
+  }
+
+  for (let step = 0; step < iterations; step += 1) {
+    const next = make2D(cellsY, cellsX, (x, y) => height[y][x]);
+    for (let y = 0; y < cellsY; y += 1) {
+      for (let x = 0; x < cellsX; x += 1) {
+        const here = height[y][x];
+        const neighbors = getNeighbors(x, y, cellsX, cellsY);
+        if (neighbors.length === 0) {
+          continue;
+        }
+
+        let sum = here * 2.1;
+        let seaCount = 0;
+        let landCount = 0;
+        for (const n of neighbors) {
+          const nh = height[n.y][n.x];
+          sum += nh;
+          if (nh > seaLevel) {
+            landCount += 1;
+          } else {
+            seaCount += 1;
+          }
+        }
+
+        const mixed = sum / (neighbors.length + 2.1);
+        const isCoast = seaCount > 0 && landCount > 0;
+        const nearCoastBand = Math.abs(here - seaLevel) < 0.08;
+        if (!isCoast && !nearCoastBand) {
+          continue;
+        }
+
+        let value = lerp(here, mixed, isCoast ? 0.48 : 0.24);
+        if (here > seaLevel && landCount <= 2) {
+          value -= 0.022;
+        }
+        if (here <= seaLevel && landCount >= neighbors.length - 1) {
+          value += 0.014;
+        }
+        next[y][x] = clamp(value, 0, 1);
+      }
+    }
+
+    for (let y = 0; y < cellsY; y += 1) {
+      for (let x = 0; x < cellsX; x += 1) {
+        height[y][x] = next[y][x];
+      }
     }
   }
 };
@@ -431,16 +491,34 @@ export const generateMapLayers = (options: MapGeneratorOptions): GeneratedMapLay
       altitude = clamp(altitude, 0, 1);
 
       const latitude = 1 - Math.abs(uy * 2 - 1);
+      const altitudeNorm = clamp(
+        (altitude - seaLevel) / Math.max(0.001, 1 - seaLevel),
+        0,
+        1
+      );
+      const humidityMacro = fbm2D(options.seed, wx, wy, 1.05, 4, 2.0, 0.56, 1501);
+      const humidityDetail = fbm2D(options.seed, wx, wy, 4.25, 3, 2.0, 0.54, 1511);
+      const humidityBand = fbm2D(options.seed, wx, wy, 0.74, 3, 2.0, 0.5, 1523) * 2 - 1;
+      const dryPocket = Math.max(0, fbm2D(options.seed, wx, wy, 2.45, 3, 2.0, 0.55, 1543) - 0.63);
+      const wetPocket = Math.max(0, fbm2D(options.seed, wx, wy, 2.1, 3, 2.0, 0.54, 1559) - 0.65);
       let wetness =
-        fbm2D(options.seed, wx, wy, 3.4, 4, 2.0, 0.55, 707) * 0.65 +
-        latitude * 0.2 +
-        (1 - Math.max(0, altitude - seaLevel)) * 0.15;
+        humidityMacro * 0.42 +
+        humidityDetail * 0.22 +
+        latitude * 0.16 +
+        (1 - altitudeNorm) * 0.14 +
+        humidityBand * 0.14 -
+        dryPocket * 0.23 +
+        wetPocket * 0.2;
       wetness = clamp(wetness + climateMoistShift, 0, 1);
 
+      const heatMacro = fbm2D(options.seed, wx + 0.08, wy - 0.04, 0.88, 4, 2.0, 0.54, 1601) * 2 - 1;
+      const heatDetail = fbm2D(options.seed, wx, wy, 3.1, 3, 2.0, 0.53, 1613) * 2 - 1;
       let heat =
-        latitude * 0.72 +
-        fbm2D(options.seed, wx, wy, 2.8, 4, 2.0, 0.55, 809) * 0.28 -
-        Math.max(0, altitude - 0.55) * 0.34;
+        latitude * 0.63 +
+        0.22 +
+        heatMacro * 0.14 +
+        heatDetail * 0.09 -
+        Math.max(0, altitudeNorm - 0.22) * 0.46;
       heat = clamp(heat + climateTempShift, 0, 1);
 
       const land = altitude > seaLevel;
@@ -455,6 +533,7 @@ export const generateMapLayers = (options: MapGeneratorOptions): GeneratedMapLay
   }
 
   applyOceanRim(height, isLand, seaLevel, rimCells);
+  smoothCoastalHeight(height, seaLevel, 2);
 
   for (let y = 0; y < cellsY; y += 1) {
     for (let x = 0; x < cellsX; x += 1) {
