@@ -205,32 +205,63 @@ const QUALITY_SETTINGS: Record<
   },
 };
 
-const sampleLandDensity = (
-  heightMap: number[][],
-  seaLevel: number,
+const sampleBiomeEdgeDensity = (
+  layers: GeneratedMapLayers,
   u: number,
   v: number
 ): number => {
-  const offsets = [
-    { du: 0, dv: 0, w: 0.3 },
-    { du: -0.025, dv: 0, w: 0.1 },
-    { du: 0.025, dv: 0, w: 0.1 },
-    { du: 0, dv: -0.025, w: 0.1 },
-    { du: 0, dv: 0.025, w: 0.1 },
-    { du: -0.04, dv: -0.02, w: 0.075 },
-    { du: 0.04, dv: -0.02, w: 0.075 },
-    { du: -0.04, dv: 0.02, w: 0.075 },
-    { du: 0.04, dv: 0.02, w: 0.075 },
-  ];
-
-  let sum = 0;
-  for (const item of offsets) {
-    const a = sampleBilinear(heightMap, u + item.du, v + item.dv);
-    if (a > seaLevel) {
-      sum += item.w;
+  const cellsX = layers.cellsX;
+  const cellsY = layers.cellsY;
+  const cx = clamp(Math.round(u * (cellsX - 1)), 0, cellsX - 1);
+  const cy = clamp(Math.round(v * (cellsY - 1)), 0, cellsY - 1);
+  const center = layers.biome[cy][cx];
+  let diff = 0;
+  let total = 0;
+  for (let oy = -1; oy <= 1; oy += 1) {
+    for (let ox = -1; ox <= 1; ox += 1) {
+      if (ox === 0 && oy === 0) {
+        continue;
+      }
+      const x = cx + ox;
+      const y = cy + oy;
+      if (x < 0 || x >= cellsX || y < 0 || y >= cellsY) {
+        continue;
+      }
+      total += 1;
+      if (layers.biome[y][x] !== center) {
+        diff += 1;
+      }
     }
   }
-  return clamp(sum, 0, 1);
+  if (total === 0) {
+    return 0;
+  }
+  return clamp(diff / total, 0, 1);
+};
+
+const sampleHeightVariation = (
+  heightMap: number[][],
+  u: number,
+  v: number
+): number => {
+  const center = sampleBilinear(heightMap, u, v);
+  const offsets = [
+    { du: -0.012, dv: 0 },
+    { du: 0.012, dv: 0 },
+    { du: 0, dv: -0.012 },
+    { du: 0, dv: 0.012 },
+    { du: -0.018, dv: -0.011 },
+    { du: 0.018, dv: -0.011 },
+    { du: -0.018, dv: 0.011 },
+    { du: 0.018, dv: 0.011 },
+  ];
+  let sum = 0;
+  for (const item of offsets) {
+    const next = sampleBilinear(heightMap, u + item.du, v + item.dv);
+    sum += Math.abs(next - center);
+  }
+  const avgDelta = sum / offsets.length;
+  return clamp(avgDelta * 9.5, 0, 1);
 };
 
 const hashString32 = (value: string): number => {
@@ -342,28 +373,32 @@ const buildAdaptiveMeshPoints = (
     const u = x / Math.max(1, width - 1);
     const v = y / Math.max(1, height - 1);
     const altitude = sampleBilinear(layers.height, u, v);
-    const landDensity = sampleLandDensity(layers.height, seaLevel, u, v);
-    const altNorm = clamp(
-      (altitude - seaLevel) / Math.max(0.001, 1 - seaLevel),
+    const slopeFactor = sampleHeightVariation(layers.height, u, v);
+    const biomeEdge = sampleBiomeEdgeDensity(layers, u, v);
+    const coastFactor = 1 - clamp(Math.abs(altitude - seaLevel) / 0.055, 0, 1);
+    const featureDensity = clamp(
+      biomeEdge * 0.68 + slopeFactor * 0.57 + coastFactor * 0.24,
       0,
       1
     );
-    const coastFactor = 1 - clamp(Math.abs(altitude - seaLevel) / 0.08, 0, 1);
-    const detail = clamp(
-      landDensity * 0.55 + altNorm * 0.3 + coastFactor * 0.35,
+    const homogeneous = clamp(
+      1 - Math.max(biomeEdge * 1.2, slopeFactor * 1.1, coastFactor * 0.85),
       0,
       1
     );
-    const acceptProb = 0.08 + detail * 0.92;
+    const acceptProb = clamp(
+      0.05 + featureDensity * 0.9 - homogeneous * 0.24,
+      0.025,
+      0.98
+    );
     if (rng() > acceptProb) {
       continue;
     }
 
-    const r = clamp(
-      setting.maxRadius - detail * (setting.maxRadius - setting.minRadius),
-      setting.minRadius,
-      setting.maxRadius
-    );
+    const span = setting.maxRadius - setting.minRadius;
+    const denseRadius = setting.maxRadius - featureDensity * span;
+    const sparseBoost = homogeneous * span * 0.32;
+    const r = clamp(denseRadius + sparseBoost, setting.minRadius, setting.maxRadius);
     pushPoint(x, y, r);
   }
 
