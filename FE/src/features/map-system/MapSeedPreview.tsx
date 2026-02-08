@@ -124,7 +124,7 @@ const classifyBiome = (
   if (altitude <= seaLevel) {
     return "ocean";
   }
-  if (altitude <= seaLevel + 0.018) {
+  if (altitude <= seaLevel + 0.012) {
     return "beach";
   }
   if (altitude > 0.9) {
@@ -174,25 +174,25 @@ const QUALITY_SETTINGS: Record<
   }
 > = {
   low: {
-    targetPoints: 1300,
-    minRadius: 5.8,
-    maxRadius: 24,
+    targetPoints: 1800,
+    minRadius: 4.9,
+    maxRadius: 20,
     coastResolution: { cols: 92, rows: 46 },
     meshLineAlpha: 0.1,
     meshLineWidth: 0.52,
   },
   medium: {
-    targetPoints: 2200,
-    minRadius: 4.6,
-    maxRadius: 20,
+    targetPoints: 3200,
+    minRadius: 3.9,
+    maxRadius: 15.5,
     coastResolution: { cols: 132, rows: 66 },
     meshLineAlpha: 0.09,
     meshLineWidth: 0.46,
   },
   high: {
-    targetPoints: 3400,
-    minRadius: 3.6,
-    maxRadius: 17,
+    targetPoints: 5000,
+    minRadius: 2.95,
+    maxRadius: 12.5,
     coastResolution: { cols: 186, rows: 93 },
     meshLineAlpha: 0.075,
     meshLineWidth: 0.38,
@@ -664,39 +664,48 @@ const drawSmoothCoastline = (
   const sx = width / Math.max(1, cols - 1);
   const sy = height / Math.max(1, rows - 1);
 
-  ctx.save();
-  ctx.strokeStyle = "rgba(203, 217, 228, 0.55)";
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.lineWidth = quality === "high" ? 2.2 : quality === "medium" ? 1.9 : 1.6;
-  ctx.beginPath();
+  const traceCoastSegments = () => {
+    ctx.beginPath();
+    for (let j = 0; j < rows - 1; j += 1) {
+      for (let i = 0; i < cols - 1; i += 1) {
+        const a = scalar[j][i];
+        const b = scalar[j][i + 1];
+        const c = scalar[j + 1][i + 1];
+        const d = scalar[j + 1][i];
+        const mask =
+          (a > 0 ? 1 : 0) |
+          (b > 0 ? 2 : 0) |
+          (c > 0 ? 4 : 0) |
+          (d > 0 ? 8 : 0);
 
-  for (let j = 0; j < rows - 1; j += 1) {
-    for (let i = 0; i < cols - 1; i += 1) {
-      const a = scalar[j][i];
-      const b = scalar[j][i + 1];
-      const c = scalar[j + 1][i + 1];
-      const d = scalar[j + 1][i];
-      const mask =
-        (a > 0 ? 1 : 0) |
-        (b > 0 ? 2 : 0) |
-        (c > 0 ? 4 : 0) |
-        (d > 0 ? 8 : 0);
+        const segments = segmentsByCase[mask];
+        if (!segments || segments.length === 0) {
+          continue;
+        }
 
-      const segments = segmentsByCase[mask];
-      if (!segments || segments.length === 0) {
-        continue;
-      }
-
-      for (const [e1, e2] of segments) {
-        const p1 = edgePoint(e1, i, j, a, b, c, d);
-        const p2 = edgePoint(e2, i, j, a, b, c, d);
-        ctx.moveTo(p1.x * sx, p1.y * sy);
-        ctx.lineTo(p2.x * sx, p2.y * sy);
+        for (const [e1, e2] of segments) {
+          const p1 = edgePoint(e1, i, j, a, b, c, d);
+          const p2 = edgePoint(e2, i, j, a, b, c, d);
+          ctx.moveTo(p1.x * sx, p1.y * sy);
+          ctx.lineTo(p2.x * sx, p2.y * sy);
+        }
       }
     }
-  }
+  };
 
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.filter = quality === "high" ? "blur(1.8px)" : quality === "medium" ? "blur(1.45px)" : "blur(1.1px)";
+  ctx.strokeStyle = "rgba(92, 159, 206, 0.34)";
+  ctx.lineWidth = quality === "high" ? 5.8 : quality === "medium" ? 4.8 : 3.9;
+  traceCoastSegments();
+  ctx.stroke();
+
+  ctx.filter = "none";
+  ctx.strokeStyle = "rgba(37, 96, 142, 0.26)";
+  ctx.lineWidth = quality === "high" ? 1.5 : quality === "medium" ? 1.35 : 1.2;
+  traceCoastSegments();
   ctx.stroke();
   ctx.restore();
 };
