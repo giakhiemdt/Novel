@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useI18n } from "../../i18n/I18nProvider";
+import { Button } from "../../components/common/Button";
 import { commandRegistry } from "./commandRegistry";
 
 const shortcuts = [
@@ -9,6 +11,7 @@ const shortcuts = [
 
 export const CommandDocs = () => {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
 
   const normalized = query.trim().toLowerCase();
@@ -50,6 +53,20 @@ export const CommandDocs = () => {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card__header">
+          <div>
+            <h4 className="section-title">{t("Node Documentation")}</h4>
+            <p className="header__subtitle">
+              {t("Browse nodes and open detailed data contracts.")}
+            </p>
+          </div>
+          <Button variant="ghost" onClick={() => navigate("/node-docs")}>
+            {t("Open node docs")}
+          </Button>
         </div>
       </div>
 

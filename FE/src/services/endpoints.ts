@@ -6,6 +6,7 @@ export const endpoints = {
   races: "/races",
   rankSystems: "/rank-systems",
   ranks: "/ranks",
+  mapSystems: "/map-systems",
   specialAbilities: "/special-abilities",
   schemas: "/schemas",
   timelines: "/timelines",

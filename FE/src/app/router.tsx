@@ -13,9 +13,12 @@ import { ConflictCheck } from "../features/conflict/ConflictCheck";
 import { WorldRuleCreate } from "../features/worldrule/WorldRuleCreate";
 import { RaceCreate } from "../features/race/RaceCreate";
 import { RankCreate } from "../features/rank/RankCreate";
+import { RankSystemCreate } from "../features/rank-system/RankSystemCreate";
+import { MapSystemCreate } from "../features/map-system/MapSystemCreate";
 import { SpecialAbilityCreate } from "../features/special-ability/SpecialAbilityCreate";
 import { SchemaManager } from "../features/schema/SchemaManager";
 import { CommandDocs } from "../features/command/CommandDocs";
+import { NodeDocsPage } from "../features/node-docs/NodeDocsPage";
 import { Settings } from "./Settings";
 import { Dashboard } from "./Dashboard";
 import { Home } from "./Home";
@@ -27,10 +30,14 @@ export const AppRouter = () => {
       <Route path="/overview" element={<Dashboard />} />
       <Route path="/characters" element={<CharacterCreate />} />
       <Route path="/races" element={<RaceCreate />} />
+      <Route path="/rank-systems" element={<RankSystemCreate />} />
       <Route path="/ranks" element={<RankCreate />} />
+      <Route path="/map-systems" element={<MapSystemCreate />} />
       <Route path="/special-abilities" element={<SpecialAbilityCreate />} />
       <Route path="/schemas" element={<SchemaManager />} />
       <Route path="/tcode-docs" element={<CommandDocs />} />
+      <Route path="/node-docs" element={<NodeDocsPage />} />
+      <Route path="/node-docs/:nodeId" element={<NodeDocsPage />} />
       <Route path="/timelines" element={<TimelineCreate />} />
       <Route path="/locations" element={<LocationCreate />} />
       <Route path="/factions" element={<FactionCreate />} />

@@ -6,7 +6,7 @@ export type FilterPanelProps = {
   defaultOpen?: boolean;
 };
 
-export const FilterPanel = ({ children, defaultOpen = true }: FilterPanelProps) => {
+export const FilterPanel = ({ children, defaultOpen = false }: FilterPanelProps) => {
   const { t } = useI18n();
   const [open, setOpen] = useState(defaultOpen);
 

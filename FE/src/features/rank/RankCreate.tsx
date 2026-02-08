@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/common/Button";
 import { FilterPanel } from "../../components/common/FilterPanel";
 import { Pagination } from "../../components/common/Pagination";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
+import { Select } from "../../components/form/Select";
 import { TextArea } from "../../components/form/TextArea";
 import { TextInput } from "../../components/form/TextInput";
 import { useForm } from "../../hooks/useForm";
@@ -24,11 +26,14 @@ import { RankBoard, type RankLinkSelection } from "./RankBoard";
 import { RankList } from "./RankList";
 import { validateRank } from "./rank.schema";
 import type { Rank, RankCondition, RankPayload } from "./rank.types";
+import { getAllRankSystems } from "../rank-system/rank-system.api";
+import type { RankSystem } from "../rank-system/rank-system.types";
 
 const initialState = {
   name: "",
   alias: [] as string[],
   tier: "",
+  systemId: "",
   system: "",
   description: "",
   notes: "",
@@ -67,9 +72,11 @@ const normalizeConditionPayload = (conditions: RankCondition[]): RankCondition[]
 
 export const RankCreate = () => {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const { values, setField, reset } = useForm<RankFormState>(initialState);
   const [items, setItems] = useState<Rank[]>([]);
   const [boardItems, setBoardItems] = useState<Rank[]>([]);
+  const [rankSystems, setRankSystems] = useState<RankSystem[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<Rank | null>(null);
   const [editValues, setEditValues] = useState<RankFormState | null>(null);
@@ -95,6 +102,7 @@ export const RankCreate = () => {
     name: "",
     tag: "",
     tier: "",
+    systemId: "",
     system: "",
   });
   const [refreshKey, setRefreshKey] = useState(0);
@@ -155,6 +163,15 @@ export const RankCreate = () => {
     }
   }, [getAllRanks, notify]);
 
+  const loadRankSystems = useCallback(async () => {
+    try {
+      const data = await getAllRankSystems();
+      setRankSystems(data ?? []);
+    } catch (err) {
+      notify((err as Error).message, "error");
+    }
+  }, [getAllRankSystems, notify]);
+
   useEffect(() => {
     void loadItems();
   }, [loadItems, refreshKey]);
@@ -163,13 +180,18 @@ export const RankCreate = () => {
     void loadBoardItems();
   }, [loadBoardItems, refreshKey]);
 
+  useEffect(() => {
+    void loadRankSystems();
+  }, [loadRankSystems]);
+
   useProjectChange(() => {
     setPage(1);
     setRefreshKey((prev) => prev + 1);
+    void loadRankSystems();
   });
 
   const handleFilterChange = (
-    key: "q" | "name" | "tag" | "tier" | "system",
+    key: "q" | "name" | "tag" | "tier" | "systemId" | "system",
     value: string
   ) => {
     setPage(1);
@@ -178,13 +200,14 @@ export const RankCreate = () => {
 
   const handleClearFilters = () => {
     setPage(1);
-    setFilters({ q: "", name: "", tag: "", tier: "", system: "" });
+    setFilters({ q: "", name: "", tag: "", tier: "", systemId: "", system: "" });
   };
 
   const mapRankToForm = (item: Rank): RankFormState => ({
     name: item.name ?? "",
     alias: item.alias ?? [],
     tier: item.tier ?? "",
+    systemId: item.systemId ?? "",
     system: item.system ?? "",
     description: item.description ?? "",
     notes: item.notes ?? "",
@@ -196,6 +219,7 @@ export const RankCreate = () => {
     name: state.name,
     alias: state.alias,
     tier: state.tier || undefined,
+    systemId: state.systemId || undefined,
     system: state.system || undefined,
     description: state.description || undefined,
     notes: state.notes || undefined,
@@ -271,6 +295,66 @@ export const RankCreate = () => {
       ),
     [boardItems]
   );
+
+  const rankSystemNameById = useMemo(
+    () =>
+      rankSystems.reduce<Record<string, string>>((acc, rankSystem) => {
+        acc[rankSystem.id] = rankSystem.name;
+        return acc;
+      }, {}),
+    [rankSystems]
+  );
+
+  const rankSystemOptions = useMemo(
+    () => [
+      ...rankSystems.map((rankSystem) => ({
+        value: rankSystem.id,
+        label: rankSystem.name,
+      })),
+      { value: "__create__", label: t("Create new rank system") },
+    ],
+    [rankSystems, t]
+  );
+
+  const visibleBoardItems = useMemo(() => {
+    if (!filters.systemId) {
+      return boardItems;
+    }
+    return boardItems.filter((item) => item.systemId === filters.systemId);
+  }, [boardItems, filters.systemId]);
+
+  useEffect(() => {
+    if (editItem && filters.systemId && editItem.systemId !== filters.systemId) {
+      setEditItem(null);
+      setEditValues(null);
+    }
+    if (!selectedLink) {
+      return;
+    }
+    const existsCurrent = visibleBoardItems.some(
+      (item) => item.id === selectedLink.currentId
+    );
+    const existsPrevious = visibleBoardItems.some(
+      (item) => item.id === selectedLink.previousId
+    );
+    if (!existsCurrent || !existsPrevious) {
+      setSelectedLink(null);
+      setLinkConditionsDraft([createEmptyCondition()]);
+    }
+  }, [editItem, filters.systemId, selectedLink, visibleBoardItems]);
+
+  const canLinkRanks = (currentId: string, previousId: string): boolean => {
+    const current = boardItemsById.get(currentId);
+    const previous = boardItemsById.get(previousId);
+    if (!current || !previous) {
+      return false;
+    }
+    if ((current.systemId ?? "") !== (previous.systemId ?? "")) {
+      notify(t("Ranks must belong to the same rank system to link."), "error");
+      return false;
+    }
+    return true;
+  };
 
   const resolveLinkConditions = useCallback(
     (currentId: string, previousId: string): RankCondition[] => {
@@ -420,6 +504,9 @@ export const RankCreate = () => {
   };
 
   const handleBoardLink = async (currentId: string, previousId: string) => {
+    if (!canLinkRanks(currentId, previousId)) {
+      return;
+    }
     try {
       const conditions: RankCondition[] = [];
       const response = await linkRank({ currentId, previousId, conditions });
@@ -436,6 +523,9 @@ export const RankCreate = () => {
   };
 
   const handleBoardRelink = async (currentId: string, previousId: string) => {
+    if (!canLinkRanks(currentId, previousId)) {
+      return;
+    }
     try {
       const existingPrev = links[currentId]?.previousId;
       if (existingPrev) {
@@ -524,6 +614,19 @@ export const RankCreate = () => {
             value={filters.tier}
             onChange={(value) => handleFilterChange("tier", value)}
           />
+          <Select
+            label="Rank System"
+            value={filters.systemId}
+            onChange={(value) => {
+              if (value === "__create__") {
+                navigate("/rank-systems");
+                return;
+              }
+              handleFilterChange("systemId", value);
+            }}
+            options={rankSystemOptions}
+            placeholder={rankSystems.length > 0 ? "All" : "No rank systems yet."}
+          />
           <TextInput
             label="System"
             value={filters.system}
@@ -536,7 +639,7 @@ export const RankCreate = () => {
           </div>
         </FilterPanel>
         <RankBoard
-          items={boardItems}
+          items={visibleBoardItems}
           links={links}
           selectedId={editItem?.id}
           selectedLink={selectedLink}
@@ -641,7 +744,12 @@ export const RankCreate = () => {
             </div>
           </div>
         )}
-        <RankList items={items} onEdit={handleEditOpen} onDelete={handleDelete} />
+        <RankList
+          items={items}
+          rankSystemNameById={rankSystemNameById}
+          onEdit={handleEditOpen}
+          onDelete={handleDelete}
+        />
         {(items.length > 0 || page > 1 || hasNext) && (
           <Pagination
             page={page}
@@ -702,6 +810,21 @@ export const RankCreate = () => {
                 onChange={(value) =>
                   setEditValues((prev) => prev && { ...prev, tier: value })
                 }
+              />
+            </div>
+            <div className="form-field--narrow">
+              <Select
+                label="Rank System"
+                value={editValues.systemId}
+                onChange={(value) => {
+                  if (value === "__create__") {
+                    navigate("/rank-systems");
+                    return;
+                  }
+                  setEditValues((prev) => prev && { ...prev, systemId: value });
+                }}
+                options={rankSystemOptions}
+                placeholder={rankSystems.length > 0 ? "Select" : "No rank systems yet."}
               />
             </div>
             <div className="form-field--narrow">
@@ -790,6 +913,21 @@ export const RankCreate = () => {
                 label="Tier"
                 value={values.tier}
                 onChange={(value) => setField("tier", value)}
+              />
+            </div>
+            <div className="form-field--narrow">
+              <Select
+                label="Rank System"
+                value={values.systemId}
+                onChange={(value) => {
+                  if (value === "__create__") {
+                    navigate("/rank-systems");
+                    return;
+                  }
+                  setField("systemId", value);
+                }}
+                options={rankSystemOptions}
+                placeholder={rankSystems.length > 0 ? "Select" : "No rank systems yet."}
               />
             </div>
             <div className="form-field--narrow">

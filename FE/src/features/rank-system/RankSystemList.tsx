@@ -1,58 +1,44 @@
-import { useI18n } from "../../i18n/I18nProvider";
-import type { Rank, RankCondition } from "./rank.types";
 import { useState } from "react";
+import { useI18n } from "../../i18n/I18nProvider";
+import type { RankSystem } from "./rank-system.types";
 
-export type RankListProps = {
-  items: Rank[];
-  rankSystemNameById?: Record<string, string>;
-  onSelect?: (item: Rank) => void;
-  onEdit?: (item: Rank) => void;
-  onDelete?: (item: Rank) => void;
+export type RankSystemListProps = {
+  items: RankSystem[];
+  onSelect?: (item: RankSystem) => void;
+  onEdit?: (item: RankSystem) => void;
+  onDelete?: (item: RankSystem) => void;
 };
 
-export const RankList = ({
+export const RankSystemList = ({
   items,
-  rankSystemNameById,
   onSelect,
   onEdit,
   onDelete,
-}: RankListProps) => {
+}: RankSystemListProps) => {
   const { t } = useI18n();
-  const [detailItem, setDetailItem] = useState<Rank | null>(null);
+  const [detailItem, setDetailItem] = useState<RankSystem | null>(null);
 
   if (items.length === 0) {
-    return <p className="header__subtitle">{t("No ranks yet.")}</p>;
+    return <p className="header__subtitle">{t("No rank systems yet.")}</p>;
   }
-
-  const isRankCondition = (value: unknown): value is RankCondition =>
-    Boolean(value) &&
-    typeof value === "object" &&
-    "name" in (value as Record<string, unknown>) &&
-    typeof (value as Record<string, unknown>).name === "string";
 
   const renderValue = (value: unknown) => {
     if (Array.isArray(value)) {
       if (value.length === 0) {
         return <span className="header__subtitle">-</span>;
       }
-      const isConditionArray = value.every(isRankCondition);
       return (
         <div className="pill-list">
-          {value.map((item, index) => (
-            <span
-              className="pill"
-              key={`${String(isConditionArray ? (item as RankCondition).name : item)}-${index + 1}`}
-              title={
-                isConditionArray
-                  ? (item as RankCondition).description || undefined
-                  : undefined
-              }
-            >
-              {isConditionArray ? (item as RankCondition).name : String(item)}
+          {value.map((item) => (
+            <span className="pill" key={String(item)}>
+              {String(item)}
             </span>
           ))}
         </div>
       );
+    }
+    if (typeof value === "boolean") {
+      return value ? t("Yes") : t("No");
     }
     if (value === undefined || value === null || value === "") {
       return <span className="header__subtitle">-</span>;
@@ -60,31 +46,24 @@ export const RankList = ({
     return value as string | number;
   };
 
-  const detailSections = (item: Rank) => [
+  const detailSections = (item: RankSystem) => [
     {
-      title: t("Rank Identity"),
+      title: t("Rank System Identity"),
       fields: [
         { label: t("Name"), value: item.name, size: "wide" },
-        { label: t("Alias"), value: item.alias, size: "wide" },
-        { label: t("Tier"), value: item.tier, size: "narrow" },
-        {
-          label: t("Rank System"),
-          value: item.systemId
-            ? rankSystemNameById?.[item.systemId] ?? item.systemId
-            : "-",
-          size: "narrow",
-        },
-        { label: t("System"), value: item.system, size: "narrow" },
+        { label: t("Code"), value: item.code, size: "narrow" },
+        { label: t("Domain"), value: item.domain, size: "narrow" },
+        { label: t("Priority"), value: item.priority, size: "narrow" },
+        { label: t("Primary"), value: item.isPrimary, size: "narrow" },
       ],
     },
     {
+      title: t("Description"),
+      fields: [{ label: t("Description"), value: item.description, size: "wide" }],
+    },
+    {
       title: t("Notes & Tags"),
-      fields: [
-        { label: t("Description"), value: item.description, size: "wide" },
-        { label: t("Notes"), value: item.notes, size: "wide" },
-        { label: t("Tags"), value: item.tags, size: "wide" },
-        { label: t("Promotion Conditions"), value: item.conditions, size: "wide" },
-      ],
+      fields: [{ label: t("Tags"), value: item.tags, size: "wide" }],
     },
   ];
 
@@ -94,10 +73,10 @@ export const RankList = ({
         <thead>
           <tr>
             <th>{t("Name")}</th>
-            <th>{t("Tier")}</th>
-            <th>{t("Rank System")}</th>
-            <th>{t("System")}</th>
-            <th>{t("Tags")}</th>
+            <th>{t("Code")}</th>
+            <th>{t("Domain")}</th>
+            <th>{t("Priority")}</th>
+            <th>{t("Primary")}</th>
             <th>{t("Actions")}</th>
           </tr>
         </thead>
@@ -119,16 +98,10 @@ export const RankList = ({
               <td>
                 <strong>{item.name}</strong>
               </td>
-              <td>{item.tier ?? "-"}</td>
-              <td>
-                {item.systemId
-                  ? rankSystemNameById?.[item.systemId] ?? item.systemId
-                  : "-"}
-              </td>
-              <td>{item.system ?? "-"}</td>
-              <td>
-                {item.tags && item.tags.length > 0 ? item.tags.join(", ") : "-"}
-              </td>
+              <td>{item.code ?? "-"}</td>
+              <td>{item.domain ?? "-"}</td>
+              <td>{item.priority ?? "-"}</td>
+              <td>{item.isPrimary ? t("Yes") : t("No")}</td>
               <td className="table__actions">
                 <button
                   type="button"
@@ -174,7 +147,7 @@ export const RankList = ({
           >
             <div className="modal__header">
               <div>
-                <h3>{t("Rank details")}</h3>
+                <h3>{t("Rank system details")}</h3>
                 <p className="modal__subtitle">{detailItem.name}</p>
               </div>
               <button
@@ -203,9 +176,7 @@ export const RankList = ({
                           .join(" ")}
                       >
                         <span className="detail-item__label">{field.label}</span>
-                        <div className="detail-item__value">
-                          {renderValue(field.value)}
-                        </div>
+                        <div className="detail-item__value">{renderValue(field.value)}</div>
                       </div>
                     ))}
                   </div>

@@ -1,54 +1,37 @@
-import { useI18n } from "../../i18n/I18nProvider";
-import type { Rank, RankCondition } from "./rank.types";
 import { useState } from "react";
+import { useI18n } from "../../i18n/I18nProvider";
+import type { MapSystem } from "./map-system.types";
 
-export type RankListProps = {
-  items: Rank[];
-  rankSystemNameById?: Record<string, string>;
-  onSelect?: (item: Rank) => void;
-  onEdit?: (item: Rank) => void;
-  onDelete?: (item: Rank) => void;
+export type MapSystemListProps = {
+  items: MapSystem[];
+  onSelect?: (item: MapSystem) => void;
+  onEdit?: (item: MapSystem) => void;
+  onDelete?: (item: MapSystem) => void;
 };
 
-export const RankList = ({
+export const MapSystemList = ({
   items,
-  rankSystemNameById,
   onSelect,
   onEdit,
   onDelete,
-}: RankListProps) => {
+}: MapSystemListProps) => {
   const { t } = useI18n();
-  const [detailItem, setDetailItem] = useState<Rank | null>(null);
+  const [detailItem, setDetailItem] = useState<MapSystem | null>(null);
 
   if (items.length === 0) {
-    return <p className="header__subtitle">{t("No ranks yet.")}</p>;
+    return <p className="header__subtitle">{t("No map systems yet.")}</p>;
   }
-
-  const isRankCondition = (value: unknown): value is RankCondition =>
-    Boolean(value) &&
-    typeof value === "object" &&
-    "name" in (value as Record<string, unknown>) &&
-    typeof (value as Record<string, unknown>).name === "string";
 
   const renderValue = (value: unknown) => {
     if (Array.isArray(value)) {
       if (value.length === 0) {
         return <span className="header__subtitle">-</span>;
       }
-      const isConditionArray = value.every(isRankCondition);
       return (
         <div className="pill-list">
-          {value.map((item, index) => (
-            <span
-              className="pill"
-              key={`${String(isConditionArray ? (item as RankCondition).name : item)}-${index + 1}`}
-              title={
-                isConditionArray
-                  ? (item as RankCondition).description || undefined
-                  : undefined
-              }
-            >
-              {isConditionArray ? (item as RankCondition).name : String(item)}
+          {value.map((item) => (
+            <span className="pill" key={String(item)}>
+              {String(item)}
             </span>
           ))}
         </div>
@@ -60,30 +43,31 @@ export const RankList = ({
     return value as string | number;
   };
 
-  const detailSections = (item: Rank) => [
+  const detailSections = (item: MapSystem) => [
     {
-      title: t("Rank Identity"),
+      title: t("Map System Identity"),
       fields: [
         { label: t("Name"), value: item.name, size: "wide" },
-        { label: t("Alias"), value: item.alias, size: "wide" },
-        { label: t("Tier"), value: item.tier, size: "narrow" },
-        {
-          label: t("Rank System"),
-          value: item.systemId
-            ? rankSystemNameById?.[item.systemId] ?? item.systemId
-            : "-",
-          size: "narrow",
-        },
-        { label: t("System"), value: item.system, size: "narrow" },
+        { label: t("Code"), value: item.code, size: "narrow" },
+        { label: t("Scope"), value: item.scope, size: "narrow" },
+        { label: t("Seed"), value: item.seed, size: "narrow" },
       ],
     },
     {
-      title: t("Notes & Tags"),
+      title: t("Generator"),
+      fields: [
+        { label: t("Width"), value: item.width, size: "narrow" },
+        { label: t("Height"), value: item.height, size: "narrow" },
+        { label: t("Sea Level"), value: item.seaLevel, size: "narrow" },
+        { label: t("Climate preset"), value: item.climatePreset, size: "narrow" },
+      ],
+    },
+    {
+      title: t("Description"),
       fields: [
         { label: t("Description"), value: item.description, size: "wide" },
         { label: t("Notes"), value: item.notes, size: "wide" },
         { label: t("Tags"), value: item.tags, size: "wide" },
-        { label: t("Promotion Conditions"), value: item.conditions, size: "wide" },
       ],
     },
   ];
@@ -94,10 +78,9 @@ export const RankList = ({
         <thead>
           <tr>
             <th>{t("Name")}</th>
-            <th>{t("Tier")}</th>
-            <th>{t("Rank System")}</th>
-            <th>{t("System")}</th>
-            <th>{t("Tags")}</th>
+            <th>{t("Code")}</th>
+            <th>{t("Scope")}</th>
+            <th>{t("Seed")}</th>
             <th>{t("Actions")}</th>
           </tr>
         </thead>
@@ -119,16 +102,9 @@ export const RankList = ({
               <td>
                 <strong>{item.name}</strong>
               </td>
-              <td>{item.tier ?? "-"}</td>
-              <td>
-                {item.systemId
-                  ? rankSystemNameById?.[item.systemId] ?? item.systemId
-                  : "-"}
-              </td>
-              <td>{item.system ?? "-"}</td>
-              <td>
-                {item.tags && item.tags.length > 0 ? item.tags.join(", ") : "-"}
-              </td>
+              <td>{item.code ?? "-"}</td>
+              <td>{item.scope ?? "-"}</td>
+              <td>{item.seed ?? "-"}</td>
               <td className="table__actions">
                 <button
                   type="button"
@@ -174,7 +150,7 @@ export const RankList = ({
           >
             <div className="modal__header">
               <div>
-                <h3>{t("Rank details")}</h3>
+                <h3>{t("Map system details")}</h3>
                 <p className="modal__subtitle">{detailItem.name}</p>
               </div>
               <button
@@ -203,9 +179,7 @@ export const RankList = ({
                           .join(" ")}
                       >
                         <span className="detail-item__label">{field.label}</span>
-                        <div className="detail-item__value">
-                          {renderValue(field.value)}
-                        </div>
+                        <div className="detail-item__value">{renderValue(field.value)}</div>
                       </div>
                     ))}
                   </div>
