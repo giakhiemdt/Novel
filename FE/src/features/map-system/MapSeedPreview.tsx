@@ -168,6 +168,9 @@ const QUALITY_SETTINGS: Record<
     minRadius: number;
     maxRadius: number;
     coastResolution: { cols: number; rows: number };
+    renderSubdivision: number;
+    meshLineAlpha: number;
+    meshLineWidth: number;
   }
 > = {
   low: {
@@ -175,18 +178,27 @@ const QUALITY_SETTINGS: Record<
     minRadius: 5.8,
     maxRadius: 24,
     coastResolution: { cols: 92, rows: 46 },
+    renderSubdivision: 0,
+    meshLineAlpha: 0.12,
+    meshLineWidth: 0.22,
   },
   medium: {
     targetPoints: 2200,
     minRadius: 4.6,
     maxRadius: 20,
     coastResolution: { cols: 132, rows: 66 },
+    renderSubdivision: 0,
+    meshLineAlpha: 0.1,
+    meshLineWidth: 0.2,
   },
   high: {
     targetPoints: 3400,
     minRadius: 3.6,
     maxRadius: 17,
     coastResolution: { cols: 186, rows: 93 },
+    renderSubdivision: 1,
+    meshLineAlpha: 0.085,
+    meshLineWidth: 0.18,
   },
 };
 
@@ -814,6 +826,8 @@ export const MapSeedPreview = ({
       return color;
     };
 
+    const qualitySetting = QUALITY_SETTINGS[meshQuality];
+
     const meshKey = `${cacheKey}|mesh-random-v2|q:${meshQuality}|${previewWidth}x${previewHeight}`;
     let mesh = meshCacheRef.current.get(meshKey);
     if (!mesh) {
@@ -842,10 +856,11 @@ export const MapSeedPreview = ({
       meshCacheRef.current.set(meshKey, mesh);
     }
 
-    for (const face of mesh.faces) {
-      const p1 = mesh.points[face.a];
-      const p2 = mesh.points[face.b];
-      const p3 = mesh.points[face.c];
+    const paintTriangle = (
+      p1: TrianglePoint,
+      p2: TrianglePoint,
+      p3: TrianglePoint
+    ) => {
       const cx = (p1.x + p2.x + p3.x) / 3;
       const cy = (p1.y + p2.y + p3.y) / 3;
       const u = clamp(cx / Math.max(1, previewWidth - 1), 0, 1);
@@ -874,11 +889,40 @@ export const MapSeedPreview = ({
         0,
         1
       );
-      const strokeAlpha = 0.025 + altNorm * 0.14;
-      const strokeWidth = 0.12 + altNorm * 0.68;
-      ctx.strokeStyle = `rgba(13, 27, 40, ${strokeAlpha})`;
-      ctx.lineWidth = strokeWidth;
+      const lineAlpha = qualitySetting.meshLineAlpha * (0.35 + altNorm * 0.65);
+      ctx.strokeStyle = `rgba(13, 27, 40, ${lineAlpha})`;
+      ctx.lineWidth = qualitySetting.meshLineWidth;
       ctx.stroke();
+    };
+
+    for (const face of mesh.faces) {
+      const p1 = mesh.points[face.a];
+      const p2 = mesh.points[face.b];
+      const p3 = mesh.points[face.c];
+      if (qualitySetting.renderSubdivision <= 0) {
+        paintTriangle(p1, p2, p3);
+        continue;
+      }
+
+      let triangles: [TrianglePoint, TrianglePoint, TrianglePoint][] = [[
+        p1,
+        p2,
+        p3,
+      ]];
+      for (let level = 0; level < qualitySetting.renderSubdivision; level += 1) {
+        const next: [TrianglePoint, TrianglePoint, TrianglePoint][] = [];
+        for (const [a, b, c] of triangles) {
+          const ab: TrianglePoint = { x: (a.x + b.x) * 0.5, y: (a.y + b.y) * 0.5 };
+          const bc: TrianglePoint = { x: (b.x + c.x) * 0.5, y: (b.y + c.y) * 0.5 };
+          const ca: TrianglePoint = { x: (c.x + a.x) * 0.5, y: (c.y + a.y) * 0.5 };
+          next.push([a, ab, ca], [ab, b, bc], [ca, bc, c], [ab, bc, ca]);
+        }
+        triangles = next;
+      }
+
+      for (const [a, b, c] of triangles) {
+        paintTriangle(a, b, c);
+      }
     }
 
     drawSmoothCoastline(
