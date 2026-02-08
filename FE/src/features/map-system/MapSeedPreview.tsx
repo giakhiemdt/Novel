@@ -148,6 +148,36 @@ const classifyBiome = (
   return temperature > 0.45 ? "rainforest" : "forest";
 };
 
+type TrianglePoint = { x: number; y: number };
+
+const sampleLandDensity = (
+  heightMap: number[][],
+  seaLevel: number,
+  u: number,
+  v: number
+): number => {
+  const offsets = [
+    { du: 0, dv: 0, w: 0.3 },
+    { du: -0.025, dv: 0, w: 0.1 },
+    { du: 0.025, dv: 0, w: 0.1 },
+    { du: 0, dv: -0.025, w: 0.1 },
+    { du: 0, dv: 0.025, w: 0.1 },
+    { du: -0.04, dv: -0.02, w: 0.075 },
+    { du: 0.04, dv: -0.02, w: 0.075 },
+    { du: -0.04, dv: 0.02, w: 0.075 },
+    { du: 0.04, dv: 0.02, w: 0.075 },
+  ];
+
+  let sum = 0;
+  for (const item of offsets) {
+    const a = sampleBilinear(heightMap, u + item.du, v + item.dv);
+    if (a > seaLevel) {
+      sum += item.w;
+    }
+  }
+  return clamp(sum, 0, 1);
+};
+
 const MAX_LOCAL_CACHE_SIZE = 20;
 
 export const MapSeedPreview = ({
@@ -320,57 +350,111 @@ export const MapSeedPreview = ({
     canvas.width = previewWidth;
     canvas.height = previewHeight;
 
-    const cellW = previewWidth / layers.cellsX;
-    const cellH = previewHeight / layers.cellsY;
-
     ctx.clearRect(0, 0, previewWidth, previewHeight);
-    const imageData = ctx.createImageData(previewWidth, previewHeight);
-    const data = imageData.data;
 
-    for (let py = 0; py < previewHeight; py += 1) {
-      const v = py / Math.max(1, previewHeight - 1);
-      for (let px = 0; px < previewWidth; px += 1) {
-        const u = px / Math.max(1, previewWidth - 1);
+    const sampleColorAt = (u: number, v: number): string => {
+      const altitude = sampleBilinear(layers.height, u, v);
+      const moisture = sampleBilinear(layers.moisture, u, v);
+      const temperature = sampleBilinear(layers.temperature, u, v);
+      const isLand = altitude > options.seaLevel;
+      const biome = classifyBiome(
+        altitude,
+        options.seaLevel,
+        moisture,
+        temperature
+      );
 
-        const altitude = sampleBilinear(layers.height, u, v);
-        const moisture = sampleBilinear(layers.moisture, u, v);
-        const temperature = sampleBilinear(layers.temperature, u, v);
-        const isLand = altitude > options.seaLevel;
-        const biome = classifyBiome(
-          altitude,
-          options.seaLevel,
-          moisture,
-          temperature
-        );
+      let color = showBiomes
+        ? biomeColorMap[biome]
+        : heightColor(altitude, options.seaLevel);
 
-        let color = showBiomes
-          ? biomeColorMap[biome]
-          : heightColor(altitude, options.seaLevel);
+      if (showBiomes && showHeight) {
+        if (isLand) {
+          const relief = clamp((altitude - options.seaLevel) * 0.45, 0, 0.32);
+          color = mixColor(color, "#222831", relief);
+        } else {
+          const depth = clamp(
+            (options.seaLevel - altitude) / Math.max(0.001, options.seaLevel),
+            0,
+            1
+          );
+          color = mixColor(color, "#10243a", depth * 0.4);
+        }
+      }
+      return color;
+    };
 
-        if (showBiomes && showHeight) {
-          if (isLand) {
-            const relief = clamp((altitude - options.seaLevel) * 0.45, 0, 0.32);
-            color = mixColor(color, "#222831", relief);
-          } else {
-            const depth = clamp(
-              (options.seaLevel - altitude) / Math.max(0.001, options.seaLevel),
-              0,
-              1
-            );
-            color = mixColor(color, "#10243a", depth * 0.4);
+    const drawTriangle = (
+      p1: TrianglePoint,
+      p2: TrianglePoint,
+      p3: TrianglePoint,
+      strokeAlpha: number
+    ) => {
+      const cx = (p1.x + p2.x + p3.x) / 3;
+      const cy = (p1.y + p2.y + p3.y) / 3;
+      const u = clamp(cx / Math.max(1, previewWidth - 1), 0, 1);
+      const v = clamp(cy / Math.max(1, previewHeight - 1), 0, 1);
+
+      const fill = sampleColorAt(u, v);
+      ctx.fillStyle = fill;
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.lineTo(p3.x, p3.y);
+      ctx.closePath();
+      ctx.fill();
+
+      if (strokeAlpha > 0) {
+        ctx.strokeStyle = `rgba(18, 34, 46, ${strokeAlpha})`;
+        ctx.lineWidth = 0.35;
+        ctx.stroke();
+      }
+    };
+
+    const drawTrianglePass = (
+      step: number,
+      minDensity: number,
+      maxDensity: number,
+      strokeAlpha: number
+    ) => {
+      for (let y = -step, row = 0; y < previewHeight + step; y += step, row += 1) {
+        const y0 = y;
+        const y1 = y + step;
+        const offset0 = row % 2 === 0 ? 0 : step * 0.5;
+        const offset1 = row % 2 === 0 ? step * 0.5 : 0;
+
+        for (let x = -step; x < previewWidth + step; x += step) {
+          const p00 = { x: x + offset0, y: y0 };
+          const p01 = { x: x + step + offset0, y: y0 };
+          const p10 = { x: x + offset1, y: y1 };
+          const p11 = { x: x + step + offset1, y: y1 };
+
+          const c1u = clamp((p00.x + p10.x + p01.x) / 3 / previewWidth, 0, 1);
+          const c1v = clamp((p00.y + p10.y + p01.y) / 3 / previewHeight, 0, 1);
+          const d1 = sampleLandDensity(layers.height, options.seaLevel, c1u, c1v);
+          if (d1 >= minDensity && d1 < maxDensity) {
+            drawTriangle(p00, p10, p01, strokeAlpha);
+          }
+
+          const c2u = clamp((p01.x + p10.x + p11.x) / 3 / previewWidth, 0, 1);
+          const c2v = clamp((p01.y + p10.y + p11.y) / 3 / previewHeight, 0, 1);
+          const d2 = sampleLandDensity(layers.height, options.seaLevel, c2u, c2v);
+          if (d2 >= minDensity && d2 < maxDensity) {
+            drawTriangle(p01, p10, p11, strokeAlpha);
           }
         }
-
-        const rgb = hexToRgb(color);
-        const index = (py * previewWidth + px) * 4;
-        data[index] = rgb.r;
-        data[index + 1] = rgb.g;
-        data[index + 2] = rgb.b;
-        data[index + 3] = 255;
       }
-    }
+    };
 
-    ctx.putImageData(imageData, 0, 0);
+    // Far ocean: coarse triangles.
+    drawTrianglePass(24, 0, 0.2, 0.08);
+    // Near coast: medium density.
+    drawTrianglePass(12, 0.12, 0.55, 0.1);
+    // Land: fine mesh for details.
+    drawTrianglePass(6, 0.45, 1.01, 0.12);
+
+    const cellW = previewWidth / layers.cellsX;
+    const cellH = previewHeight / layers.cellsY;
 
     if (showRivers) {
       ctx.strokeStyle = "rgba(102, 202, 255, 0.92)";
