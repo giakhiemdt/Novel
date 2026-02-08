@@ -1145,10 +1145,66 @@ export const MapSeedPreview = ({
 
     const qualitySetting = QUALITY_SETTINGS[meshQuality];
     const mesh = simMesh;
+    const terrainImage = ctx.createImageData(previewWidth, previewHeight);
+    const terrainPixels = terrainImage.data;
+    const du = 1 / Math.max(1, previewWidth - 1);
+    const dv = 1 / Math.max(1, previewHeight - 1);
+
+    for (let py = 0; py < previewHeight; py += 1) {
+      const v = py / Math.max(1, previewHeight - 1);
+      for (let px = 0; px < previewWidth; px += 1) {
+        const u = px / Math.max(1, previewWidth - 1);
+        const altitude = sampleBilinear(layers.height, u, v);
+        let color = sampleColorAt(u, v);
+        const hL = sampleBilinear(layers.height, u - du, v);
+        const hR = sampleBilinear(layers.height, u + du, v);
+        const hU = sampleBilinear(layers.height, u, v - dv);
+        const hD = sampleBilinear(layers.height, u, v + dv);
+        const gx = hR - hL;
+        const gy = hD - hU;
+        const light = clamp(0.5 + (-gx * 2.15 - gy * 2.9), 0, 1);
+
+        if (altitude > options.seaLevel) {
+          if (light >= 0.5) {
+            color = mixColor(color, "#f8fbff", (light - 0.5) * 0.52);
+          } else {
+            color = mixColor(color, "#1f2b31", (0.5 - light) * 0.45);
+          }
+        } else {
+          const depth = clamp(
+            (options.seaLevel - altitude) / Math.max(0.001, options.seaLevel),
+            0,
+            1
+          );
+          const wave = Math.sin((u * 73 + v * 61) * Math.PI) * 0.5 + 0.5;
+          color = mixColor(color, "#6eaed0", (1 - depth) * 0.06 * wave);
+          if (light < 0.5) {
+            color = mixColor(color, "#163755", (0.5 - light) * 0.25);
+          }
+        }
+
+        const rgb = hexToRgb(color);
+        const index = (py * previewWidth + px) * 4;
+        terrainPixels[index] = rgb.r;
+        terrainPixels[index + 1] = rgb.g;
+        terrainPixels[index + 2] = rgb.b;
+        terrainPixels[index + 3] = 255;
+      }
+    }
+    ctx.putImageData(terrainImage, 0, 0);
 
     const siteVisual = new Map<number, { biome: BiomeKind; color: string }>();
 
-    const paintCell = (cell: MeshCell) => {
+    const drawCellPath = (vertices: TrianglePoint[]) => {
+      ctx.beginPath();
+      ctx.moveTo(vertices[0].x, vertices[0].y);
+      for (let i = 1; i < vertices.length; i += 1) {
+        ctx.lineTo(vertices[i].x, vertices[i].y);
+      }
+      ctx.closePath();
+    };
+
+    const analyzeCell = (cell: MeshCell) => {
       const vertices = cell.vertices;
       let cx = 0;
       let cy = 0;
@@ -1171,38 +1227,25 @@ export const MapSeedPreview = ({
       );
       const fillBase = sampleColorAt(u, v);
       siteVisual.set(cell.site, { biome, color: fillBase });
-
-      const jitterRaw = Math.sin((cx + 17.3) * 12.9898 + (cy + 9.1) * 78.233);
-      const jitter01 = jitterRaw - Math.floor(jitterRaw);
-      const jitter = (jitter01 - 0.5) * 0.08;
-      const fill =
-        jitter >= 0
-          ? mixColor(fillBase, "#ffffff", jitter)
-          : mixColor(fillBase, "#0b1a25", -jitter);
-
-      ctx.fillStyle = fill;
-      ctx.beginPath();
-      ctx.moveTo(vertices[0].x, vertices[0].y);
-      for (let i = 1; i < vertices.length; i += 1) {
-        ctx.lineTo(vertices[i].x, vertices[i].y);
-      }
-      ctx.closePath();
-      ctx.fill();
-
-      const altNorm = clamp(
-        (altitude - options.seaLevel) / Math.max(0.001, 1 - options.seaLevel),
-        0,
-        1
-      );
-      const lineAlpha = qualitySetting.meshLineAlpha * (0.35 + altNorm * 0.65);
-      ctx.strokeStyle = `rgba(13, 27, 40, ${lineAlpha})`;
-      ctx.lineWidth = qualitySetting.meshLineWidth;
-      ctx.stroke();
     };
 
     for (const cell of mesh.cells) {
-      paintCell(cell);
+      analyzeCell(cell);
     }
+
+    ctx.save();
+    ctx.strokeStyle =
+      meshQuality === "high"
+        ? "rgba(32, 60, 78, 0.08)"
+        : meshQuality === "medium"
+          ? "rgba(32, 60, 78, 0.095)"
+          : "rgba(32, 60, 78, 0.11)";
+    ctx.lineWidth = qualitySetting.meshLineWidth;
+    for (const cell of mesh.cells) {
+      drawCellPath(cell.vertices);
+      ctx.stroke();
+    }
+    ctx.restore();
 
     ctx.save();
     ctx.lineCap = "round";
@@ -1210,26 +1253,23 @@ export const MapSeedPreview = ({
 
     ctx.filter =
       meshQuality === "high"
-        ? "blur(1.25px)"
+        ? "blur(1.2px)"
         : meshQuality === "medium"
-          ? "blur(1.05px)"
-          : "blur(0.9px)";
+          ? "blur(1px)"
+          : "blur(0.85px)";
     for (const boundary of mesh.boundaries) {
       const left = siteVisual.get(boundary.a);
       const right = siteVisual.get(boundary.b);
       if (!left || !right || left.biome === right.biome) {
         continue;
       }
+      const blended = mixColor(left.color, right.color, 0.5);
       const isCoast =
         (left.biome === "ocean" && right.biome !== "ocean") ||
         (left.biome !== "ocean" && right.biome === "ocean");
-      if (isCoast) {
-        continue;
-      }
-      const blended = mixColor(left.color, right.color, 0.5);
-      ctx.strokeStyle = colorWithAlpha(blended, 0.19);
+      ctx.strokeStyle = colorWithAlpha(blended, isCoast ? 0.11 : 0.16);
       ctx.lineWidth =
-        meshQuality === "high" ? 1.65 : meshQuality === "medium" ? 1.45 : 1.25;
+        meshQuality === "high" ? 1.3 : meshQuality === "medium" ? 1.18 : 1.05;
       ctx.beginPath();
       ctx.moveTo(boundary.p1.x, boundary.p1.y);
       ctx.lineTo(boundary.p2.x, boundary.p2.y);
@@ -1247,14 +1287,14 @@ export const MapSeedPreview = ({
         (left.biome === "ocean" && right.biome !== "ocean") ||
         (left.biome !== "ocean" && right.biome === "ocean");
       const blended = mixColor(left.color, right.color, 0.5);
-      ctx.strokeStyle = colorWithAlpha(blended, isCoast ? 0.03 : 0.12);
+      ctx.strokeStyle = colorWithAlpha(blended, isCoast ? 0.035 : 0.09);
       ctx.lineWidth = isCoast
         ? meshQuality === "high"
-          ? 0.58
-          : 0.52
+          ? 0.72
+          : 0.64
         : meshQuality === "high"
-          ? 1.05
-          : 0.92;
+          ? 0.92
+          : 0.84;
       ctx.beginPath();
       ctx.moveTo(boundary.p1.x, boundary.p1.y);
       ctx.lineTo(boundary.p2.x, boundary.p2.y);
