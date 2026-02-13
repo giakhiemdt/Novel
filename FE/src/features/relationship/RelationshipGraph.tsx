@@ -427,26 +427,24 @@ export const RelationshipGraph = ({
               const endY = to.y - offsetY;
               const controlX = (startX + endX) / 2 - (dy / distance) * 18;
               const controlY = (startY + endY) / 2 + (dx / distance) * 18;
-              const labelX = (startX + 2 * controlX + endX) / 4;
-              const labelY = (startY + 2 * controlY + endY) / 4;
               const label = relationshipTypesByCode?.[item.type]?.name ?? item.type;
+              const edgePathId = `relationship-edge-${item.fromId}-${item.toId}-${item.type}-${index}`
+                .replace(/[^a-zA-Z0-9_-]/g, "-");
+              const pathValue = `M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`;
 
               return (
                 <g key={`${item.fromId}-${item.toId}-${item.type}-${index}`}>
                   <path
-                    d={`M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`}
+                    id={edgePathId}
+                    d={pathValue}
                     className="relationship-graph__edge"
                     style={{ color }}
                     markerEnd="url(#relationship-graph-arrow)"
                   />
-                  <text
-                    x={labelX}
-                    y={labelY}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    className="relationship-graph__edge-label"
-                  >
-                    {label}
+                  <text className="relationship-graph__edge-label">
+                    <textPath href={`#${edgePathId}`} startOffset="50%" textAnchor="middle">
+                      {label}
+                    </textPath>
                   </text>
                 </g>
               );

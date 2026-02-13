@@ -2286,10 +2286,7 @@ h3 {
   fill: var(--text-muted);
   font-size: 10px;
   font-weight: 600;
-  paint-order: stroke;
-  stroke: var(--color-panel);
-  stroke-width: 4px;
-  stroke-linejoin: round;
+  letter-spacing: 0.01em;
   pointer-events: none;
 }
 
