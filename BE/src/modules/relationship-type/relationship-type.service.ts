@@ -5,7 +5,6 @@ import {
   createRelationshipType,
   deleteCharacterRelationsByType,
   deleteRelationshipType,
-  ensureDefaultRelationshipTypes,
   getRelationshipTypeByCode,
   getRelationshipTypeById,
   getRelationshipTypes,
@@ -184,7 +183,6 @@ export const relationshipTypeService = {
     dbName: unknown
   ): Promise<RelationshipTypeNode> => {
     const database = assertDatabaseName(dbName);
-    await ensureDefaultRelationshipTypes(database);
 
     const validated = validatePayload(payload);
     const node = buildNode(validated);
@@ -198,7 +196,6 @@ export const relationshipTypeService = {
     dbName: unknown
   ): Promise<RelationshipTypeNode> => {
     const database = assertDatabaseName(dbName);
-    await ensureDefaultRelationshipTypes(database);
 
     const existing = await getRelationshipTypeById(database, id);
     if (!existing) {
@@ -231,7 +228,6 @@ export const relationshipTypeService = {
     query: unknown
   ): Promise<RelationshipTypeNode[]> => {
     const database = assertDatabaseName(dbName);
-    await ensureDefaultRelationshipTypes(database);
     const parsed = parseListQuery(query);
     return getRelationshipTypes(database, parsed.activeOnly ?? true);
   },
@@ -242,7 +238,6 @@ export const relationshipTypeService = {
     query: unknown
   ): Promise<void> => {
     const database = assertDatabaseName(dbName);
-    await ensureDefaultRelationshipTypes(database);
     const q = (query ?? {}) as Record<string, unknown>;
     const force = parseOptionalQueryBoolean(q.force, "force") ?? false;
 

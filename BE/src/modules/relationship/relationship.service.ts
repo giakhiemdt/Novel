@@ -12,7 +12,6 @@ import {
   CharacterRelationQuery,
 } from "./relationship.types";
 import {
-  ensureDefaultRelationshipTypes,
   getRelationshipTypeByCode,
 } from "../relationship-type/relationship-type.repo";
 
@@ -103,7 +102,6 @@ const assertRelationshipTypeExists = async (
   database: string,
   type: string
 ): Promise<void> => {
-  await ensureDefaultRelationshipTypes(database);
   const relationshipType = await getRelationshipTypeByCode(database, type);
   if (!relationshipType || !relationshipType.isActive) {
     throw new AppError("relationship type not found", 404);
@@ -190,8 +188,6 @@ export const relationshipService = {
 
     if (type) {
       await assertRelationshipTypeExists(database, type);
-    } else {
-      await ensureDefaultRelationshipTypes(database);
     }
 
     const filter: CharacterRelationQuery = {};
