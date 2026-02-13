@@ -2207,17 +2207,70 @@ h3 {
   gap: 12px;
 }
 
-.relationship-graph__canvas {
+.relationship-graph__board {
+  position: relative;
   width: 100%;
-  overflow-x: auto;
+  height: 560px;
+  overflow: hidden;
+  width: 100%;
   border: 1px solid var(--border-subtle);
   border-radius: 14px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(120, 120, 120, 0.05) 100%);
+  touch-action: none;
+  cursor: grab;
+}
+
+.relationship-graph__board--panning {
+  cursor: grabbing;
+}
+
+.relationship-graph__toolbar {
+  position: absolute;
+  z-index: 3;
+  top: 12px;
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--color-panel) 90%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.relationship-graph__tool {
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  background: var(--surface-soft);
+  color: var(--color-ink);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.relationship-graph__tool:hover {
+  border-color: var(--border-strong);
+}
+
+.relationship-graph__zoom {
+  min-width: 50px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.relationship-graph__surface {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+  will-change: transform;
 }
 
 .relationship-graph__svg {
-  width: 100%;
-  min-width: 720px;
   display: block;
 }
 
@@ -2262,4 +2315,10 @@ h3 {
   height: 10px;
   border-radius: 50%;
   display: inline-block;
+}
+
+@media (max-width: 900px) {
+  .relationship-graph__board {
+    height: 460px;
+  }
 }
