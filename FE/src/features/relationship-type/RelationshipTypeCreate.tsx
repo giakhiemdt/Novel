@@ -36,6 +36,7 @@ export const RelationshipTypeCreate = () => {
   const [typeForm, setTypeForm] = useState<TypeFormState>(initialTypeState);
   const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
   const [isSavingType, setIsSavingType] = useState(false);
+  const [pendingForceDeleteId, setPendingForceDeleteId] = useState<string | null>(null);
 
   const loadRelationshipTypeItems = useCallback(async () => {
     try {
@@ -133,36 +134,34 @@ export const RelationshipTypeCreate = () => {
   };
 
   const handleTypeDelete = async (item: RelationshipType) => {
-    const confirmed = window.confirm(
-      t("Delete this relationship type? This action cannot be undone.")
-    );
-    if (!confirmed) {
+    if (pendingForceDeleteId === item.id) {
+      try {
+        await deleteRelationshipType(item.id, true);
+        notify(t("Relationship type and linked relations deleted."), "success");
+        setPendingForceDeleteId(null);
+        await loadRelationshipTypeItems();
+      } catch (forceErr) {
+        notify((forceErr as Error).message, "error");
+      }
       return;
     }
+
     try {
       await deleteRelationshipType(item.id);
       notify(t("Relationship type deleted."), "success");
+      setPendingForceDeleteId(null);
       await loadRelationshipTypeItems();
     } catch (err) {
       const message = (err as Error).message ?? "";
       if (message.includes("retry with force=true")) {
-        const forceConfirmed = window.confirm(
-          t(
-            "This type is used by existing relationships. Delete all those relationships and remove this type?"
-          )
+        setPendingForceDeleteId(item.id);
+        notify(
+          t("This type is used by existing relationships. Click delete again to remove linked relations too."),
+          "error"
         );
-        if (!forceConfirmed) {
-          return;
-        }
-        try {
-          await deleteRelationshipType(item.id, true);
-          notify(t("Relationship type and linked relations deleted."), "success");
-          await loadRelationshipTypeItems();
-        } catch (forceErr) {
-          notify((forceErr as Error).message, "error");
-        }
         return;
       }
+      setPendingForceDeleteId(null);
       notify(message, "error");
     }
   };
@@ -224,7 +223,9 @@ export const RelationshipTypeCreate = () => {
                       className="table__action table__action--danger"
                       onClick={() => handleTypeDelete(item)}
                     >
-                      {t("Delete")}
+                      {pendingForceDeleteId === item.id
+                        ? t("Delete (confirm)")
+                        : t("Delete")}
                     </button>
                   </td>
                 </tr>

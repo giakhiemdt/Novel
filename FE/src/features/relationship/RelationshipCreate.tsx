@@ -272,12 +272,6 @@ export const RelationshipCreate = () => {
   };
 
   const handleDelete = async (item: CharacterRelation) => {
-    const confirmed = window.confirm(
-      t("Delete this relationship? This action cannot be undone.")
-    );
-    if (!confirmed) {
-      return;
-    }
     try {
       await deleteRelation({
         fromId: item.fromId,
