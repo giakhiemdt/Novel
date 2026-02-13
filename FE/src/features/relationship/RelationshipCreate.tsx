@@ -396,7 +396,27 @@ export const RelationshipCreate = () => {
       await loadRelationshipTypeItems();
       setRefreshKey((prev) => prev + 1);
     } catch (err) {
-      notify((err as Error).message, "error");
+      const message = (err as Error).message ?? "";
+      if (message.includes("retry with force=true")) {
+        const forceConfirmed = window.confirm(
+          t(
+            "This type is used by existing relationships. Delete all those relationships and remove this type?"
+          )
+        );
+        if (!forceConfirmed) {
+          return;
+        }
+        try {
+          await deleteRelationshipType(item.id, true);
+          notify(t("Relationship type and linked relations deleted."), "success");
+          await loadRelationshipTypeItems();
+          setRefreshKey((prev) => prev + 1);
+        } catch (forceErr) {
+          notify((forceErr as Error).message, "error");
+        }
+        return;
+      }
+      notify(message, "error");
     }
   };
 
@@ -713,15 +733,15 @@ export const RelationshipCreate = () => {
                     >
                       {item.isActive ? t("Deactivate") : t("Activate")}
                     </button>
-                    {!item.isSystem && (
-                      <button
-                        type="button"
-                        className="table__action table__action--danger"
-                        onClick={() => handleTypeDelete(item)}
-                      >
-                        {t("Delete")}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className="table__action table__action--danger"
+                      onClick={() => handleTypeDelete(item)}
+                      disabled={item.isSystem}
+                      title={item.isSystem ? t("System types cannot be deleted.") : undefined}
+                    >
+                      {t("Delete")}
+                    </button>
                   </td>
                 </tr>
               ))}

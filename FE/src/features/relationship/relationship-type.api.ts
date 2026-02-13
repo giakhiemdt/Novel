@@ -39,5 +39,14 @@ export const updateRelationshipType = (
     withDatabaseHeader()
   );
 
-export const deleteRelationshipType = (id: string) =>
-  api.delete<void>(`${endpoints.relationshipTypes}/${id}`, withDatabaseHeader());
+export const deleteRelationshipType = (id: string, force?: boolean) => {
+  const search = new URLSearchParams();
+  if (force !== undefined) {
+    search.set("force", String(force));
+  }
+  const query = search.toString();
+  const path = query
+    ? `${endpoints.relationshipTypes}/${id}?${query}`
+    : `${endpoints.relationshipTypes}/${id}`;
+  return api.delete<void>(path, withDatabaseHeader());
+};

@@ -3,6 +3,7 @@ import { generateId } from "../../shared/utils/generate-id";
 import {
   countCharacterRelationsByType,
   createRelationshipType,
+  deleteCharacterRelationsByType,
   deleteRelationshipType,
   ensureDefaultRelationshipTypes,
   getRelationshipTypeByCode,
@@ -242,9 +243,15 @@ export const relationshipTypeService = {
     return getRelationshipTypes(database, parsed.activeOnly ?? true);
   },
 
-  delete: async (id: string, dbName: unknown): Promise<void> => {
+  delete: async (
+    id: string,
+    dbName: unknown,
+    query: unknown
+  ): Promise<void> => {
     const database = assertDatabaseName(dbName);
     await ensureDefaultRelationshipTypes(database);
+    const q = (query ?? {}) as Record<string, unknown>;
+    const force = parseOptionalQueryBoolean(q.force, "force") ?? false;
 
     const existing = await getRelationshipTypeById(database, id);
     if (!existing) {
@@ -257,10 +264,13 @@ export const relationshipTypeService = {
 
     const usage = await countCharacterRelationsByType(database, existing.code);
     if (usage > 0) {
-      throw new AppError(
-        "relationship type is in use; set isActive=false instead",
-        409
-      );
+      if (!force) {
+        throw new AppError(
+          "relationship type is in use; retry with force=true to delete linked relations",
+          409
+        );
+      }
+      await deleteCharacterRelationsByType(database, existing.code);
     }
 
     const deleted = await deleteRelationshipType(database, id);

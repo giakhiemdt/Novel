@@ -46,7 +46,7 @@ const deleteRelationshipType = async (
   try {
     const dbName = getDatabaseHeader(req);
     const id = (req.params as { id?: string }).id ?? "";
-    await relationshipTypeService.delete(id, dbName);
+    await relationshipTypeService.delete(id, dbName, req.query);
     reply.status(204).send();
   } catch (error) {
     const handled = handleError(error);

@@ -116,6 +116,14 @@ MATCH ()-[r:${relationTypes.characterRelatesTo} {type: $typeCode}]->()
 RETURN count(r) AS total
 `;
 
+const DELETE_RELATIONS_BY_TYPE = `
+MATCH ()-[r:${relationTypes.characterRelatesTo} {type: $typeCode}]->()
+WITH count(r) AS total
+MATCH ()-[r2:${relationTypes.characterRelatesTo} {type: $typeCode}]->()
+DELETE r2
+RETURN total AS deleted
+`;
+
 const ENSURE_DEFAULT_TYPES = `
 UNWIND $defaults AS item
 MERGE (t:${nodeLabels.relationshipType} {code: item.code})
@@ -269,6 +277,23 @@ export const countCharacterRelationsByType = async (
       return total.toNumber();
     }
     return typeof total === "number" ? total : 0;
+  } finally {
+    await session.close();
+  }
+};
+
+export const deleteCharacterRelationsByType = async (
+  database: string,
+  typeCode: string
+): Promise<number> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    const result = await session.run(DELETE_RELATIONS_BY_TYPE, { typeCode });
+    const deleted = result.records[0]?.get("deleted");
+    if (neo4j.isInt(deleted)) {
+      return deleted.toNumber();
+    }
+    return typeof deleted === "number" ? deleted : 0;
   } finally {
     await session.close();
   }

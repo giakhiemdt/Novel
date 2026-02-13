@@ -90,6 +90,12 @@ export const relationshipTypeRoutes: RouteConfig[] = [
     schema: {
       tags: ["RelationshipType"],
       summary: "Delete relationship type",
+      querystring: {
+        type: "object",
+        properties: {
+          force: { type: "boolean" },
+        },
+      },
       response: {
         204: { type: "null" },
         400: { type: "object", properties: { message: { type: "string" } } },
