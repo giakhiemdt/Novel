@@ -5,6 +5,7 @@ import type { CharacterRelation } from "./relationship.types";
 export type RelationshipListProps = {
   items: CharacterRelation[];
   charactersById?: Record<string, string>;
+  relationshipTypesByCode?: Record<string, string>;
   onSelect?: (item: CharacterRelation) => void;
   onEdit?: (item: CharacterRelation) => void;
   onDelete?: (item: CharacterRelation) => void;
@@ -13,6 +14,7 @@ export type RelationshipListProps = {
 export const RelationshipList = ({
   items,
   charactersById,
+  relationshipTypesByCode,
   onSelect,
   onEdit,
   onDelete,
@@ -25,6 +27,8 @@ export const RelationshipList = ({
   }
 
   const resolveName = (id?: string) => (id ? charactersById?.[id] ?? id : "-");
+  const resolveType = (type?: string) =>
+    type ? relationshipTypesByCode?.[type] ?? type : "-";
 
   const renderValue = (value: unknown) => {
     if (value === undefined || value === null || value === "") {
@@ -39,7 +43,7 @@ export const RelationshipList = ({
       fields: [
         { label: t("From"), value: resolveName(item.fromId), size: "wide" },
         { label: t("To"), value: resolveName(item.toId), size: "wide" },
-        { label: t("Type"), value: item.type ? t(item.type) : "-", size: "narrow" },
+        { label: t("Type"), value: resolveType(item.type), size: "narrow" },
       ],
     },
     {
@@ -85,7 +89,7 @@ export const RelationshipList = ({
             >
               <td>{resolveName(item.fromId)}</td>
               <td>{resolveName(item.toId)}</td>
-              <td>{item.type ? t(item.type) : "-"}</td>
+              <td>{resolveType(item.type)}</td>
               <td>{item.startYear ?? "-"}</td>
               <td>{item.endYear ?? "-"}</td>
               <td className="table__actions">

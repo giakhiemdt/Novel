@@ -21,6 +21,7 @@ export const endpoints = {
   chapters: "/chapters",
   scenes: "/scenes",
   items: "/items",
+  relationshipTypes: "/relationship-types",
   characterRelations: "/character-relations",
   conflicts: "/conflicts",
   worldRules: "/world-rules",

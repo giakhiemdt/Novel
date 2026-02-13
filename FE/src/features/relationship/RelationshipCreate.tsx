@@ -18,18 +18,27 @@ import {
   getRelations,
   updateRelation,
 } from "./relationship.api";
+import {
+  createRelationshipType,
+  deleteRelationshipType,
+  getRelationshipTypes,
+  updateRelationshipType,
+} from "./relationship-type.api";
+import type {
+  RelationshipType,
+  RelationshipTypePayload,
+} from "./relationship-type.types";
 import { RelationshipList } from "./RelationshipList";
 import { validateRelation } from "./relationship.schema";
 import type {
   CharacterRelation,
   CharacterRelationPayload,
-  CharacterRelationType,
 } from "./relationship.types";
 
 const initialState = {
   fromId: "",
   toId: "",
-  type: "" as CharacterRelationType | "",
+  type: "",
   startYear: "",
   endYear: "",
   note: "",
@@ -37,21 +46,23 @@ const initialState = {
 
 type RelationFormState = typeof initialState;
 
-const TYPE_OPTIONS: CharacterRelationType[] = [
-  "family",
-  "ally",
-  "enemy",
-  "romance",
-  "mentor",
-  "rival",
-  "other",
-];
+const initialTypeState = {
+  code: "",
+  name: "",
+  description: "",
+  color: "#6B7280",
+  isDirectional: false,
+  isActive: true,
+};
+
+type TypeFormState = typeof initialTypeState;
 
 export const RelationshipCreate = () => {
   const { t } = useI18n();
   const { values, setField, reset } = useForm<RelationFormState>(initialState);
   const [items, setItems] = useState<CharacterRelation[]>([]);
   const [characters, setCharacters] = useState<Character[]>([]);
+  const [relationshipTypes, setRelationshipTypes] = useState<RelationshipType[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<CharacterRelation | null>(null);
   const [editValues, setEditValues] = useState<RelationFormState | null>(null);
@@ -63,6 +74,9 @@ export const RelationshipCreate = () => {
     type: "",
   });
   const [refreshKey, setRefreshKey] = useState(0);
+  const [typeForm, setTypeForm] = useState<TypeFormState>(initialTypeState);
+  const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
+  const [isSavingType, setIsSavingType] = useState(false);
   const { notify } = useToast();
 
   const charactersById = useMemo(
@@ -74,17 +88,40 @@ export const RelationshipCreate = () => {
     [characters]
   );
 
+  const relationshipTypesByCode = useMemo(
+    () =>
+      relationshipTypes.reduce<Record<string, string>>((acc, item) => {
+        acc[item.code] = item.name;
+        return acc;
+      }, {}),
+    [relationshipTypes]
+  );
+
+  const activeRelationshipTypes = useMemo(
+    () => relationshipTypes.filter((item) => item.isActive),
+    [relationshipTypes]
+  );
+
+  const typeOptions = useMemo(
+    () =>
+      activeRelationshipTypes.map((item) => ({
+        value: item.code,
+        label: `${item.name} (${item.code})`,
+      })),
+    [activeRelationshipTypes]
+  );
+
   const loadItems = useCallback(async () => {
     try {
       const data = await getRelations({
         characterId: filters.characterId || undefined,
-        type: (filters.type as CharacterRelationType | "") || undefined,
+        type: filters.type || undefined,
       });
       setItems(data ?? []);
     } catch (err) {
       notify((err as Error).message, "error");
     }
-  }, [getRelations, filters]);
+  }, [filters, notify]);
 
   const loadCharacters = useCallback(async () => {
     try {
@@ -93,7 +130,16 @@ export const RelationshipCreate = () => {
     } catch (err) {
       notify((err as Error).message, "error");
     }
-  }, [getAllCharacters]);
+  }, [notify]);
+
+  const loadRelationshipTypeItems = useCallback(async () => {
+    try {
+      const data = await getRelationshipTypes(false);
+      setRelationshipTypes(data ?? []);
+    } catch (err) {
+      notify((err as Error).message, "error");
+    }
+  }, [notify]);
 
   useEffect(() => {
     void loadItems();
@@ -101,12 +147,14 @@ export const RelationshipCreate = () => {
 
   useEffect(() => {
     void loadCharacters();
-  }, [loadCharacters]);
+    void loadRelationshipTypeItems();
+  }, [loadCharacters, loadRelationshipTypeItems]);
 
   useProjectChange(() => {
     setPage(1);
     setRefreshKey((prev) => prev + 1);
     void loadCharacters();
+    void loadRelationshipTypeItems();
   });
 
   const handleFilterChange = (key: "characterId" | "type", value: string) => {
@@ -142,17 +190,19 @@ export const RelationshipCreate = () => {
     note: item.note ?? "",
   });
 
-  const buildPayload = (state: RelationFormState): CharacterRelationPayload => ({
+  const buildRelationPayload = (
+    state: RelationFormState
+  ): CharacterRelationPayload => ({
     fromId: state.fromId,
     toId: state.toId,
-    type: state.type as CharacterRelationType,
+    type: state.type,
     startYear: state.startYear === "" ? undefined : Number(state.startYear),
     endYear: state.endYear === "" ? undefined : Number(state.endYear),
     note: state.note || undefined,
   });
 
   const handleSubmit = async () => {
-    const payload = buildPayload(values);
+    const payload = buildRelationPayload(values);
     const validation = validateRelation(payload);
     if (!validation.valid) {
       notify(
@@ -189,7 +239,7 @@ export const RelationshipCreate = () => {
     if (!editItem || !editValues) {
       return;
     }
-    const payload = buildPayload(editValues);
+    const payload = buildRelationPayload(editValues);
     const validation = validateRelation(payload);
     if (!validation.valid) {
       notify(
@@ -227,12 +277,110 @@ export const RelationshipCreate = () => {
         note: item.note,
       });
       notify(t("Relationship deleted."), "success");
-      if (editItem &&
+      if (
+        editItem &&
         editItem.fromId === item.fromId &&
         editItem.toId === item.toId &&
-        editItem.type === item.type) {
+        editItem.type === item.type
+      ) {
         handleEditCancel();
       }
+      setRefreshKey((prev) => prev + 1);
+    } catch (err) {
+      notify((err as Error).message, "error");
+    }
+  };
+
+  const mapTypeToForm = (item: RelationshipType): TypeFormState => ({
+    code: item.code,
+    name: item.name,
+    description: item.description ?? "",
+    color: item.color ?? "#6B7280",
+    isDirectional: item.isDirectional,
+    isActive: item.isActive,
+  });
+
+  const buildTypePayload = (state: TypeFormState): RelationshipTypePayload => ({
+    code: state.code.trim().toLowerCase(),
+    name: state.name.trim(),
+    description: state.description.trim() || undefined,
+    color: state.color.trim() || undefined,
+    isDirectional: state.isDirectional,
+    isActive: state.isActive,
+  });
+
+  const validateTypePayload = (payload: RelationshipTypePayload): boolean => {
+    if (!payload.code || !payload.name) {
+      notify(t("Missing required fields: code, name"), "error");
+      return false;
+    }
+    return true;
+  };
+
+  const handleTypeSubmit = async () => {
+    const payload = buildTypePayload(typeForm);
+    if (!validateTypePayload(payload)) {
+      return;
+    }
+
+    setIsSavingType(true);
+    try {
+      if (editingTypeId) {
+        await updateRelationshipType(editingTypeId, payload);
+        notify(t("Relationship type updated."), "success");
+      } else {
+        await createRelationshipType(payload);
+        notify(t("Relationship type created."), "success");
+      }
+      setTypeForm(initialTypeState);
+      setEditingTypeId(null);
+      await loadRelationshipTypeItems();
+      setRefreshKey((prev) => prev + 1);
+    } catch (err) {
+      notify((err as Error).message, "error");
+    } finally {
+      setIsSavingType(false);
+    }
+  };
+
+  const handleTypeEdit = (item: RelationshipType) => {
+    setEditingTypeId(item.id);
+    setTypeForm(mapTypeToForm(item));
+  };
+
+  const handleTypeCancel = () => {
+    setEditingTypeId(null);
+    setTypeForm(initialTypeState);
+  };
+
+  const handleTypeToggleActive = async (item: RelationshipType) => {
+    try {
+      await updateRelationshipType(item.id, {
+        code: item.code,
+        name: item.name,
+        description: item.description,
+        color: item.color,
+        isDirectional: item.isDirectional,
+        isActive: !item.isActive,
+      });
+      notify(t("Relationship type updated."), "success");
+      await loadRelationshipTypeItems();
+    } catch (err) {
+      notify((err as Error).message, "error");
+    }
+  };
+
+  const handleTypeDelete = async (item: RelationshipType) => {
+    const confirmed = window.confirm(
+      t("Delete this relationship type? This action cannot be undone.")
+    );
+    if (!confirmed) {
+      return;
+    }
+    try {
+      await deleteRelationshipType(item.id);
+      notify(t("Relationship type deleted."), "success");
+      await loadRelationshipTypeItems();
       setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
@@ -268,7 +416,7 @@ export const RelationshipCreate = () => {
             label="Type"
             value={filters.type}
             onChange={(value) => handleFilterChange("type", value)}
-            options={TYPE_OPTIONS.map((type) => ({ value: type, label: type }))}
+            options={typeOptions}
             placeholder="All"
           />
           <div className="form-field filter-actions">
@@ -280,6 +428,7 @@ export const RelationshipCreate = () => {
         <RelationshipList
           items={pagedItems}
           charactersById={charactersById}
+          relationshipTypesByCode={relationshipTypesByCode}
           onEdit={handleEditOpen}
           onDelete={handleDelete}
         />
@@ -354,13 +503,10 @@ export const RelationshipCreate = () => {
                 value={editValues.type}
                 onChange={(value) =>
                   setEditValues((prev) =>
-                    prev ? { ...prev, type: value as CharacterRelationType } : prev
+                    prev ? { ...prev, type: value } : prev
                   )
                 }
-                options={TYPE_OPTIONS.map((value) => ({
-                  label: t(value),
-                  value,
-                }))}
+                options={typeOptions}
                 required
               />
             </div>
@@ -442,13 +588,8 @@ export const RelationshipCreate = () => {
               <Select
                 label="Type"
                 value={values.type}
-                onChange={(value) =>
-                  setField("type", value as CharacterRelationType)
-                }
-                options={TYPE_OPTIONS.map((value) => ({
-                  label: t(value),
-                  value,
-                }))}
+                onChange={(value) => setField("type", value)}
+                options={typeOptions}
                 required
               />
             </div>
@@ -490,6 +631,155 @@ export const RelationshipCreate = () => {
           </div>
         </>
       )}
+
+      <div className="card">
+        <div className="card__header">
+          <div>
+            <h3 className="section-title">{t("Relationship type definitions")}</h3>
+            <p className="header__subtitle">
+              {t("Manage available relationship types used by character relations.")}
+            </p>
+          </div>
+          {editingTypeId && (
+            <Button variant="ghost" onClick={handleTypeCancel}>
+              {t("Cancel")}
+            </Button>
+          )}
+        </div>
+
+        {relationshipTypes.length === 0 ? (
+          <p className="header__subtitle">{t("No relationship types yet.")}</p>
+        ) : (
+          <table className="table table--clean">
+            <thead>
+              <tr>
+                <th>{t("Code")}</th>
+                <th>{t("Name")}</th>
+                <th>{t("Directional")}</th>
+                <th>{t("Active")}</th>
+                <th>{t("System")}</th>
+                <th>{t("Actions")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {relationshipTypes.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.code}</td>
+                  <td>{item.name}</td>
+                  <td>{item.isDirectional ? t("Yes") : t("No")}</td>
+                  <td>{item.isActive ? t("Yes") : t("No")}</td>
+                  <td>{item.isSystem ? t("Yes") : t("No")}</td>
+                  <td className="table__actions">
+                    <button
+                      type="button"
+                      className="table__action table__action--ghost"
+                      onClick={() => handleTypeEdit(item)}
+                    >
+                      {t("Edit")}
+                    </button>
+                    <button
+                      type="button"
+                      className="table__action"
+                      onClick={() => handleTypeToggleActive(item)}
+                    >
+                      {item.isActive ? t("Deactivate") : t("Activate")}
+                    </button>
+                    {!item.isSystem && (
+                      <button
+                        type="button"
+                        className="table__action table__action--danger"
+                        onClick={() => handleTypeDelete(item)}
+                      >
+                        {t("Delete")}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <FormSection
+        title={editingTypeId ? "Edit relationship type" : "Create relationship type"}
+        description="Define reusable relationship type metadata."
+      >
+        <div className="form-field--narrow">
+          <TextInput
+            label="Code"
+            value={typeForm.code}
+            onChange={(value) =>
+              setTypeForm((prev) => ({ ...prev, code: value.toLowerCase() }))
+            }
+            required
+          />
+        </div>
+        <div className="form-field--wide">
+          <TextInput
+            label="Name"
+            value={typeForm.name}
+            onChange={(value) => setTypeForm((prev) => ({ ...prev, name: value }))}
+            required
+          />
+        </div>
+        <div className="form-field--wide">
+          <TextArea
+            label="Description"
+            value={typeForm.description}
+            onChange={(value) =>
+              setTypeForm((prev) => ({ ...prev, description: value }))
+            }
+          />
+        </div>
+        <div className="form-field--narrow">
+          <TextInput
+            label="Color"
+            type="color"
+            value={typeForm.color}
+            onChange={(value) => setTypeForm((prev) => ({ ...prev, color: value }))}
+          />
+        </div>
+        <div className="form-field--narrow">
+          <label>
+            <input
+              type="checkbox"
+              checked={typeForm.isDirectional}
+              onChange={(event) =>
+                setTypeForm((prev) => ({
+                  ...prev,
+                  isDirectional: event.target.checked,
+                }))
+              }
+            />
+            {" "}
+            {t("Directional")}
+          </label>
+        </div>
+        <div className="form-field--narrow">
+          <label>
+            <input
+              type="checkbox"
+              checked={typeForm.isActive}
+              onChange={(event) =>
+                setTypeForm((prev) => ({ ...prev, isActive: event.target.checked }))
+              }
+            />
+            {" "}
+            {t("Active")}
+          </label>
+        </div>
+      </FormSection>
+
+      <div className="card">
+        <Button onClick={handleTypeSubmit} disabled={isSavingType}>
+          {isSavingType
+            ? t("Saving...")
+            : editingTypeId
+              ? t("Save type")
+              : t("Create type")}
+        </Button>
+      </div>
     </div>
   );
 };
