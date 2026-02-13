@@ -65,7 +65,6 @@ CREATE (t:${nodeLabels.relationshipType} {
   description: $description,
   isDirectional: $isDirectional,
   color: $color,
-  isSystem: $isSystem,
   isActive: $isActive,
   createdAt: $createdAt,
   updatedAt: $updatedAt
@@ -90,7 +89,7 @@ const GET_TYPES = `
 MATCH (t:${nodeLabels.relationshipType})
 WHERE ($activeOnly = false OR t.isActive = true)
 RETURN t
-ORDER BY t.isSystem DESC, t.name ASC
+ORDER BY t.name ASC
 `;
 
 const GET_TYPE_BY_CODE = `
@@ -133,10 +132,14 @@ ON CREATE SET
   t.description = item.description,
   t.isDirectional = item.isDirectional,
   t.color = item.color,
-  t.isSystem = true,
   t.isActive = true,
   t.createdAt = item.createdAt,
   t.updatedAt = item.updatedAt
+RETURN count(t) AS total
+`;
+
+const COUNT_TYPES = `
+MATCH (t:${nodeLabels.relationshipType})
 RETURN count(t) AS total
 `;
 
@@ -145,6 +148,17 @@ export const ensureDefaultRelationshipTypes = async (
 ): Promise<void> => {
   const session = getSessionForDatabase(database, neo4j.session.WRITE);
   try {
+    const countResult = await session.run(COUNT_TYPES);
+    const totalRaw = countResult.records[0]?.get("total");
+    const total = neo4j.isInt(totalRaw)
+      ? totalRaw.toNumber()
+      : typeof totalRaw === "number"
+        ? totalRaw
+        : 0;
+    if (total > 0) {
+      return;
+    }
+
     const now = new Date().toISOString();
     const defaults = DEFAULT_RELATIONSHIP_TYPES.map((item) => ({
       id: `relationship-type-${item.code}`,

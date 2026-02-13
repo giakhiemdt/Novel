@@ -133,6 +133,7 @@
 - Item — list, create, edit, delete + liên kết event
 - Relationship — list, create, edit, delete
   - Có màn quản lý `relationship-types` trực tiếp trong trang Relationship (type động, không hardcode enum).
+  - Mặc định có seed type gợi ý cho DB mới; sau đó người dùng có thể sửa/xoá/tạo tự do.
 - WorldRule — list, create, edit, delete
 - Conflict — xem report (read-only)
 - Project — chọn project + tạo project (modal)

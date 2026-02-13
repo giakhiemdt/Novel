@@ -129,11 +129,6 @@ const validatePayload = (payload: unknown): RelationshipTypeInput => {
   addIfDefined(result, "color", assertOptionalString(data.color, "color"));
   addIfDefined(
     result,
-    "isSystem",
-    assertOptionalBoolean(data.isSystem, "isSystem")
-  );
-  addIfDefined(
-    result,
     "isActive",
     assertOptionalBoolean(data.isActive, "isActive")
   );
@@ -159,7 +154,6 @@ const buildNode = (payload: RelationshipTypeInput): RelationshipTypeNode => {
     code: normalizeCode(payload.code),
     name: payload.name,
     isDirectional: payload.isDirectional ?? false,
-    isSystem: payload.isSystem ?? false,
     isActive: payload.isActive ?? true,
     createdAt: now,
     updatedAt: now,
@@ -220,7 +214,6 @@ export const relationshipTypeService = {
       ...validated,
       id,
       code: normalizeCode(validated.code),
-      isSystem: existing.isSystem,
       isDirectional: validated.isDirectional ?? existing.isDirectional,
       isActive: validated.isActive ?? existing.isActive,
       updatedAt,
@@ -256,10 +249,6 @@ export const relationshipTypeService = {
     const existing = await getRelationshipTypeById(database, id);
     if (!existing) {
       throw new AppError("relationship type not found", 404);
-    }
-
-    if (existing.isSystem) {
-      throw new AppError("system relationship type cannot be deleted", 400);
     }
 
     const usage = await countCharacterRelationsByType(database, existing.code);

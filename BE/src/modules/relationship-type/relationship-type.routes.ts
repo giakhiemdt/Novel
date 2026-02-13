@@ -45,7 +45,6 @@ export const relationshipTypeRoutes: RouteConfig[] = [
           description: { type: "string" },
           isDirectional: { type: "boolean" },
           color: { type: "string" },
-          isSystem: { type: "boolean" },
           isActive: { type: "boolean" },
         },
       },

@@ -5,7 +5,6 @@ export type RelationshipType = {
   description?: string;
   isDirectional: boolean;
   color?: string;
-  isSystem: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

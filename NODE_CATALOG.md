@@ -219,7 +219,7 @@ Tài liệu này mô tả chi tiết từng node đang dùng trong dự án hi�
 - API chính: `GET /relationship-types`, `POST`, `PUT /relationship-types/:id`, `DELETE /relationship-types/:id`.
 - Lưu ý:
 - Có seed mặc định: `family`, `ally`, `enemy`, `romance`, `mentor`, `rival`, `other`.
-- Type hệ thống (`isSystem=true`) không được xoá.
+- Sau khi khởi tạo, tất cả type đều có thể sửa/xoá như custom type.
 
 ## 4) Dữ liệu quan hệ quan trọng (không phải node độc lập)
 

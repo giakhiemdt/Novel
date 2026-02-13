@@ -5,7 +5,6 @@ export type RelationshipTypeInput = {
   description?: string;
   isDirectional?: boolean;
   color?: string;
-  isSystem?: boolean;
   isActive?: boolean;
 };
 
@@ -16,7 +15,6 @@ export type RelationshipTypeNode = {
   description?: string;
   isDirectional: boolean;
   color?: string;
-  isSystem: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
