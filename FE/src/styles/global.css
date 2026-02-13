@@ -2276,9 +2276,9 @@ h3 {
 
 .relationship-graph__edge {
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: 1.7;
   fill: none;
-  opacity: 0.85;
+  opacity: 0.48;
 }
 
 .relationship-graph__node {
@@ -2289,8 +2289,17 @@ h3 {
 
 .relationship-graph__label {
   fill: var(--color-ink);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
+  pointer-events: none;
+}
+
+.relationship-graph__node-handle {
+  cursor: grab;
+}
+
+.relationship-graph__node-handle:active {
+  cursor: grabbing;
 }
 
 .relationship-graph__legend {

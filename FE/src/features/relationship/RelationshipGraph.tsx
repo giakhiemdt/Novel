@@ -88,6 +88,11 @@ export const RelationshipGraph = ({
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+  const [manualPositions, setManualPositions] = useState<
+    Record<string, { x: number; y: number }>
+  >({});
+  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
   const nodeIds = useMemo(() => {
     const unique = new Set<string>();
@@ -113,7 +118,17 @@ export const RelationshipGraph = ({
     }, {});
   }, [nodeIds, charactersById]);
 
-  const layout = useMemo(() => buildLayout(nodeIds, labels), [nodeIds, labels]);
+  const autoLayout = useMemo(() => buildLayout(nodeIds, labels), [nodeIds, labels]);
+
+  const layout = useMemo(() => {
+    const next = { ...autoLayout };
+    Object.entries(manualPositions).forEach(([id, pos]) => {
+      if (next[id]) {
+        next[id] = { ...next[id], x: pos.x, y: pos.y };
+      }
+    });
+    return next;
+  }, [autoLayout, manualPositions]);
 
   const legend = useMemo(() => {
     const seen = new Set<string>();
@@ -133,6 +148,22 @@ export const RelationshipGraph = ({
 
     return result;
   }, [items, relationshipTypesByCode]);
+
+  useEffect(() => {
+    const valid = new Set(nodeIds);
+    setManualPositions((prev) => {
+      let changed = false;
+      const next: Record<string, { x: number; y: number }> = {};
+      Object.entries(prev).forEach(([id, pos]) => {
+        if (valid.has(id)) {
+          next[id] = pos;
+        } else {
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [nodeIds]);
 
   useEffect(() => {
     const node = boardRef.current;
@@ -212,7 +243,10 @@ export const RelationshipGraph = ({
       return;
     }
     const target = event.target as HTMLElement;
-    if (target.closest(".relationship-graph__toolbar")) {
+    if (
+      target.closest(".relationship-graph__toolbar") ||
+      target.closest(".relationship-graph__node-handle")
+    ) {
       return;
     }
     const rect = boardRef.current?.getBoundingClientRect();
@@ -228,11 +262,27 @@ export const RelationshipGraph = ({
   };
 
   const handleBoardPointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    if (!isPanning) {
-      return;
-    }
     const rect = boardRef.current?.getBoundingClientRect();
     if (!rect) {
+      return;
+    }
+
+    if (draggingNodeId) {
+      const worldX = (event.clientX - rect.left - pan.x) / scale;
+      const worldY = (event.clientY - rect.top - pan.y) / scale;
+      const minBound = NODE_RADIUS + 6;
+      const maxX = VIEWBOX_WIDTH - NODE_RADIUS - 6;
+      const maxY = VIEWBOX_HEIGHT - NODE_RADIUS - 6;
+      const nextX = Math.max(minBound, Math.min(maxX, worldX - dragOffset.x));
+      const nextY = Math.max(minBound, Math.min(maxY, worldY - dragOffset.y));
+      setManualPositions((prev) => ({
+        ...prev,
+        [draggingNodeId]: { x: nextX, y: nextY },
+      }));
+      return;
+    }
+
+    if (!isPanning) {
       return;
     }
     setPan({
@@ -242,6 +292,11 @@ export const RelationshipGraph = ({
   };
 
   const handleBoardPointerUp = (event: PointerEvent<HTMLDivElement>) => {
+    if (draggingNodeId) {
+      setDraggingNodeId(null);
+      event.currentTarget.releasePointerCapture(event.pointerId);
+      return;
+    }
     if (!isPanning) {
       return;
     }
@@ -252,6 +307,9 @@ export const RelationshipGraph = ({
   if (items.length === 0 || nodeIds.length === 0) {
     return <p className="header__subtitle">{t("No relationships to render as graph.")}</p>;
   }
+
+  const shortenLabel = (value: string): string =>
+    value.length > 12 ? `${value.slice(0, 11)}…` : value;
 
   return (
     <div className="relationship-graph">
@@ -370,7 +428,25 @@ export const RelationshipGraph = ({
               }
 
               return (
-                <g key={id}>
+                <g
+                  key={id}
+                  className="relationship-graph__node-handle"
+                  onPointerDown={(event) => {
+                    if (event.button !== 0) {
+                      return;
+                    }
+                    event.stopPropagation();
+                    const rect = boardRef.current?.getBoundingClientRect();
+                    if (!rect) {
+                      return;
+                    }
+                    const worldX = (event.clientX - rect.left - pan.x) / scale;
+                    const worldY = (event.clientY - rect.top - pan.y) / scale;
+                    setDraggingNodeId(id);
+                    setDragOffset({ x: worldX - node.x, y: worldY - node.y });
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                  }}
+                >
                   <circle
                     cx={node.x}
                     cy={node.y}
@@ -379,11 +455,12 @@ export const RelationshipGraph = ({
                   />
                   <text
                     x={node.x}
-                    y={node.y + NODE_RADIUS + 16}
+                    y={node.y}
                     className="relationship-graph__label"
                     textAnchor="middle"
+                    dominantBaseline="middle"
                   >
-                    {node.label}
+                    {shortenLabel(node.label)}
                   </text>
                 </g>
               );
