@@ -13,18 +13,7 @@ export const relationshipRoutes: RouteConfig[] = [
         type: "object",
         properties: {
           characterId: { type: "string" },
-          type: {
-            type: "string",
-            enum: [
-              "family",
-              "ally",
-              "enemy",
-              "romance",
-              "mentor",
-              "rival",
-              "other",
-            ],
-          },
+          type: { type: "string" },
         },
       },
       response: {
@@ -50,18 +39,7 @@ export const relationshipRoutes: RouteConfig[] = [
         properties: {
           fromId: { type: "string" },
           toId: { type: "string" },
-          type: {
-            type: "string",
-            enum: [
-              "family",
-              "ally",
-              "enemy",
-              "romance",
-              "mentor",
-              "rival",
-              "other",
-            ],
-          },
+          type: { type: "string" },
           startYear: { type: "number" },
           endYear: { type: "number" },
           note: { type: "string" },
@@ -87,18 +65,7 @@ export const relationshipRoutes: RouteConfig[] = [
         properties: {
           fromId: { type: "string" },
           toId: { type: "string" },
-          type: {
-            type: "string",
-            enum: [
-              "family",
-              "ally",
-              "enemy",
-              "romance",
-              "mentor",
-              "rival",
-              "other",
-            ],
-          },
+          type: { type: "string" },
           startYear: { type: "number" },
           endYear: { type: "number" },
           note: { type: "string" },
@@ -124,18 +91,7 @@ export const relationshipRoutes: RouteConfig[] = [
         properties: {
           fromId: { type: "string" },
           toId: { type: "string" },
-          type: {
-            type: "string",
-            enum: [
-              "family",
-              "ally",
-              "enemy",
-              "romance",
-              "mentor",
-              "rival",
-              "other",
-            ],
-          },
+          type: { type: "string" },
         },
       },
       response: {

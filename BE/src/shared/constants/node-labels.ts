@@ -17,4 +17,5 @@ export const nodeLabels = {
   scene: "Scene",
   item: "Item",
   worldRule: "WorldRule",
+  relationshipType: "RelationshipType",
 };

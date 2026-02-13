@@ -10,18 +10,11 @@ import {
   CharacterRelationInput,
   CharacterRelationNode,
   CharacterRelationQuery,
-  CharacterRelationType,
 } from "./relationship.types";
-
-const TYPES: CharacterRelationType[] = [
-  "family",
-  "ally",
-  "enemy",
-  "romance",
-  "mentor",
-  "rival",
-  "other",
-];
+import {
+  ensureDefaultRelationshipTypes,
+  getRelationshipTypeByCode,
+} from "../relationship-type/relationship-type.repo";
 
 const assertRequiredString = (value: unknown, field: string): string => {
   if (typeof value !== "string" || value.trim().length === 0) {
@@ -54,17 +47,6 @@ const assertOptionalNumber = (
     throw new AppError(`${field} must be a number`, 400);
   }
   return value;
-};
-
-const assertRequiredEnum = <T extends string>(
-  value: unknown,
-  allowed: T[],
-  field: string
-): T => {
-  if (typeof value !== "string" || !allowed.includes(value as T)) {
-    throw new AppError(`${field} must be one of ${allowed.join(", ")}`, 400);
-  }
-  return value as T;
 };
 
 const assertDatabaseName = (value: unknown): string => {
@@ -102,7 +84,7 @@ const validatePayload = (payload: unknown): CharacterRelationInput => {
   if (fromId === toId) {
     throw new AppError("fromId must be different from toId", 400);
   }
-  const type = assertRequiredEnum(data.type, TYPES, "type");
+  const type = assertRequiredString(data.type, "type").toLowerCase();
   const startYear = assertOptionalNumber(data.startYear, "startYear");
   const endYear = assertOptionalNumber(data.endYear, "endYear");
   if (startYear !== undefined && endYear !== undefined && endYear < startYear) {
@@ -117,6 +99,17 @@ const validatePayload = (payload: unknown): CharacterRelationInput => {
   return result;
 };
 
+const assertRelationshipTypeExists = async (
+  database: string,
+  type: string
+): Promise<void> => {
+  await ensureDefaultRelationshipTypes(database);
+  const relationshipType = await getRelationshipTypeByCode(database, type);
+  if (!relationshipType || !relationshipType.isActive) {
+    throw new AppError("relationship type not found", 404);
+  }
+};
+
 export const relationshipService = {
   create: async (
     payload: unknown,
@@ -124,6 +117,9 @@ export const relationshipService = {
   ): Promise<CharacterRelationNode> => {
     const database = assertDatabaseName(dbName);
     const validated = validatePayload(payload);
+
+    await assertRelationshipTypeExists(database, validated.type);
+
     const [fromExists, toExists] = await Promise.all([
       checkCharacterExists(database, validated.fromId),
       checkCharacterExists(database, validated.toId),
@@ -139,12 +135,12 @@ export const relationshipService = {
     };
     return createRelation(database, node);
   },
-  update: async (
-    payload: unknown,
-    dbName: unknown
-  ): Promise<void> => {
+  update: async (payload: unknown, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);
     const validated = validatePayload(payload);
+
+    await assertRelationshipTypeExists(database, validated.type);
+
     const now = new Date().toISOString();
     const node: CharacterRelationNode = {
       ...validated,
@@ -156,10 +152,7 @@ export const relationshipService = {
       throw new AppError("relation not found", 404);
     }
   },
-  delete: async (
-    payload: unknown,
-    dbName: unknown
-  ): Promise<void> => {
+  delete: async (payload: unknown, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);
     const validated = validatePayload(payload);
     const deleted = await deleteRelation(
@@ -191,11 +184,16 @@ export const relationshipService = {
   > => {
     const database = assertDatabaseName(dbName);
     const q = query as Record<string, unknown> | undefined;
-    const characterId = q?.characterId && typeof q.characterId === "string" ? q.characterId : undefined;
-    const type = q?.type && typeof q.type === "string" ? (q.type as CharacterRelationType) : undefined;
-    if (type && !TYPES.includes(type)) {
-      throw new AppError(`type must be one of ${TYPES.join(", ")}`, 400);
+    const characterId =
+      q?.characterId && typeof q.characterId === "string" ? q.characterId : undefined;
+    const type = q?.type && typeof q.type === "string" ? q.type.toLowerCase() : undefined;
+
+    if (type) {
+      await assertRelationshipTypeExists(database, type);
+    } else {
+      await ensureDefaultRelationshipTypes(database);
     }
+
     const filter: CharacterRelationQuery = {};
     addIfDefined(filter, "characterId", characterId);
     addIfDefined(filter, "type", type);

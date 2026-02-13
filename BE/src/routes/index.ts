@@ -12,6 +12,7 @@ import { sceneRoutes } from "../modules/scene/scene.routes";
 import { conflictRoutes } from "../modules/conflict/conflict.routes";
 import { itemRoutes } from "../modules/item/item.routes";
 import { relationshipRoutes } from "../modules/relationship/relationship.routes";
+import { relationshipTypeRoutes } from "../modules/relationship-type/relationship-type.routes";
 import { worldRuleRoutes } from "../modules/worldrule/worldrule.routes";
 import { raceRoutes } from "../modules/race/race.routes";
 import { rankRoutes } from "../modules/rank/rank.routes";
@@ -55,6 +56,7 @@ export const routes: RouteConfig[] = [
   ...sceneRoutes,
   ...conflictRoutes,
   ...itemRoutes,
+  ...relationshipTypeRoutes,
   ...relationshipRoutes,
   ...worldRuleRoutes,
 ];

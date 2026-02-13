@@ -1,16 +1,7 @@
-export type CharacterRelationType =
-  | "family"
-  | "ally"
-  | "enemy"
-  | "romance"
-  | "mentor"
-  | "rival"
-  | "other";
-
 export type CharacterRelationInput = {
   fromId: string;
   toId: string;
-  type: CharacterRelationType;
+  type: string;
   startYear?: number;
   endYear?: number;
   note?: string;
@@ -23,5 +14,5 @@ export type CharacterRelationNode = CharacterRelationInput & {
 
 export type CharacterRelationQuery = {
   characterId?: string;
-  type?: CharacterRelationType;
+  type?: string;
 };
