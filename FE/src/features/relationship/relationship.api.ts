@@ -7,6 +7,21 @@ import type {
   CharacterRelationQuery,
 } from "./relationship.types";
 
+type ApiRelationRecord =
+  | CharacterRelation
+  | {
+      from?: { id?: string };
+      to?: { id?: string };
+      relation?: {
+        type?: string;
+        startYear?: number | null;
+        endYear?: number | null;
+        note?: string | null;
+        createdAt?: string | null;
+        updatedAt?: string | null;
+      };
+    };
+
 const buildQuery = (params?: CharacterRelationQuery) => {
   if (!params) {
     return "";
@@ -22,11 +37,56 @@ const buildQuery = (params?: CharacterRelationQuery) => {
   return query ? `?${query}` : "";
 };
 
-export const getRelations = (params?: CharacterRelationQuery) =>
-  api.get<CharacterRelation[]>(
+const normalizeRelation = (item: ApiRelationRecord): CharacterRelation | null => {
+  const asDirect = item as CharacterRelation;
+  if (asDirect.fromId && asDirect.toId && asDirect.type) {
+    return asDirect;
+  }
+
+  const asStructured = item as {
+    from?: { id?: string };
+    to?: { id?: string };
+    relation?: {
+      type?: string;
+      startYear?: number | null;
+      endYear?: number | null;
+      note?: string | null;
+      createdAt?: string | null;
+      updatedAt?: string | null;
+    };
+  };
+
+  const fromId = asStructured.from?.id;
+  const toId = asStructured.to?.id;
+  const type = asStructured.relation?.type;
+
+  if (!fromId || !toId || !type) {
+    return null;
+  }
+
+  return {
+    fromId,
+    toId,
+    type,
+    startYear: asStructured.relation?.startYear ?? undefined,
+    endYear: asStructured.relation?.endYear ?? undefined,
+    note: asStructured.relation?.note ?? undefined,
+    createdAt: asStructured.relation?.createdAt ?? "",
+    updatedAt: asStructured.relation?.updatedAt ?? "",
+  };
+};
+
+export const getRelations = async (
+  params?: CharacterRelationQuery
+): Promise<CharacterRelation[]> => {
+  const data = await api.get<ApiRelationRecord[]>(
     `${endpoints.characterRelations}${buildQuery(params)}`,
     withDatabaseHeader()
   );
+  return (data ?? [])
+    .map(normalizeRelation)
+    .filter((item): item is CharacterRelation => item !== null);
+};
 
 export const createRelation = (payload: CharacterRelationPayload) =>
   api.post<CharacterRelation>(

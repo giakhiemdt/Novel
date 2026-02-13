@@ -28,6 +28,7 @@ import type {
   RelationshipType,
   RelationshipTypePayload,
 } from "./relationship-type.types";
+import { RelationshipGraph } from "./RelationshipGraph";
 import { RelationshipList } from "./RelationshipList";
 import { validateRelation } from "./relationship.schema";
 import type {
@@ -94,6 +95,18 @@ export const RelationshipCreate = () => {
         acc[item.code] = item.name;
         return acc;
       }, {}),
+    [relationshipTypes]
+  );
+
+  const relationshipTypeMetaByCode = useMemo(
+    () =>
+      relationshipTypes.reduce<Record<string, { name: string; color?: string }>>(
+        (acc, item) => {
+          acc[item.code] = { name: item.name, color: item.color };
+          return acc;
+        },
+        {}
+      ),
     [relationshipTypes]
   );
 
@@ -446,6 +459,22 @@ export const RelationshipCreate = () => {
             }}
           />
         )}
+      </div>
+
+      <div className="card">
+        <div className="card__header">
+          <div>
+            <h3 className="section-title">{t("Relationship graph")}</h3>
+            <p className="header__subtitle">
+              {t("Visual map of character-to-character connections.")}
+            </p>
+          </div>
+        </div>
+        <RelationshipGraph
+          items={items}
+          charactersById={charactersById}
+          relationshipTypesByCode={relationshipTypeMetaByCode}
+        />
       </div>
 
       {editItem && editValues && (

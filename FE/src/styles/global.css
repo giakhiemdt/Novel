@@ -2200,3 +2200,66 @@ h3 {
     --content-columns: 1fr;
   }
 }
+
+.relationship-graph {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.relationship-graph__canvas {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(120, 120, 120, 0.05) 100%);
+}
+
+.relationship-graph__svg {
+  width: 100%;
+  min-width: 720px;
+  display: block;
+}
+
+.relationship-graph__edge {
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+  opacity: 0.85;
+}
+
+.relationship-graph__node {
+  fill: var(--color-panel);
+  stroke: var(--border-strong);
+  stroke-width: 2;
+}
+
+.relationship-graph__label {
+  fill: var(--color-ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.relationship-graph__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.relationship-graph__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: var(--color-panel);
+  font-size: 12px;
+}
+
+.relationship-graph__legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
