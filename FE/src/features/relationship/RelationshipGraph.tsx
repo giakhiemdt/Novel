@@ -427,6 +427,9 @@ export const RelationshipGraph = ({
               const endY = to.y - offsetY;
               const controlX = (startX + endX) / 2 - (dy / distance) * 18;
               const controlY = (startY + endY) / 2 + (dx / distance) * 18;
+              const labelX = (startX + 2 * controlX + endX) / 4;
+              const labelY = (startY + 2 * controlY + endY) / 4;
+              const label = relationshipTypesByCode?.[item.type]?.name ?? item.type;
 
               return (
                 <g key={`${item.fromId}-${item.toId}-${item.type}-${index}`}>
@@ -436,6 +439,15 @@ export const RelationshipGraph = ({
                     style={{ color }}
                     markerEnd="url(#relationship-graph-arrow)"
                   />
+                  <text
+                    x={labelX}
+                    y={labelY}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    className="relationship-graph__edge-label"
+                  >
+                    {label}
+                  </text>
                 </g>
               );
             })}
