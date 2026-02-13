@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/common/Button";
 import { FilterPanel } from "../../components/common/FilterPanel";
 import { Pagination } from "../../components/common/Pagination";
@@ -41,6 +42,7 @@ type RelationFormState = typeof initialState;
 
 export const RelationshipCreate = () => {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const { values, setField, reset } = useForm<RelationFormState>(initialState);
   const [items, setItems] = useState<CharacterRelation[]>([]);
   const [characters, setCharacters] = useState<Character[]>([]);
@@ -94,13 +96,23 @@ export const RelationshipCreate = () => {
   );
 
   const typeOptions = useMemo(
-    () =>
-      activeRelationshipTypes.map((item) => ({
+    () => {
+      const options = activeRelationshipTypes.map((item) => ({
         value: item.code,
         label: `${item.name} (${item.code})`,
-      })),
-    [activeRelationshipTypes]
+      }));
+      return [...options, { value: "__create__", label: t("Create relationship type") }];
+    },
+    [activeRelationshipTypes, t]
   );
+
+  const characterOptions = useMemo(() => {
+    const options = characters.map((character) => ({
+      value: character.id,
+      label: character.name,
+    }));
+    return [...options, { value: "__create__", label: t("Create character") }];
+  }, [characters, t]);
 
   const loadItems = useCallback(async () => {
     try {
@@ -149,6 +161,14 @@ export const RelationshipCreate = () => {
   });
 
   const handleFilterChange = (key: "characterId" | "type", value: string) => {
+    if (value === "__create__") {
+      if (key === "characterId") {
+        navigate("/characters");
+      } else {
+        navigate("/relationship-types");
+      }
+      return;
+    }
     setPage(1);
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
@@ -298,10 +318,7 @@ export const RelationshipCreate = () => {
             label="Character"
             value={filters.characterId}
             onChange={(value) => handleFilterChange("characterId", value)}
-            options={characters.map((character) => ({
-              value: character.id,
-              label: character.name,
-            }))}
+            options={characterOptions}
             placeholder="All"
           />
           <Select
@@ -379,13 +396,14 @@ export const RelationshipCreate = () => {
               <Select
                 label="From"
                 value={editValues.fromId}
-                onChange={(value) =>
-                  setEditValues((prev) => prev && { ...prev, fromId: value })
-                }
-                options={characters.map((character) => ({
-                  label: character.name,
-                  value: character.id,
-                }))}
+                onChange={(value) => {
+                  if (value === "__create__") {
+                    navigate("/characters");
+                    return;
+                  }
+                  setEditValues((prev) => prev && { ...prev, fromId: value });
+                }}
+                options={characterOptions}
                 placeholder={t("Select character")}
                 required
               />
@@ -394,13 +412,14 @@ export const RelationshipCreate = () => {
               <Select
                 label="To"
                 value={editValues.toId}
-                onChange={(value) =>
-                  setEditValues((prev) => prev && { ...prev, toId: value })
-                }
-                options={characters.map((character) => ({
-                  label: character.name,
-                  value: character.id,
-                }))}
+                onChange={(value) => {
+                  if (value === "__create__") {
+                    navigate("/characters");
+                    return;
+                  }
+                  setEditValues((prev) => prev && { ...prev, toId: value });
+                }}
+                options={characterOptions}
                 placeholder={t("Select character")}
                 required
               />
@@ -409,11 +428,15 @@ export const RelationshipCreate = () => {
               <Select
                 label="Type"
                 value={editValues.type}
-                onChange={(value) =>
+                onChange={(value) => {
+                  if (value === "__create__") {
+                    navigate("/relationship-types");
+                    return;
+                  }
                   setEditValues((prev) =>
                     prev ? { ...prev, type: value } : prev
-                  )
-                }
+                  );
+                }}
                 options={typeOptions}
                 required
               />
@@ -470,11 +493,14 @@ export const RelationshipCreate = () => {
               <Select
                 label="From"
                 value={values.fromId}
-                onChange={(value) => setField("fromId", value)}
-                options={characters.map((character) => ({
-                  label: character.name,
-                  value: character.id,
-                }))}
+                onChange={(value) => {
+                  if (value === "__create__") {
+                    navigate("/characters");
+                    return;
+                  }
+                  setField("fromId", value);
+                }}
+                options={characterOptions}
                 placeholder={t("Select character")}
                 required
               />
@@ -483,11 +509,14 @@ export const RelationshipCreate = () => {
               <Select
                 label="To"
                 value={values.toId}
-                onChange={(value) => setField("toId", value)}
-                options={characters.map((character) => ({
-                  label: character.name,
-                  value: character.id,
-                }))}
+                onChange={(value) => {
+                  if (value === "__create__") {
+                    navigate("/characters");
+                    return;
+                  }
+                  setField("toId", value);
+                }}
+                options={characterOptions}
                 placeholder={t("Select character")}
                 required
               />
@@ -496,7 +525,13 @@ export const RelationshipCreate = () => {
               <Select
                 label="Type"
                 value={values.type}
-                onChange={(value) => setField("type", value)}
+                onChange={(value) => {
+                  if (value === "__create__") {
+                    navigate("/relationship-types");
+                    return;
+                  }
+                  setField("type", value);
+                }}
                 options={typeOptions}
                 required
               />
