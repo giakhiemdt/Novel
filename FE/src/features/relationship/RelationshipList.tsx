@@ -74,19 +74,7 @@ export const RelationshipList = ({
         </thead>
         <tbody>
           {items.map((item) => (
-            <tr
-              key={`${item.fromId}-${item.toId}-${item.type}`}
-              className="table__row"
-              onClick={() => onSelect?.(item)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onSelect?.(item);
-                }
-              }}
-              tabIndex={0}
-              role="button"
-            >
+            <tr key={`${item.fromId}-${item.toId}-${item.type}`} className="table__row">
               <td>{resolveName(item.fromId)}</td>
               <td>{resolveName(item.toId)}</td>
               <td>{resolveType(item.type)}</td>
@@ -97,7 +85,7 @@ export const RelationshipList = ({
                   type="button"
                   className="table__action"
                   onClick={(event) => {
-                    event.stopPropagation();
+                    event.preventDefault();
                     setDetailItem(item);
                   }}
                 >
@@ -107,7 +95,7 @@ export const RelationshipList = ({
                   type="button"
                   className="table__action table__action--ghost"
                   onClick={(event) => {
-                    event.stopPropagation();
+                    event.preventDefault();
                     onEdit?.(item);
                   }}
                 >
@@ -117,7 +105,7 @@ export const RelationshipList = ({
                   type="button"
                   className="table__action table__action--danger"
                   onClick={(event) => {
-                    event.stopPropagation();
+                    event.preventDefault();
                     onDelete?.(item);
                   }}
                 >
