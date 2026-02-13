@@ -228,6 +228,7 @@ export const RelationshipGraph = ({
 
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
     event.preventDefault();
+    event.stopPropagation();
     const rect = boardRef.current?.getBoundingClientRect();
     if (!rect) {
       return;
@@ -316,6 +317,7 @@ export const RelationshipGraph = ({
       <div
         className={`relationship-graph__board${isPanning ? " relationship-graph__board--panning" : ""}`}
         ref={boardRef}
+        onWheelCapture={handleWheel}
         onWheel={handleWheel}
         onPointerDown={handleBoardPointerDown}
         onPointerMove={handleBoardPointerMove}
