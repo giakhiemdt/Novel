@@ -384,6 +384,11 @@ export const RelationshipCreate = () => {
   };
 
   const handleTypeDelete = async (item: RelationshipType) => {
+    if (item.isSystem) {
+      notify(t("System types cannot be deleted."), "error");
+      return;
+    }
+
     const confirmed = window.confirm(
       t("Delete this relationship type? This action cannot be undone.")
     );
@@ -737,8 +742,6 @@ export const RelationshipCreate = () => {
                       type="button"
                       className="table__action table__action--danger"
                       onClick={() => handleTypeDelete(item)}
-                      disabled={item.isSystem}
-                      title={item.isSystem ? t("System types cannot be deleted.") : undefined}
                     >
                       {t("Delete")}
                     </button>
