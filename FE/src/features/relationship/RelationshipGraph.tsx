@@ -15,6 +15,15 @@ type GraphNode = {
   y: number;
 };
 
+type BundledEdge = {
+  key: string;
+  a: string;
+  b: string;
+  hasAToB: boolean;
+  hasBToA: boolean;
+  types: string[];
+};
+
 export type RelationshipGraphProps = {
   items: CharacterRelation[];
   charactersById?: Record<string, string>;
@@ -74,6 +83,14 @@ const getEdgeColor = (
 
 const clampScale = (value: number) =>
   Math.min(MAX_SCALE, Math.max(MIN_SCALE, value));
+
+const hashString = (value: string): number => {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+};
 
 export const RelationshipGraph = ({
   items,
@@ -149,6 +166,46 @@ export const RelationshipGraph = ({
 
     return result;
   }, [items, relationshipTypesByCode]);
+
+  const bundledEdges = useMemo<BundledEdge[]>(() => {
+    const grouped = new Map<string, BundledEdge>();
+
+    items.forEach((item) => {
+      if (!item.fromId || !item.toId || item.fromId === item.toId) {
+        return;
+      }
+      const [a, b] = item.fromId < item.toId
+        ? [item.fromId, item.toId]
+        : [item.toId, item.fromId];
+      const key = `${a}|${b}`;
+      const existing = grouped.get(key);
+      if (!existing) {
+        grouped.set(key, {
+          key,
+          a,
+          b,
+          hasAToB: item.fromId === a,
+          hasBToA: item.fromId === b,
+          types: [item.type],
+        });
+        return;
+      }
+      if (item.fromId === a) {
+        existing.hasAToB = true;
+      } else {
+        existing.hasBToA = true;
+      }
+      if (!existing.types.includes(item.type)) {
+        existing.types.push(item.type);
+      }
+    });
+
+    return Array.from(grouped.values()).sort((x, y) => {
+      const xName = `${labels[x.a] ?? x.a} ${labels[x.b] ?? x.b}`;
+      const yName = `${labels[y.a] ?? y.a} ${labels[y.b] ?? y.b}`;
+      return xName.localeCompare(yName);
+    });
+  }, [items, labels]);
 
   useEffect(() => {
     const valid = new Set(nodeIds);
@@ -408,14 +465,16 @@ export const RelationshipGraph = ({
               </marker>
             </defs>
 
-            {items.map((item, index) => {
-              const from = layout[item.fromId];
-              const to = layout[item.toId];
+            {bundledEdges.map((edge, index) => {
+              const from = layout[edge.a];
+              const to = layout[edge.b];
               if (!from || !to) {
                 return null;
               }
 
-              const color = getEdgeColor(item.type, index, relationshipTypesByCode);
+              const color = edge.types.length === 1
+                ? getEdgeColor(edge.types[0] ?? "", index, relationshipTypesByCode)
+                : "#6B7280";
               const dx = to.x - from.x;
               const dy = to.y - from.y;
               const distance = Math.hypot(dx, dy) || 1;
@@ -425,21 +484,29 @@ export const RelationshipGraph = ({
               const startY = from.y + offsetY;
               const endX = to.x - offsetX;
               const endY = to.y - offsetY;
-              const controlX = (startX + endX) / 2 - (dy / distance) * 18;
-              const controlY = (startY + endY) / 2 + (dx / distance) * 18;
-              const label = relationshipTypesByCode?.[item.type]?.name ?? item.type;
-              const edgePathId = `relationship-edge-${item.fromId}-${item.toId}-${item.type}-${index}`
+              const lane = (hashString(edge.key) % 5) - 2;
+              const curvature = 18 + lane * 10;
+              const controlX = (startX + endX) / 2 - (dy / distance) * curvature;
+              const controlY = (startY + endY) / 2 + (dx / distance) * curvature;
+              const typeLabels = edge.types.map(
+                (type) => relationshipTypesByCode?.[type]?.name ?? type
+              );
+              const label = typeLabels.length <= 2
+                ? typeLabels.join(" • ")
+                : `${typeLabels.length} relations`;
+              const edgePathId = `relationship-edge-${edge.key}-${index}`
                 .replace(/[^a-zA-Z0-9_-]/g, "-");
               const pathValue = `M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`;
 
               return (
-                <g key={`${item.fromId}-${item.toId}-${item.type}-${index}`}>
+                <g key={edge.key}>
                   <path
                     id={edgePathId}
                     d={pathValue}
                     className="relationship-graph__edge"
                     style={{ color }}
-                    markerEnd="url(#relationship-graph-arrow)"
+                    markerStart={edge.hasBToA ? "url(#relationship-graph-arrow)" : undefined}
+                    markerEnd={edge.hasAToB ? "url(#relationship-graph-arrow)" : undefined}
                   />
                   <text className="relationship-graph__edge-label">
                     <textPath href={`#${edgePathId}`} startOffset="50%" textAnchor="middle">
