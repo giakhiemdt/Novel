@@ -178,7 +178,11 @@ export const createRelationshipType = async (
 ): Promise<RelationshipTypeNode> => {
   const session = getSessionForDatabase(database, neo4j.session.WRITE);
   try {
-    const result = await session.run(CREATE_TYPE, data);
+    const result = await session.run(CREATE_TYPE, {
+      ...data,
+      description: data.description ?? null,
+      color: data.color ?? null,
+    });
     const record = result.records[0];
     const node = record?.get("t");
     return mapNode(node?.properties ?? data) as RelationshipTypeNode;
