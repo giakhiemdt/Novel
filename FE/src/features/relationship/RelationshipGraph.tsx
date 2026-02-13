@@ -1,6 +1,5 @@
 import {
   type PointerEvent,
-  type WheelEvent,
   useEffect,
   useMemo,
   useRef,
@@ -83,6 +82,8 @@ export const RelationshipGraph = ({
 }: RelationshipGraphProps) => {
   const { t } = useI18n();
   const boardRef = useRef<HTMLDivElement>(null);
+  const scaleRef = useRef(1);
+  const panRef = useRef(DEFAULT_PAN);
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState(DEFAULT_PAN);
   const [isPanning, setIsPanning] = useState(false);
@@ -182,6 +183,14 @@ export const RelationshipGraph = ({
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    scaleRef.current = scale;
+  }, [scale]);
+
+  useEffect(() => {
+    panRef.current = pan;
+  }, [pan]);
+
   const fitToBoard = () => {
     const node = boardRef.current;
     if (!node) {
@@ -215,29 +224,39 @@ export const RelationshipGraph = ({
     pointerX: number,
     pointerY: number
   ) => {
+    const currentScale = scaleRef.current;
+    const currentPan = panRef.current;
     const clamped = clampScale(nextScale);
-    if (clamped === scale) {
+    if (clamped === currentScale) {
       return;
     }
-    const ratio = clamped / scale;
-    const nextPanX = pointerX - (pointerX - pan.x) * ratio;
-    const nextPanY = pointerY - (pointerY - pan.y) * ratio;
+    const ratio = clamped / currentScale;
+    const nextPanX = pointerX - (pointerX - currentPan.x) * ratio;
+    const nextPanY = pointerY - (pointerY - currentPan.y) * ratio;
+    scaleRef.current = clamped;
+    panRef.current = { x: nextPanX, y: nextPanY };
     setScale(clamped);
     setPan({ x: nextPanX, y: nextPanY });
   };
 
-  const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const rect = boardRef.current?.getBoundingClientRect();
-    if (!rect) {
+  useEffect(() => {
+    const node = boardRef.current;
+    if (!node) {
       return;
     }
-    const pointerX = event.clientX - rect.left;
-    const pointerY = event.clientY - rect.top;
-    const nextScale = scale - event.deltaY * 0.0012;
-    setZoomAtPointer(nextScale, pointerX, pointerY);
-  };
+    const onWheelNative = (event: globalThis.WheelEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const rect = node.getBoundingClientRect();
+      const pointerX = event.clientX - rect.left;
+      const pointerY = event.clientY - rect.top;
+      const nextScale = scaleRef.current - event.deltaY * 0.0012;
+      setZoomAtPointer(nextScale, pointerX, pointerY);
+    };
+    node.addEventListener("wheel", onWheelNative, { passive: false });
+    return () => node.removeEventListener("wheel", onWheelNative);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleBoardPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) {
@@ -317,8 +336,6 @@ export const RelationshipGraph = ({
       <div
         className={`relationship-graph__board${isPanning ? " relationship-graph__board--panning" : ""}`}
         ref={boardRef}
-        onWheelCapture={handleWheel}
-        onWheel={handleWheel}
         onPointerDown={handleBoardPointerDown}
         onPointerMove={handleBoardPointerMove}
         onPointerUp={handleBoardPointerUp}
