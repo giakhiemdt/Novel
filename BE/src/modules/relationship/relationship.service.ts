@@ -98,6 +98,22 @@ const validatePayload = (payload: unknown): CharacterRelationInput => {
   return result;
 };
 
+const validateDeletePayload = (
+  payload: unknown
+): Pick<CharacterRelationInput, "fromId" | "toId" | "type"> => {
+  if (!payload || typeof payload !== "object") {
+    throw new AppError("payload must be an object", 400);
+  }
+  const data = payload as Record<string, unknown>;
+  const fromId = assertRequiredString(data.fromId, "fromId");
+  const toId = assertRequiredString(data.toId, "toId");
+  if (fromId === toId) {
+    throw new AppError("fromId must be different from toId", 400);
+  }
+  const type = assertRequiredString(data.type, "type").toLowerCase();
+  return { fromId, toId, type };
+};
+
 const assertRelationshipTypeExists = async (
   database: string,
   type: string
@@ -152,7 +168,7 @@ export const relationshipService = {
   },
   delete: async (payload: unknown, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);
-    const validated = validatePayload(payload);
+    const validated = validateDeletePayload(payload);
     const deleted = await deleteRelation(
       database,
       validated.fromId,

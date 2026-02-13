@@ -285,9 +285,6 @@ export const RelationshipCreate = () => {
         fromId: item.fromId,
         toId: item.toId,
         type: item.type,
-        startYear: item.startYear,
-        endYear: item.endYear,
-        note: item.note,
       });
       notify(t("Relationship deleted."), "success");
       if (
