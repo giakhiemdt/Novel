@@ -22,6 +22,7 @@ Tài liệu này mô tả chi tiết từng node đang dùng trong dự án hi�
 | `Chapter` | `chapter` | `/chapters` | Chương |
 | `Scene` | `scene` | `/scenes` | Cảnh |
 | `Item` | `item` | `/items` | Vật phẩm |
+| `RelationshipType` | `relationship-type` | `/relationships` | Master data loại quan hệ nhân vật |
 | `WorldRule` | `worldrule` | `/world-rules` | Luật thế giới |
 
 ## 2) Quan hệ graph chính (hiện đang khai báo)
@@ -210,10 +211,20 @@ Tài liệu này mô tả chi tiết từng node đang dùng trong dự án hi�
 - Optional: `category`, `description`, `scope`, `constraints`, `exceptions`, `status` (`draft`|`active`|`deprecated`), `version`, `validFrom`, `validTo`, `notes`, `tags[]`.
 - API chính: `GET/POST/PUT/DELETE /world-rules`.
 
+### 3.18 `RelationshipType`
+- Vai trò: Master data động cho loại quan hệ Character-Character (không fix cứng enum).
+- Required: `code`, `name`.
+- Optional: `description`, `isDirectional`, `color`, `isActive`.
+- Tự sinh/chuẩn hoá: `id`, `createdAt`, `updatedAt`; `code` lưu lower-case.
+- API chính: `GET /relationship-types`, `POST`, `PUT /relationship-types/:id`, `DELETE /relationship-types/:id`.
+- Lưu ý:
+- Có seed mặc định: `family`, `ally`, `enemy`, `romance`, `mentor`, `rival`, `other`.
+- Type hệ thống (`isSystem=true`) không được xoá.
+
 ## 4) Dữ liệu quan hệ quan trọng (không phải node độc lập)
 
 ### 4.1 Character Relation (`CHARACTER_RELATES_TO`)
-- Type: `family | ally | enemy | romance | mentor | rival | other`.
+- Type: động theo `RelationshipType.code`.
 - Field: `fromId`, `toId`, `type`, `startYear`, `endYear`, `note`, `createdAt`, `updatedAt`.
 - API: `GET /character-relations`, `POST`, `PUT`, `DELETE`.
 
@@ -240,4 +251,3 @@ Tài liệu này mô tả chi tiết từng node đang dùng trong dự án hi�
 - CRUD + list/detail/filter/pagination:
 - `Character`, `Race`, `RankSystem`, `Rank`, `SpecialAbility`, `Timeline`, `Location`, `Faction`, `Event`, `Arc`, `Chapter`, `Scene`, `Item`, `Relationship`, `WorldRule`, `Schema`.
 - Riêng `RankSystem` có thêm board tổng quan matrix theo tier chung giữa nhiều hệ.
-

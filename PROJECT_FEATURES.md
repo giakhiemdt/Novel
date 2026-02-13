@@ -88,6 +88,10 @@
   - `GET /items/:id/events`
 
 - Character Relationship
+  - `GET /relationship-types?activeOnly=true|false`
+  - `POST /relationship-types`
+  - `PUT /relationship-types/:id`
+  - `DELETE /relationship-types/:id`
   - `GET /character-relations?characterId=...&type=...`
   - `POST /character-relations`
   - `PUT /character-relations`
@@ -128,6 +132,7 @@
 - Scene — list, create, edit, delete
 - Item — list, create, edit, delete + liên kết event
 - Relationship — list, create, edit, delete
+  - Có màn quản lý `relationship-types` trực tiếp trong trang Relationship (type động, không hardcode enum).
 - WorldRule — list, create, edit, delete
 - Conflict — xem report (read-only)
 - Project — chọn project + tạo project (modal)
@@ -137,7 +142,7 @@
 - `/health`, `/projects`, `/overview`, `/characters`, `/timelines`, `/locations`, `/factions`, `/events`
 - `/arcs`, `/arcs/structure`, `/chapters`, `/scenes`
 - `/items`, `/items/:id/event`, `/events/:id/items`, `/items/:id/events`
-- `/character-relations`, `/world-rules`, `/conflicts`
+- `/relationship-types`, `/character-relations`, `/world-rules`, `/conflicts`
 
 
 ## 3) FE còn thiếu so với BE
