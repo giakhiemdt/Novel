@@ -22,7 +22,7 @@ Tài liệu này mô tả chi tiết từng node đang dùng trong dự án hi�
 | `Chapter` | `chapter` | `/chapters` | Chương |
 | `Scene` | `scene` | `/scenes` | Cảnh |
 | `Item` | `item` | `/items` | Vật phẩm |
-| `RelationshipType` | `relationship-type` | `/relationships` | Master data loại quan hệ nhân vật |
+| `RelationshipType` | `relationship-type` | `/relationship-types` | Master data loại quan hệ nhân vật |
 | `WorldRule` | `worldrule` | `/world-rules` | Luật thế giới |
 
 ## 2) Quan hệ graph chính (hiện đang khai báo)
