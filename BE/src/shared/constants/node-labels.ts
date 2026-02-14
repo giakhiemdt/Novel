@@ -4,6 +4,7 @@ export const nodeLabels = {
   character: "Character",
   race: "Race",
   rank: "Rank",
+  rankBoardLayout: "RankBoardLayout",
   rankSystem: "RankSystem",
   mapSystem: "MapSystem",
   specialAbility: "SpecialAbility",

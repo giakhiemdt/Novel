@@ -8,6 +8,16 @@ export type RankPreviousLink = {
   conditions?: RankCondition[];
 };
 
+export type RankBoardPosition = {
+  x: number;
+  y: number;
+};
+
+export type RankBoardLayout = {
+  positions: Record<string, RankBoardPosition>;
+  updatedAt: string;
+};
+
 export type RankInput = {
   id?: string;
   systemId?: string;

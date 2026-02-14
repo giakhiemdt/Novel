@@ -5,6 +5,11 @@ import type { PagedResponse, PaginationMeta } from "../../types/api";
 import { toQueryString } from "../../utils/query";
 import type { Rank, RankLinkPayload, RankPayload } from "./rank.types";
 
+export type RankBoardLayout = {
+  positions: Record<string, { x: number; y: number }>;
+  updatedAt?: string;
+};
+
 export const getAllRanks = () =>
   api.get<Rank[]>(endpoints.ranks, withDatabaseHeader());
 
@@ -50,5 +55,15 @@ export const updateRankLinkConditions = (payload: RankLinkPayload) =>
   api.post<{ message: string }>(
     `${endpoints.ranks}/link/conditions`,
     payload,
+    withDatabaseHeader()
+  );
+
+export const getRankBoardLayout = () =>
+  api.get<RankBoardLayout>(`${endpoints.ranks}/board-layout`, withDatabaseHeader());
+
+export const saveRankBoardLayout = (positions: Record<string, { x: number; y: number }>) =>
+  api.put<RankBoardLayout>(
+    `${endpoints.ranks}/board-layout`,
+    { positions },
     withDatabaseHeader()
   );

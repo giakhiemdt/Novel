@@ -10,6 +10,7 @@ const constraintStatements = [
   "CREATE CONSTRAINT race_name_unique IF NOT EXISTS FOR (n:Race) REQUIRE n.name IS UNIQUE",
   "CREATE CONSTRAINT rank_id_unique IF NOT EXISTS FOR (n:Rank) REQUIRE n.id IS UNIQUE",
   "CREATE CONSTRAINT rank_name_unique IF NOT EXISTS FOR (n:Rank) REQUIRE n.name IS UNIQUE",
+  "CREATE CONSTRAINT rank_board_layout_id_unique IF NOT EXISTS FOR (n:RankBoardLayout) REQUIRE n.id IS UNIQUE",
   "CREATE CONSTRAINT rank_system_id_unique IF NOT EXISTS FOR (n:RankSystem) REQUIRE n.id IS UNIQUE",
   "CREATE CONSTRAINT rank_system_name_unique IF NOT EXISTS FOR (n:RankSystem) REQUIRE n.name IS UNIQUE",
   "CREATE CONSTRAINT map_system_id_unique IF NOT EXISTS FOR (n:MapSystem) REQUIRE n.id IS UNIQUE",

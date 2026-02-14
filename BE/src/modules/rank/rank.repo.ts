@@ -5,6 +5,7 @@ import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
 import { relationTypes } from "../../shared/constants/relation-types";
 import {
+  RankBoardLayout,
   RankCondition,
   RankListQuery,
   RankNode,
@@ -179,6 +180,20 @@ MATCH (r:${nodeLabels.rank} {id: $id})
 WITH r
 DETACH DELETE r
 RETURN 1 AS deleted
+`;
+
+const GET_RANK_BOARD_LAYOUT = `
+OPTIONAL MATCH (layout:${nodeLabels.rankBoardLayout} {id: 'rank-board-layout'})
+RETURN layout
+LIMIT 1
+`;
+
+const UPSERT_RANK_BOARD_LAYOUT = `
+MERGE (layout:${nodeLabels.rankBoardLayout} {id: 'rank-board-layout'})
+SET
+  layout.positions = $positions,
+  layout.updatedAt = $updatedAt
+RETURN layout
 `;
 
 const RANK_PARAMS = [
@@ -497,6 +512,61 @@ export const updateRankLinkConditions = async (
       ),
     });
     return result.records.length > 0;
+  } finally {
+    await session.close();
+  }
+};
+
+export const getRankBoardLayout = async (
+  database: string
+): Promise<RankBoardLayout> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const result = await session.run(GET_RANK_BOARD_LAYOUT);
+    const node = result.records[0]?.get("layout");
+    const properties = mapNode(
+      node?.properties ?? { positions: {}, updatedAt: new Date().toISOString() }
+    ) as { positions?: Record<string, unknown>; updatedAt?: string };
+    return {
+      positions:
+        properties.positions && typeof properties.positions === "object"
+          ? (properties.positions as Record<string, { x: number; y: number }>)
+          : {},
+      updatedAt:
+        typeof properties.updatedAt === "string"
+          ? properties.updatedAt
+          : new Date().toISOString(),
+    };
+  } finally {
+    await session.close();
+  }
+};
+
+export const saveRankBoardLayout = async (
+  database: string,
+  positions: Record<string, { x: number; y: number }>
+): Promise<RankBoardLayout> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    const updatedAt = new Date().toISOString();
+    const result = await session.run(UPSERT_RANK_BOARD_LAYOUT, {
+      positions,
+      updatedAt,
+    });
+    const node = result.records[0]?.get("layout");
+    const properties = mapNode(
+      node?.properties ?? { positions, updatedAt }
+    ) as { positions?: Record<string, unknown>; updatedAt?: string };
+    return {
+      positions:
+        properties.positions && typeof properties.positions === "object"
+          ? (properties.positions as Record<string, { x: number; y: number }>)
+          : {},
+      updatedAt:
+        typeof properties.updatedAt === "string"
+          ? properties.updatedAt
+          : updatedAt,
+    };
   } finally {
     await session.close();
   }

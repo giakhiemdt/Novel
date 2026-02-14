@@ -17,7 +17,9 @@ import {
   deleteRank,
   getAllRanks,
   getRanksPage,
+  getRankBoardLayout,
   linkRank,
+  saveRankBoardLayout,
   unlinkRank,
   updateRankLinkConditions,
   updateRank,
@@ -88,6 +90,9 @@ export const RankCreate = () => {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [isSavingColor, setIsSavingColor] = useState(false);
   const [links, setLinks] = useState<Record<string, RankPreviousLink[]>>({});
+  const [boardPositions, setBoardPositions] = useState<
+    Record<string, { x: number; y: number }>
+  >({});
   const [selectedLink, setSelectedLink] = useState<{
     currentId: string;
     previousId: string;
@@ -110,6 +115,8 @@ export const RankCreate = () => {
   });
   const [refreshKey, setRefreshKey] = useState(0);
   const { notify } = useToast();
+  const [layoutRevision, setLayoutRevision] = useState(0);
+  const [layoutSaveTimer, setLayoutSaveTimer] = useState<number | null>(null);
 
   const loadItems = useCallback(async () => {
     try {
@@ -182,6 +189,21 @@ export const RankCreate = () => {
     }
   }, [getAllRankSystems, notify]);
 
+  const loadBoardLayout = useCallback(async () => {
+    try {
+      const data = await getRankBoardLayout();
+      setBoardPositions(data?.positions ?? {});
+      setLayoutRevision((prev) => prev + 1);
+    } catch (err) {
+      const message = (err as Error).message;
+      if (message !== "rank board layout not found") {
+        notify(message, "error");
+      }
+      setBoardPositions({});
+      setLayoutRevision((prev) => prev + 1);
+    }
+  }, [getRankBoardLayout, notify]);
+
   useEffect(() => {
     void loadItems();
   }, [loadItems, refreshKey]);
@@ -194,11 +216,24 @@ export const RankCreate = () => {
     void loadRankSystems();
   }, [loadRankSystems]);
 
+  useEffect(() => {
+    void loadBoardLayout();
+  }, [loadBoardLayout]);
+
   useProjectChange(() => {
     setPage(1);
     setRefreshKey((prev) => prev + 1);
     void loadRankSystems();
+    void loadBoardLayout();
   });
+
+  useEffect(() => {
+    return () => {
+      if (layoutSaveTimer !== null) {
+        window.clearTimeout(layoutSaveTimer);
+      }
+    };
+  }, [layoutSaveTimer]);
 
   const handleFilterChange = (
     key: "q" | "name" | "tag" | "tier" | "systemId" | "system",
@@ -576,6 +611,21 @@ export const RankCreate = () => {
     };
   }, [selectedLink, boardItemsById]);
 
+  const handleBoardPositionsChange = (positions: Record<string, { x: number; y: number }>) => {
+    setBoardPositions(positions);
+    if (layoutSaveTimer !== null) {
+      window.clearTimeout(layoutSaveTimer);
+    }
+    const timer = window.setTimeout(async () => {
+      try {
+        await saveRankBoardLayout(positions);
+      } catch (err) {
+        notify((err as Error).message, "error");
+      }
+    }, 350);
+    setLayoutSaveTimer(timer);
+  };
+
   return (
     <div>
       <div className="card">
@@ -639,6 +689,7 @@ export const RankCreate = () => {
         <RankBoard
           items={visibleBoardItems}
           links={links}
+          initialPositions={boardPositions}
           selectedId={editItem?.id}
           selectedLink={selectedLink}
           onSelect={(item) => {
@@ -651,8 +702,10 @@ export const RankCreate = () => {
           onSelectLink={handleSelectLink}
           onLink={handleBoardLink}
           onUnlink={handleBoardUnlink}
+          onPositionsChange={handleBoardPositionsChange}
           onColorChange={handleBoardColorChange}
           isSavingColor={isSavingColor}
+          key={`rank-board-${layoutRevision}`}
         />
         {selectedLink && (
           <div className="card rank-link-editor">

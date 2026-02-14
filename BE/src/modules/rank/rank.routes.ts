@@ -255,4 +255,57 @@ export const rankRoutes: RouteConfig[] = [
       },
     },
   },
+  {
+    method: "GET",
+    path: "/ranks/board-layout",
+    handler: rankController.getBoardLayout,
+    schema: {
+      tags: ["Rank"],
+      summary: "Get rank board layout",
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                positions: { type: "object", additionalProperties: true },
+                updatedAt: { type: "string", format: "date-time" },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  {
+    method: "PUT",
+    path: "/ranks/board-layout",
+    handler: rankController.saveBoardLayout,
+    schema: {
+      tags: ["Rank"],
+      summary: "Save rank board layout",
+      body: {
+        type: "object",
+        required: ["positions"],
+        properties: {
+          positions: { type: "object", additionalProperties: true },
+        },
+      },
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                positions: { type: "object", additionalProperties: true },
+                updatedAt: { type: "string", format: "date-time" },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
 ];

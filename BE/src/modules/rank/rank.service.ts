@@ -4,15 +4,23 @@ import {
   attachRankToSystem,
   createRank,
   deleteRank,
+  getRankBoardLayout,
   getRankCount,
   getRanks,
   linkRank,
   rankSystemExists,
+  saveRankBoardLayout,
   unlinkRank,
   updateRankLinkConditions,
   updateRank,
 } from "./rank.repo";
-import { RankCondition, RankInput, RankListQuery, RankNode } from "./rank.types";
+import {
+  RankBoardLayout,
+  RankCondition,
+  RankInput,
+  RankListQuery,
+  RankNode,
+} from "./rank.types";
 
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
@@ -157,6 +165,35 @@ const addIfDefined = (
   if (value !== undefined) {
     target[key] = value;
   }
+};
+
+const parseBoardLayoutPositions = (
+  value: unknown
+): Record<string, { x: number; y: number }> => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new AppError("positions must be an object", 400);
+  }
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length > 5000) {
+    throw new AppError("positions contains too many entries", 400);
+  }
+  const positions: Record<string, { x: number; y: number }> = {};
+  entries.forEach(([id, pos]) => {
+    if (!pos || typeof pos !== "object" || Array.isArray(pos)) {
+      throw new AppError(`positions.${id} must be an object`, 400);
+    }
+    const point = pos as Record<string, unknown>;
+    if (
+      typeof point.x !== "number" ||
+      typeof point.y !== "number" ||
+      !Number.isFinite(point.x) ||
+      !Number.isFinite(point.y)
+    ) {
+      throw new AppError(`positions.${id} must contain finite x/y numbers`, 400);
+    }
+    positions[id] = { x: point.x, y: point.y };
+  });
+  return positions;
 };
 
 const validateRankPayload = (payload: unknown): RankInput => {
@@ -388,5 +425,21 @@ export const rankService = {
       throw new AppError("rank link not found", 404);
     }
     return { message: "updated" };
+  },
+  getBoardLayout: async (dbName: unknown): Promise<RankBoardLayout> => {
+    const database = assertDatabaseName(dbName);
+    return getRankBoardLayout(database);
+  },
+  saveBoardLayout: async (
+    dbName: unknown,
+    payload: unknown
+  ): Promise<RankBoardLayout> => {
+    const database = assertDatabaseName(dbName);
+    if (!payload || typeof payload !== "object") {
+      throw new AppError("payload must be an object", 400);
+    }
+    const data = payload as Record<string, unknown>;
+    const positions = parseBoardLayoutPositions(data.positions);
+    return saveRankBoardLayout(database, positions);
   },
 };

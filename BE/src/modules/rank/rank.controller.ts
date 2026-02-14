@@ -94,4 +94,24 @@ export const rankController = {
       reply.status(handled.statusCode).send({ message: handled.message });
     }
   },
+  getBoardLayout: async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    try {
+      const dbName = getDatabaseHeader(req);
+      const result = await rankService.getBoardLayout(dbName);
+      reply.status(200).send({ data: result });
+    } catch (error) {
+      const handled = handleError(error);
+      reply.status(handled.statusCode).send({ message: handled.message });
+    }
+  },
+  saveBoardLayout: async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    try {
+      const dbName = getDatabaseHeader(req);
+      const result = await rankService.saveBoardLayout(dbName, req.body);
+      reply.status(200).send({ data: result });
+    } catch (error) {
+      const handled = handleError(error);
+      reply.status(handled.statusCode).send({ message: handled.message });
+    }
+  },
 };
