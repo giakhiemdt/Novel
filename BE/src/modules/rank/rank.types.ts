@@ -3,6 +3,11 @@ export type RankCondition = {
   description?: string;
 };
 
+export type RankPreviousLink = {
+  previousId: string;
+  conditions?: RankCondition[];
+};
+
 export type RankInput = {
   id?: string;
   systemId?: string;
@@ -19,6 +24,7 @@ export type RankInput = {
 export type RankNode = RankInput & {
   createdAt: string;
   updatedAt: string;
+  previousLinks?: RankPreviousLink[];
   previousId?: string;
   nextId?: string;
   conditions?: RankCondition[];

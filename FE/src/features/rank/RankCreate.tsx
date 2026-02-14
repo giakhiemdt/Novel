@@ -25,7 +25,12 @@ import {
 import { RankBoard, type RankLinkSelection } from "./RankBoard";
 import { RankList } from "./RankList";
 import { validateRank } from "./rank.schema";
-import type { Rank, RankCondition, RankPayload } from "./rank.types";
+import type {
+  Rank,
+  RankCondition,
+  RankPayload,
+  RankPreviousLink,
+} from "./rank.types";
 import { getAllRankSystems } from "../rank-system/rank-system.api";
 import type { RankSystem } from "../rank-system/rank-system.types";
 
@@ -82,9 +87,7 @@ export const RankCreate = () => {
   const [editValues, setEditValues] = useState<RankFormState | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [isSavingColor, setIsSavingColor] = useState(false);
-  const [links, setLinks] = useState<
-    Record<string, { previousId?: string; conditions?: RankCondition[] }>
-  >({});
+  const [links, setLinks] = useState<Record<string, RankPreviousLink[]>>({});
   const [selectedLink, setSelectedLink] = useState<{
     currentId: string;
     previousId: string;
@@ -141,20 +144,27 @@ export const RankCreate = () => {
     try {
       const data = await getAllRanks();
       setBoardItems(data ?? []);
-      setLinks((prev) => {
-        const next: Record<
-          string,
-          { previousId?: string; conditions?: RankCondition[] }
-        > = {};
+      setLinks(() => {
+        const next: Record<string, RankPreviousLink[]> = {};
         (data ?? []).forEach((item) => {
-          if (!item.id) {
+          const currentId = item.id;
+          if (!currentId) {
             return;
           }
-          if (item.previousId) {
-            next[item.id] = { previousId: item.previousId, conditions: item.conditions ?? [] };
-          } else if (prev[item.id]) {
-            next[item.id] = prev[item.id];
-          }
+          const mapped =
+            item.previousLinks?.map((link) => ({
+              previousId: link.previousId,
+              conditions: normalizeConditionPayload(link.conditions ?? []),
+            })) ??
+            (item.previousId
+              ? [
+                  {
+                    previousId: item.previousId,
+                    conditions: normalizeConditionPayload(item.conditions ?? []),
+                  },
+                ]
+              : []);
+          next[currentId] = mapped;
         });
         return next;
       });
@@ -353,22 +363,23 @@ export const RankCreate = () => {
       notify(t("Ranks must belong to the same rank system to link."), "error");
       return false;
     }
+    if (currentId === previousId) {
+      notify(t("A rank cannot link to itself."), "error");
+      return false;
+    }
     return true;
   };
 
   const resolveLinkConditions = useCallback(
     (currentId: string, previousId: string): RankCondition[] => {
-      const override = links[currentId];
-      if (override?.previousId === previousId) {
-        return normalizeConditionPayload(override.conditions ?? []);
-      }
-      const item = boardItemsById.get(currentId);
-      if (item?.previousId === previousId) {
-        return normalizeConditionPayload(item.conditions ?? []);
+      const override = links[currentId] ?? [];
+      const overrideMatch = override.find((link) => link.previousId === previousId);
+      if (overrideMatch) {
+        return normalizeConditionPayload(overrideMatch.conditions ?? []);
       }
       return [];
     },
-    [boardItemsById, links]
+    [links]
   );
 
   useEffect(() => {
@@ -456,10 +467,11 @@ export const RankCreate = () => {
       });
       setLinks((prev) => ({
         ...prev,
-        [selectedLink.currentId]: {
-          previousId: selectedLink.previousId,
-          conditions,
-        },
+        [selectedLink.currentId]: (prev[selectedLink.currentId] ?? []).map((link) =>
+          link.previousId === selectedLink.previousId
+            ? { ...link, conditions }
+            : link
+        ),
       }));
       setLinkConditionsDraft(normalizeConditionDraft(conditions));
       notify(`Updated: ${response.message}`, "success");
@@ -507,12 +519,20 @@ export const RankCreate = () => {
     if (!canLinkRanks(currentId, previousId)) {
       return;
     }
+    const existing = links[currentId]?.some((link) => link.previousId === previousId);
+    if (existing) {
+      setSelectedLink({ currentId, previousId });
+      setLinkConditionsDraft(
+        normalizeConditionDraft(resolveLinkConditions(currentId, previousId))
+      );
+      return;
+    }
     try {
       const conditions: RankCondition[] = [];
       const response = await linkRank({ currentId, previousId, conditions });
       setLinks((prev) => ({
         ...prev,
-        [currentId]: { previousId, conditions },
+        [currentId]: [...(prev[currentId] ?? []), { previousId, conditions }],
       }));
       setSelectedLink({ currentId, previousId });
       setLinkConditionsDraft([createEmptyCondition()]);
@@ -522,33 +542,15 @@ export const RankCreate = () => {
     }
   };
 
-  const handleBoardRelink = async (currentId: string, previousId: string) => {
-    if (!canLinkRanks(currentId, previousId)) {
-      return;
-    }
-    try {
-      const existingPrev = links[currentId]?.previousId;
-      if (existingPrev) {
-        await unlinkRank({ currentId, previousId: existingPrev });
-      }
-      const conditions: RankCondition[] = [];
-      const response = await linkRank({ currentId, previousId, conditions });
-      setLinks((prev) => ({
-        ...prev,
-        [currentId]: { previousId, conditions },
-      }));
-      setSelectedLink({ currentId, previousId });
-      setLinkConditionsDraft([createEmptyCondition()]);
-      notify(`Relinked: ${response.message}`, "success");
-    } catch (err) {
-      notify((err as Error).message, "error");
-    }
-  };
-
   const handleBoardUnlink = async (currentId: string, previousId: string) => {
     try {
       const response = await unlinkRank({ currentId, previousId });
-      setLinks((prev) => ({ ...prev, [currentId]: {} }));
+      setLinks((prev) => ({
+        ...prev,
+        [currentId]: (prev[currentId] ?? []).filter(
+          (link) => link.previousId !== previousId
+        ),
+      }));
       setSelectedLink((prev) => {
         if (
           prev &&
@@ -652,7 +654,6 @@ export const RankCreate = () => {
           }}
           onSelectLink={handleSelectLink}
           onLink={handleBoardLink}
-          onRelink={handleBoardRelink}
           onUnlink={handleBoardUnlink}
           onColorChange={handleBoardColorChange}
           isSavingColor={isSavingColor}

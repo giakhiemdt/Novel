@@ -332,7 +332,21 @@ export const rankService = {
       data.conditions,
       "conditions"
     );
-    await linkRank(database, currentId, previousId, conditions ?? []);
+    try {
+      await linkRank(database, currentId, previousId, conditions ?? []);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "invalid rank link";
+      if (message.includes("not found")) {
+        throw new AppError(message, 404);
+      }
+      if (
+        message.includes("cycle") ||
+        message.includes("cannot link to itself")
+      ) {
+        throw new AppError(message, 400);
+      }
+      throw error;
+    }
     return { message: "linked" };
   },
   unlink: async (

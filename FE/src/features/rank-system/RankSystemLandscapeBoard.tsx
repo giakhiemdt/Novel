@@ -277,22 +277,24 @@ export const RankSystemLandscapeBoard = ({
     const edges: EdgeLayout[] = [];
     rows.forEach((row) => {
       row.ranks.forEach((rank) => {
-        if (!rank.previousId) {
-          return;
-        }
-        const source = nodeById.get(rank.previousId);
-        const target = nodeById.get(rank.id);
-        if (!source || !target) {
-          return;
-        }
-        edges.push({
-          id: `${rank.previousId}-${rank.id}`,
-          path: buildOrthPath(
-            source.x + source.width,
-            source.y + source.height / 2,
-            target.x,
-            target.y + target.height / 2
-          ),
+        const previousIds =
+          rank.previousLinks?.map((link) => link.previousId) ??
+          (rank.previousId ? [rank.previousId] : []);
+        previousIds.forEach((previousId) => {
+          const source = nodeById.get(previousId);
+          const target = nodeById.get(rank.id);
+          if (!source || !target) {
+            return;
+          }
+          edges.push({
+            id: `${previousId}-${rank.id}`,
+            path: buildOrthPath(
+              source.x + source.width,
+              source.y + source.height / 2,
+              target.x,
+              target.y + target.height / 2
+            ),
+          });
         });
       });
     });

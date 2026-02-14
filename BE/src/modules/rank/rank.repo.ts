@@ -1,10 +1,15 @@
-import neo4j, { type Integer } from "neo4j-driver";
+import neo4j from "neo4j-driver";
 import { getSessionForDatabase } from "../../database";
 import { nodeLabels } from "../../shared/constants/node-labels";
 import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
 import { relationTypes } from "../../shared/constants/relation-types";
-import { RankCondition, RankListQuery, RankNode } from "./rank.types";
+import {
+  RankCondition,
+  RankListQuery,
+  RankNode,
+  RankPreviousLink,
+} from "./rank.types";
 
 const CREATE_RANK = `
 CREATE (r:${nodeLabels.rank} {
@@ -44,15 +49,21 @@ const GET_RANKS = `
 MATCH (r:${nodeLabels.rank})
 OPTIONAL MATCH (rs:${nodeLabels.rankSystem})-[:${relationTypes.hasRank}]->(r)
 WITH r, head(collect(rs)) AS rs
-OPTIONAL MATCH (prev:${nodeLabels.rank})-[rel:${relationTypes.rankNext}]->(r)
-OPTIONAL MATCH (r)-[:${relationTypes.rankNext}]->(next:${nodeLabels.rank})
 WHERE
   ($name IS NULL OR toLower(r.name) CONTAINS toLower($name))
   AND ($tag IS NULL OR $tag IN coalesce(r.tags, []))
   AND ($tier IS NULL OR r.tier = $tier)
   AND ($system IS NULL OR r.system = $system)
   AND ($systemId IS NULL OR coalesce(r.systemId, rs.id) = $systemId)
-RETURN r, prev, next, rel, rs
+OPTIONAL MATCH (prev:${nodeLabels.rank})-[rel:${relationTypes.rankNext}]->(r)
+WITH r, rs, collect(DISTINCT {
+  previousId: prev.id,
+  conditions: rel.conditions,
+  conditionDescriptions: rel.conditionDescriptions
+}) AS previousLinks
+OPTIONAL MATCH (r)-[:${relationTypes.rankNext}]->(next:${nodeLabels.rank})
+WITH r, rs, previousLinks, collect(DISTINCT next.id) AS nextIds
+RETURN r, rs, previousLinks, nextIds
 ORDER BY r.createdAt DESC
 SKIP toInteger($offset)
 LIMIT toInteger($limit)
@@ -63,15 +74,21 @@ CALL db.index.fulltext.queryNodes("rank_search", $q) YIELD node, score
 WITH node AS r, score
 OPTIONAL MATCH (rs:${nodeLabels.rankSystem})-[:${relationTypes.hasRank}]->(r)
 WITH r, score, head(collect(rs)) AS rs
-OPTIONAL MATCH (prev:${nodeLabels.rank})-[rel:${relationTypes.rankNext}]->(r)
-OPTIONAL MATCH (r)-[:${relationTypes.rankNext}]->(next:${nodeLabels.rank})
 WHERE
   ($name IS NULL OR toLower(r.name) CONTAINS toLower($name))
   AND ($tag IS NULL OR $tag IN coalesce(r.tags, []))
   AND ($tier IS NULL OR r.tier = $tier)
   AND ($system IS NULL OR r.system = $system)
   AND ($systemId IS NULL OR coalesce(r.systemId, rs.id) = $systemId)
-RETURN r, prev, next, rel, rs
+OPTIONAL MATCH (prev:${nodeLabels.rank})-[rel:${relationTypes.rankNext}]->(r)
+WITH r, score, rs, collect(DISTINCT {
+  previousId: prev.id,
+  conditions: rel.conditions,
+  conditionDescriptions: rel.conditionDescriptions
+}) AS previousLinks
+OPTIONAL MATCH (r)-[:${relationTypes.rankNext}]->(next:${nodeLabels.rank})
+WITH r, score, rs, previousLinks, collect(DISTINCT next.id) AS nextIds
+RETURN r, rs, previousLinks, nextIds, score
 ORDER BY score DESC, r.createdAt DESC
 SKIP toInteger($offset)
 LIMIT toInteger($limit)
@@ -104,16 +121,14 @@ WHERE
 RETURN count(r) AS total
 `;
 
-const CHECK_NEXT = `
-MATCH (r:${nodeLabels.rank} {id: $id})
-OPTIONAL MATCH (r)-[:${relationTypes.rankNext}]->(n)
-RETURN r IS NOT NULL AS exists, count(n) AS nextCount
-`;
-
-const CHECK_PREVIOUS = `
-MATCH (r:${nodeLabels.rank} {id: $id})
-OPTIONAL MATCH (p)-[:${relationTypes.rankNext}]->(r)
-RETURN count(p) AS prevCount
+const CHECK_LINK_GUARD = `
+MATCH (current:${nodeLabels.rank} {id: $currentId})
+MATCH (previous:${nodeLabels.rank} {id: $previousId})
+OPTIONAL MATCH p=(current)-[:${relationTypes.rankNext}*1..]->(previous)
+RETURN
+  current IS NOT NULL AS currentExists,
+  previous IS NOT NULL AS previousExists,
+  count(p) > 0 AS createsCycle
 `;
 
 const LINK_PREVIOUS = `
@@ -213,6 +228,36 @@ const mapRelationConditions = (
   return mapped.length > 0 ? mapped : undefined;
 };
 
+const mapPreviousLinks = (
+  value: unknown
+): RankPreviousLink[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const mapped = value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const raw = item as Record<string, unknown>;
+      const previousId = typeof raw.previousId === "string" ? raw.previousId : "";
+      if (!previousId) {
+        return null;
+      }
+      const conditions = mapRelationConditions(raw);
+      return { previousId, conditions } as RankPreviousLink;
+    })
+    .filter((item): item is RankPreviousLink => Boolean(item));
+  const seen = new Set<string>();
+  return mapped.filter((item) => {
+    if (seen.has(item.previousId)) {
+      return false;
+    }
+    seen.add(item.previousId);
+    return true;
+  });
+};
+
 export const createRank = async (
   data: RankNode,
   database: string
@@ -267,22 +312,24 @@ export const getRanks = async (
     });
     return result.records.map((record) => {
       const node = record.get("r");
-      const previous = record.get("prev");
-      const next = record.get("next");
-      const rel = record.get("rel");
       const rankSystem = record.get("rs");
+      const previousLinksRaw = record.get("previousLinks");
+      const nextIdsRaw = record.get("nextIds");
       const mapped = mapNode(node?.properties ?? {}) as RankNode;
+      const previousLinks = mapPreviousLinks(previousLinksRaw);
+      const nextIds = Array.isArray(nextIdsRaw)
+        ? nextIdsRaw.filter((item): item is string => typeof item === "string")
+        : [];
       return {
         ...mapped,
         systemId:
           mapped.systemId ??
           (rankSystem?.properties?.id as string | undefined) ??
           undefined,
-        previousId: previous?.properties?.id ?? undefined,
-        nextId: next?.properties?.id ?? undefined,
-        conditions: mapRelationConditions(
-          rel?.properties as Record<string, unknown> | undefined
-        ),
+        previousLinks: previousLinks.length > 0 ? previousLinks : undefined,
+        previousId: previousLinks[0]?.previousId ?? mapped.previousId,
+        nextId: nextIds[0] ?? mapped.nextId,
+        conditions: previousLinks[0]?.conditions ?? mapped.conditions,
       } as RankNode;
     });
   } finally {
@@ -383,24 +430,27 @@ export const linkRank = async (
   const session = getSessionForDatabase(database, neo4j.session.WRITE);
   try {
     await session.executeWrite(async (tx) => {
-      const prevCheck = await tx.run(CHECK_NEXT, { id: previousId });
-      const prevExists = prevCheck.records[0]?.get("exists") as boolean | undefined;
-      const prevNextCount = prevCheck.records[0]?.get("nextCount") as
-        | Integer
+      if (currentId === previousId) {
+        throw new Error("rank cannot link to itself");
+      }
+      const guard = await tx.run(CHECK_LINK_GUARD, { currentId, previousId });
+      const currentExists = guard.records[0]?.get("currentExists") as
+        | boolean
         | undefined;
-      if (!prevExists) {
+      const previousExists = guard.records[0]?.get("previousExists") as
+        | boolean
+        | undefined;
+      const createsCycle = guard.records[0]?.get("createsCycle") as
+        | boolean
+        | undefined;
+      if (!currentExists) {
+        throw new Error("CURRENT rank not found");
+      }
+      if (!previousExists) {
         throw new Error("PREVIOUS rank not found");
       }
-      if (prevNextCount && prevNextCount.toNumber() > 0) {
-        throw new Error("PREVIOUS rank already has NEXT");
-      }
-
-      const currentPrevCheck = await tx.run(CHECK_PREVIOUS, { id: currentId });
-      const currentPrevCount = currentPrevCheck.records[0]?.get("prevCount") as
-        | Integer
-        | undefined;
-      if (currentPrevCount && currentPrevCount.toNumber() > 0) {
-        throw new Error("CURRENT rank already has PREVIOUS");
+      if (createsCycle) {
+        throw new Error("rank link creates cycle");
       }
 
       await tx.run(LINK_PREVIOUS, {

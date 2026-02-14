@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { useI18n } from "../../i18n/I18nProvider";
-import type { Rank, RankCondition } from "./rank.types";
+import type { Rank, RankCondition, RankPreviousLink } from "./rank.types";
 
 export type RankLinkSelection = {
   currentId: string;
@@ -18,13 +18,12 @@ export type RankLinkSelection = {
 
 type RankBoardProps = {
   items: Rank[];
-  links: Record<string, { previousId?: string; conditions?: RankCondition[] }>;
+  links: Record<string, RankPreviousLink[]>;
   selectedId?: string;
   selectedLink?: { currentId: string; previousId: string } | null;
   onSelect?: (item: Rank | null) => void;
   onSelectLink?: (link: RankLinkSelection | null) => void;
   onLink: (currentId: string, previousId: string) => void;
-  onRelink: (currentId: string, previousId: string) => void;
   onUnlink: (currentId: string, previousId: string) => void;
   onColorChange?: (id: string, color: string) => void;
   isSavingColor?: boolean;
@@ -138,7 +137,6 @@ export const RankBoard = ({
   onSelect,
   onSelectLink,
   onLink,
-  onRelink,
   onUnlink,
   onColorChange,
   isSavingColor = false,
@@ -209,9 +207,9 @@ export const RankBoard = ({
     return () => observer.disconnect();
   }, []);
 
-  const { prevById, childrenById, roots, linkConditions } = useMemo(() => {
+  const { incomingById, childrenById, roots, linkConditionsByKey } = useMemo(() => {
     const byId = new Map<string, Rank & { id: string }>();
-    const prevMap: Record<string, string | undefined> = {};
+    const incomingMap: Record<string, string[]> = {};
     const childrenMap: Record<string, string[]> = {};
     const conditionsMap: Record<string, RankCondition[] | undefined> = {};
 
@@ -221,26 +219,33 @@ export const RankBoard = ({
 
     itemsWithId.forEach((item) => {
       const hasOverride = Object.prototype.hasOwnProperty.call(links, item.id);
-      const override = links[item.id];
-      const prevId = hasOverride ? override?.previousId : item.previousId;
-      if (prevId) {
-        prevMap[item.id] = prevId;
-      }
-      const conditions = hasOverride ? override?.conditions : item.conditions;
-      const normalized = normalizeConditions(conditions);
-      if (normalized.length > 0) {
-        conditionsMap[item.id] = normalized;
-      }
+      const configured =
+        hasOverride
+          ? links[item.id] ?? []
+          : item.previousLinks ?? (item.previousId
+            ? [{ previousId: item.previousId, conditions: item.conditions }]
+            : []);
+      incomingMap[item.id] = configured
+        .map((link) => link.previousId)
+        .filter((previousId) => Boolean(previousId));
+      configured.forEach((link) => {
+        const normalized = normalizeConditions(link.conditions);
+        if (normalized.length > 0) {
+          conditionsMap[`${link.previousId}-${item.id}`] = normalized;
+        }
+      });
     });
 
-    Object.entries(prevMap).forEach(([childId, parentId]) => {
-      if (!parentId) {
-        return;
-      }
-      if (!childrenMap[parentId]) {
-        childrenMap[parentId] = [];
-      }
-      childrenMap[parentId]?.push(childId);
+    Object.entries(incomingMap).forEach(([childId, parents]) => {
+      parents.forEach((parentId) => {
+        if (!parentId) {
+          return;
+        }
+        if (!childrenMap[parentId]) {
+          childrenMap[parentId] = [];
+        }
+        childrenMap[parentId]?.push(childId);
+      });
     });
 
     Object.values(childrenMap).forEach((children) => {
@@ -253,8 +258,11 @@ export const RankBoard = ({
 
     const rootIds = itemsWithId
       .filter((item) => {
-        const prevId = prevMap[item.id];
-        return !prevId || !byId.has(prevId);
+        const parents = incomingMap[item.id] ?? [];
+        if (parents.length === 0) {
+          return true;
+        }
+        return parents.every((parentId) => !byId.has(parentId));
       })
       .map((item) => item.id)
       .sort((a, b) => {
@@ -264,10 +272,10 @@ export const RankBoard = ({
       });
 
     return {
-      prevById: prevMap,
+      incomingById: incomingMap,
       childrenById: childrenMap,
       roots: rootIds,
-      linkConditions: conditionsMap,
+      linkConditionsByKey: conditionsMap,
     };
   }, [itemsWithId, links]);
 
@@ -380,79 +388,78 @@ export const RankBoard = ({
     const nextEdges: BoardEdge[] = [];
     const nextConditionNodes: ConditionNode[] = [];
 
-    Object.entries(prevById).forEach(([childId, parentId]) => {
-      if (!parentId) {
-        return;
-      }
-      const childPos = positionById[childId];
-      const parentPos = positionById[parentId];
-      if (!childPos || !parentPos) {
-        return;
-      }
+    Object.entries(incomingById).forEach(([childId, parentIds]) => {
+      parentIds.forEach((parentId) => {
+        const childPos = positionById[childId];
+        const parentPos = positionById[parentId];
+        if (!childPos || !parentPos) {
+          return;
+        }
 
-      const linkKey = `${parentId}-${childId}`;
-      const startX = parentPos.x + NODE_WIDTH;
-      const startY = parentPos.y + NODE_HEIGHT / 2;
-      const endX = childPos.x;
-      const endY = childPos.y + NODE_HEIGHT / 2;
+        const linkKey = `${parentId}-${childId}`;
+        const startX = parentPos.x + NODE_WIDTH;
+        const startY = parentPos.y + NODE_HEIGHT / 2;
+        const endX = childPos.x;
+        const endY = childPos.y + NODE_HEIGHT / 2;
 
-      const conditions = linkConditions[childId] ?? [];
-      if (conditions.length === 0) {
-        nextEdges.push({
-          id: `${linkKey}-direct`,
-          linkKey,
-          parentId,
-          childId,
-          path: buildOrthPath(startX, startY, endX, endY),
-        });
-        return;
-      }
+        const conditions = linkConditionsByKey[linkKey] ?? [];
+        if (conditions.length === 0) {
+          nextEdges.push({
+            id: `${linkKey}-direct`,
+            linkKey,
+            parentId,
+            childId,
+            path: buildOrthPath(startX, startY, endX, endY),
+          });
+          return;
+        }
 
-      const totalHeight =
-        conditions.length * CONDITION_HEIGHT +
-        Math.max(0, conditions.length - 1) * CONDITION_GAP;
-      const topY = (startY + endY) / 2 - totalHeight / 2;
-      const nodeX = startX + (endX - startX) / 2 - CONDITION_WIDTH / 2;
+        const totalHeight =
+          conditions.length * CONDITION_HEIGHT +
+          Math.max(0, conditions.length - 1) * CONDITION_GAP;
+        const topY = (startY + endY) / 2 - totalHeight / 2;
+        const nodeX = startX + (endX - startX) / 2 - CONDITION_WIDTH / 2;
 
-      conditions.forEach((condition, index) => {
-        const nodeId = `${linkKey}-condition-${index + 1}`;
-        const nodeY = topY + index * (CONDITION_HEIGHT + CONDITION_GAP);
-        const conditionNode: ConditionNode = {
-          id: nodeId,
-          linkKey,
-          parentId,
-          childId,
-          condition,
-          x: nodeX,
-          y: nodeY,
-          width: CONDITION_WIDTH,
-          height: CONDITION_HEIGHT,
-        };
-        nextConditionNodes.push(conditionNode);
+        conditions.forEach((condition, index) => {
+          const nodeId = `${linkKey}-condition-${index + 1}`;
+          const nodeY = topY + index * (CONDITION_HEIGHT + CONDITION_GAP);
+          const conditionNode: ConditionNode = {
+            id: nodeId,
+            linkKey,
+            parentId,
+            childId,
+            condition,
+            x: nodeX,
+            y: nodeY,
+            width: CONDITION_WIDTH,
+            height: CONDITION_HEIGHT,
+          };
+          nextConditionNodes.push(conditionNode);
 
-        const conditionInputX = conditionNode.x;
-        const conditionOutputX = conditionNode.x + conditionNode.width;
-        const conditionMidY = conditionNode.y + conditionNode.height / 2;
+          const conditionInputX = conditionNode.x;
+          const conditionOutputX = conditionNode.x + conditionNode.width;
+          const conditionMidY = conditionNode.y + conditionNode.height / 2;
 
-        nextEdges.push({
-          id: `${nodeId}-in`,
-          linkKey,
-          parentId,
-          childId,
-          path: buildOrthPath(startX, startY, conditionInputX, conditionMidY),
-        });
-        nextEdges.push({
-          id: `${nodeId}-out`,
-          linkKey,
-          parentId,
-          childId,
-          path: buildOrthPath(conditionOutputX, conditionMidY, endX, endY),
+          nextEdges.push({
+            id: `${nodeId}-in`,
+            linkKey,
+            parentId,
+            childId,
+            path: buildOrthPath(startX, startY, conditionInputX, conditionMidY),
+          });
+          nextEdges.push({
+            id: `${nodeId}-out`,
+            linkKey,
+            parentId,
+            childId,
+            path: buildOrthPath(conditionOutputX, conditionMidY, endX, endY),
+          });
         });
       });
     });
 
     return { edgeList: nextEdges, conditionNodes: nextConditionNodes };
-  }, [linkConditions, positionById, prevById]);
+  }, [incomingById, linkConditionsByKey, positionById]);
 
   const conditionNodeByEdgeId = useMemo(() => {
     const map = new Map<string, ConditionNode>();
@@ -741,19 +748,15 @@ export const RankBoard = ({
     }
 
     const currentId = draggingId;
-    const previousId = prevById[currentId];
+    const previousIds = incomingById[currentId] ?? [];
     const shiftSplit = splitRef.current;
 
     if (hasDragged) {
       suppressClickRef.current = true;
       if (shiftSplit) {
-        if (previousId) {
-          onUnlink(currentId, previousId);
-        }
+        previousIds.forEach((previousId) => onUnlink(currentId, previousId));
       } else if (snapTarget && snapTarget.targetId !== currentId) {
-        if (previousId && previousId !== snapTarget.targetId) {
-          onRelink(currentId, snapTarget.targetId);
-        } else if (!previousId) {
+        if (!previousIds.includes(snapTarget.targetId)) {
           onLink(currentId, snapTarget.targetId);
         }
       } else if (dragPosition) {
@@ -852,7 +855,7 @@ export const RankBoard = ({
   };
 
   const handleSelectLinkByIds = (currentId: string, previousId: string) => {
-    const conditions = linkConditions[currentId] ?? [];
+    const conditions = linkConditionsByKey[`${previousId}-${currentId}`] ?? [];
     onSelect?.(null);
     onSelectLink?.({ currentId, previousId, conditions });
   };
