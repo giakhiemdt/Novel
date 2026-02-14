@@ -502,7 +502,13 @@ export const RelationshipGraph = ({
                 : `${typeLabels.length} relations`;
               const edgePathId = `relationship-edge-${edge.key}-${index}`
                 .replace(/[^a-zA-Z0-9_-]/g, "-");
+              const edgeLabelPathId = `${edgePathId}-label`;
               const pathValue = `M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`;
+              const isReadableForward =
+                startX < endX || (Math.abs(startX - endX) < 0.5 && startY <= endY);
+              const labelPathValue = isReadableForward
+                ? pathValue
+                : `M ${endX} ${endY} Q ${controlX} ${controlY} ${startX} ${startY}`;
 
               return (
                 <g key={edge.key}>
@@ -514,8 +520,14 @@ export const RelationshipGraph = ({
                     markerStart={edge.hasBToA ? "url(#relationship-graph-arrow)" : undefined}
                     markerEnd={edge.hasAToB ? "url(#relationship-graph-arrow)" : undefined}
                   />
+                  <path id={edgeLabelPathId} d={labelPathValue} fill="none" stroke="none" />
                   <text className="relationship-graph__edge-label">
-                    <textPath href={`#${edgePathId}`} startOffset="50%" textAnchor="middle">
+                    <textPath
+                      href={`#${edgeLabelPathId}`}
+                      startOffset="50%"
+                      textAnchor="middle"
+                      dy="-5"
+                    >
                       {label}
                     </textPath>
                   </text>
