@@ -191,7 +191,7 @@ LIMIT 1
 const UPSERT_RANK_BOARD_LAYOUT = `
 MERGE (layout:${nodeLabels.rankBoardLayout} {id: 'rank-board-layout'})
 SET
-  layout.positions = $positions,
+  layout.positionsJson = $positionsJson,
   layout.updatedAt = $updatedAt
 RETURN layout
 `;
@@ -525,13 +525,24 @@ export const getRankBoardLayout = async (
     const result = await session.run(GET_RANK_BOARD_LAYOUT);
     const node = result.records[0]?.get("layout");
     const properties = mapNode(
-      node?.properties ?? { positions: {}, updatedAt: new Date().toISOString() }
-    ) as { positions?: Record<string, unknown>; updatedAt?: string };
+      node?.properties ?? { positionsJson: "{}", updatedAt: new Date().toISOString() }
+    ) as { positionsJson?: string; updatedAt?: string };
+    let positions: Record<string, { x: number; y: number }> = {};
+    if (typeof properties.positionsJson === "string") {
+      try {
+        const parsed = JSON.parse(properties.positionsJson) as Record<
+          string,
+          { x: number; y: number }
+        >;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          positions = parsed;
+        }
+      } catch {
+        positions = {};
+      }
+    }
     return {
-      positions:
-        properties.positions && typeof properties.positions === "object"
-          ? (properties.positions as Record<string, { x: number; y: number }>)
-          : {},
+      positions,
       updatedAt:
         typeof properties.updatedAt === "string"
           ? properties.updatedAt
@@ -550,18 +561,29 @@ export const saveRankBoardLayout = async (
   try {
     const updatedAt = new Date().toISOString();
     const result = await session.run(UPSERT_RANK_BOARD_LAYOUT, {
-      positions,
+      positionsJson: JSON.stringify(positions),
       updatedAt,
     });
     const node = result.records[0]?.get("layout");
     const properties = mapNode(
-      node?.properties ?? { positions, updatedAt }
-    ) as { positions?: Record<string, unknown>; updatedAt?: string };
+      node?.properties ?? { positionsJson: JSON.stringify(positions), updatedAt }
+    ) as { positionsJson?: string; updatedAt?: string };
+    let parsedPositions: Record<string, { x: number; y: number }> = positions;
+    if (typeof properties.positionsJson === "string") {
+      try {
+        const parsed = JSON.parse(properties.positionsJson) as Record<
+          string,
+          { x: number; y: number }
+        >;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          parsedPositions = parsed;
+        }
+      } catch {
+        parsedPositions = positions;
+      }
+    }
     return {
-      positions:
-        properties.positions && typeof properties.positions === "object"
-          ? (properties.positions as Record<string, { x: number; y: number }>)
-          : {},
+      positions: parsedPositions,
       updatedAt:
         typeof properties.updatedAt === "string"
           ? properties.updatedAt
