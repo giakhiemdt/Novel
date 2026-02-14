@@ -1,6 +1,5 @@
 import {
   type PointerEvent,
-  type WheelEvent,
   type CSSProperties,
   useEffect,
   useMemo,
@@ -226,6 +225,27 @@ export const RankBoard = ({
     const observer = new ResizeObserver(update);
     observer.observe(node);
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const node = boardRef.current;
+    if (!node) {
+      return;
+    }
+    const handleWheelNative = (event: globalThis.WheelEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const rect = node.getBoundingClientRect();
+      const pointerX = event.clientX - rect.left;
+      const pointerY = event.clientY - rect.top;
+      const nextScale = scaleRef.current - event.deltaY * 0.001;
+      setZoomAtPointer(nextScale, pointerX, pointerY);
+    };
+    node.addEventListener("wheel", handleWheelNative, {
+      passive: false,
+      capture: true,
+    });
+    return () => node.removeEventListener("wheel", handleWheelNative, true);
   }, []);
 
   const { incomingById, childrenById, roots, linkConditionsByKey } = useMemo(() => {
@@ -822,18 +842,6 @@ export const RankBoard = ({
     onSelectLink?.(null);
   };
 
-  const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
-    if (!boardRef.current) {
-      return;
-    }
-    event.preventDefault();
-    const rect = boardRef.current.getBoundingClientRect();
-    const pointerX = event.clientX - rect.left;
-    const pointerY = event.clientY - rect.top;
-    const nextScale = scaleRef.current - event.deltaY * 0.001;
-    setZoomAtPointer(nextScale, pointerX, pointerY);
-  };
-
   const handleZoomStep = (delta: number) => {
     const rect = boardRef.current?.getBoundingClientRect();
     const centerX = rect ? rect.width / 2 : 0;
@@ -914,7 +922,6 @@ export const RankBoard = ({
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
       onPointerDown={handleBoardPointerDown}
-      onWheel={handleWheel}
     >
       <div className="rank-board__toolbar">
         <div className="rank-board__toolbar-inner rank-board__toolbar-inner--tools">
