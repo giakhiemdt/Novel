@@ -59,7 +59,7 @@ export const CharacterList = ({
         { label: t("Gender"), value: item.gender ? t(item.gender) : "-", size: "narrow" },
         { label: t("Age"), value: item.age, size: "narrow" },
         { label: t("Race"), value: item.race ? t(item.race) : "-", size: "narrow" },
-        { label: t("Importance"), value: getImportance(item), size: "narrow" },
+        { label: t("Importance"), value: t(getImportance(item)), size: "narrow" },
         {
           label: t("Special Ability"),
           value: item.specialAbilities ?? [],
@@ -152,7 +152,7 @@ export const CharacterList = ({
                 <td>{item.race ? t(item.race) : "-"}</td>
                 <td>{aliasText}</td>
                 <td>{item.age ?? "-"}</td>
-                <td>{importance}</td>
+                <td>{t(importance)}</td>
                 <td className="table__actions">
                   <button
                     type="button"
