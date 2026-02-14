@@ -359,10 +359,6 @@ export const RankCreate = () => {
     if (!current || !previous) {
       return false;
     }
-    if ((current.systemId ?? "") !== (previous.systemId ?? "")) {
-      notify(t("Ranks must belong to the same rank system to link."), "error");
-      return false;
-    }
     if (currentId === previousId) {
       notify(t("A rank cannot link to itself."), "error");
       return false;
