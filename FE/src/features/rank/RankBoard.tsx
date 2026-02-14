@@ -205,8 +205,11 @@ export const RankBoard = ({
       isHydratingPositionsRef.current = false;
       return;
     }
+    if (itemsWithId.length === 0) {
+      return;
+    }
     onPositionsChange?.(manualPositions);
-  }, [manualPositions, onPositionsChange]);
+  }, [itemsWithId.length, manualPositions, onPositionsChange]);
 
   useEffect(() => {
     const node = boardRef.current;
@@ -366,6 +369,9 @@ export const RankBoard = ({
   }, [childrenById, itemsWithId, roots]);
 
   useEffect(() => {
+    if (itemsWithId.length === 0) {
+      return;
+    }
     const validIds = new Set(itemsWithId.map((item) => item.id));
     setManualPositions((prev) => {
       let changed = false;
