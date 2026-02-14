@@ -12,7 +12,10 @@ const I18nContext = createContext<I18nContextValue | undefined>(undefined);
 
 const getInitialLanguage = (): Language => {
   const stored = localStorage.getItem("novel-language");
-  return stored === "vi" ? "vi" : "en";
+  if (stored === "vi" || stored === "vn") {
+    return "vi";
+  }
+  return "en";
 };
 
 export const I18nProvider = ({ children }: { children: ReactNode }) => {
