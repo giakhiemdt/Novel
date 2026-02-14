@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/common/Button";
 import { FilterPanel } from "../../components/common/FilterPanel";
 import { Pagination } from "../../components/common/Pagination";
+import { ListPanel } from "../../components/common/ListPanel";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
 import { Select } from "../../components/form/Select";
@@ -102,6 +103,7 @@ export const CharacterCreate = () => {
   const [pageSize, setPageSize] = useState(20);
   const [hasNext, setHasNext] = useState(false);
   const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
+  const [showList, setShowList] = useState(false);
   const [filters, setFilters] = useState({
     q: "",
     name: "",
@@ -183,8 +185,11 @@ export const CharacterCreate = () => {
   }, [getSchemaByEntity]);
 
   useEffect(() => {
+    if (!showList) {
+      return;
+    }
     void loadItems();
-  }, [loadItems, refreshKey]);
+  }, [loadItems, refreshKey, showList]);
 
   useEffect(() => {
     void loadRaces();
@@ -618,6 +623,9 @@ export const CharacterCreate = () => {
             </Button>
           </div>
         </FilterPanel>
+        <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
+        {showList && (
+          <>
         <CharacterList items={items} onEdit={handleEditOpen} onDelete={handleDelete} />
         {(items.length > 0 || page > 1 || hasNext) && (
           <Pagination
@@ -632,6 +640,8 @@ export const CharacterCreate = () => {
               setPage(1);
             }}
           />
+        )}
+          </>
         )}
       </div>
 

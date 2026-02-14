@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "../../components/common/Button";
+import { ListPanel } from "../../components/common/ListPanel";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
 import { TextArea } from "../../components/form/TextArea";
@@ -37,6 +38,7 @@ export const RelationshipTypeCreate = () => {
   const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
   const [isSavingType, setIsSavingType] = useState(false);
   const [pendingForceDeleteId, setPendingForceDeleteId] = useState<string | null>(null);
+  const [showList, setShowList] = useState(false);
 
   const loadRelationshipTypeItems = useCallback(async () => {
     try {
@@ -48,10 +50,16 @@ export const RelationshipTypeCreate = () => {
   }, [notify]);
 
   useEffect(() => {
+    if (!showList) {
+      return;
+    }
     void loadRelationshipTypeItems();
-  }, [loadRelationshipTypeItems]);
+  }, [loadRelationshipTypeItems, showList]);
 
   useProjectChange(() => {
+    if (!showList) {
+      return;
+    }
     void loadRelationshipTypeItems();
   });
 
@@ -98,7 +106,9 @@ export const RelationshipTypeCreate = () => {
       }
       setTypeForm(initialTypeState);
       setEditingTypeId(null);
-      await loadRelationshipTypeItems();
+      if (showList) {
+        await loadRelationshipTypeItems();
+      }
     } catch (err) {
       notify((err as Error).message, "error");
     } finally {
@@ -183,56 +193,58 @@ export const RelationshipTypeCreate = () => {
           )}
         </div>
 
-        {relationshipTypes.length === 0 ? (
-          <p className="header__subtitle">{t("No relationship types yet.")}</p>
-        ) : (
-          <table className="table table--clean">
-            <thead>
-              <tr>
-                <th>{t("Code")}</th>
-                <th>{t("Name")}</th>
-                <th>{t("Directional")}</th>
-                <th>{t("Active")}</th>
-                <th>{t("Actions")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {relationshipTypes.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.code}</td>
-                  <td>{item.name}</td>
-                  <td>{item.isDirectional ? t("Yes") : t("No")}</td>
-                  <td>{item.isActive ? t("Yes") : t("No")}</td>
-                  <td className="table__actions">
-                    <button
-                      type="button"
-                      className="table__action table__action--ghost"
-                      onClick={() => handleTypeEdit(item)}
-                    >
-                      {t("Edit")}
-                    </button>
-                    <button
-                      type="button"
-                      className="table__action"
-                      onClick={() => handleTypeToggleActive(item)}
-                    >
-                      {item.isActive ? t("Deactivate") : t("Activate")}
-                    </button>
-                    <button
-                      type="button"
-                      className="table__action table__action--danger"
-                      onClick={() => handleTypeDelete(item)}
-                    >
-                      {pendingForceDeleteId === item.id
-                        ? t("Delete (confirm)")
-                        : t("Delete")}
-                    </button>
-                  </td>
+        <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
+        {showList &&
+          (relationshipTypes.length === 0 ? (
+            <p className="header__subtitle">{t("No relationship types yet.")}</p>
+          ) : (
+            <table className="table table--clean">
+              <thead>
+                <tr>
+                  <th>{t("Code")}</th>
+                  <th>{t("Name")}</th>
+                  <th>{t("Directional")}</th>
+                  <th>{t("Active")}</th>
+                  <th>{t("Actions")}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+              </thead>
+              <tbody>
+                {relationshipTypes.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.code}</td>
+                    <td>{item.name}</td>
+                    <td>{item.isDirectional ? t("Yes") : t("No")}</td>
+                    <td>{item.isActive ? t("Yes") : t("No")}</td>
+                    <td className="table__actions">
+                      <button
+                        type="button"
+                        className="table__action table__action--ghost"
+                        onClick={() => handleTypeEdit(item)}
+                      >
+                        {t("Edit")}
+                      </button>
+                      <button
+                        type="button"
+                        className="table__action"
+                        onClick={() => handleTypeToggleActive(item)}
+                      >
+                        {item.isActive ? t("Deactivate") : t("Activate")}
+                      </button>
+                      <button
+                        type="button"
+                        className="table__action table__action--danger"
+                        onClick={() => handleTypeDelete(item)}
+                      >
+                        {pendingForceDeleteId === item.id
+                          ? t("Delete (confirm)")
+                          : t("Delete")}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ))}
       </div>
 
       <FormSection

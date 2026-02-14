@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "../../components/common/Button";
 import { FilterPanel } from "../../components/common/FilterPanel";
 import { Pagination } from "../../components/common/Pagination";
+import { ListPanel } from "../../components/common/ListPanel";
 import { useToast } from "../../components/common/Toast";
 import { useForm } from "../../hooks/useForm";
 import { useProjectChange } from "../../hooks/useProjectChange";
@@ -58,6 +59,7 @@ export const TimelineCreate = () => {
   const [pageSize, setPageSize] = useState(20);
   const [hasNext, setHasNext] = useState(false);
   const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
+  const [showList, setShowList] = useState(false);
   const [filters, setFilters] = useState({
     q: "",
     name: "",
@@ -141,8 +143,11 @@ export const TimelineCreate = () => {
   }, [page, pageSize, filters, notify, getTimelinesPage]);
 
   useEffect(() => {
+    if (!showList) {
+      return;
+    }
     void loadItems();
-  }, [loadItems, refreshKey]);
+  }, [loadItems, refreshKey, showList]);
 
   useEffect(() => {
     void loadEvents();
@@ -313,36 +318,39 @@ export const TimelineCreate = () => {
           </Button>
         </div>
       </FilterPanel>
-      {(items.length > 0 || page > 1 || hasNext) && (
-        <Pagination
-          page={page}
-          pageSize={pageSize}
-          itemCount={items.length}
-          hasNext={hasNext}
-          totalCount={totalCount}
-          onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
-          onPageSizeChange={(nextSize) => {
-            setPageSize(nextSize);
-            setPage(1);
-          }}
-        />
+      <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
+      {showList && (
+        <>
+          {(items.length > 0 || page > 1 || hasNext) && (
+            <Pagination
+              page={page}
+              pageSize={pageSize}
+              itemCount={items.length}
+              hasNext={hasNext}
+              totalCount={totalCount}
+              onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+              onPageSizeChange={(nextSize) => {
+                setPageSize(nextSize);
+                setPage(1);
+              }}
+            />
+          )}
+          <TimelineBoard
+            items={items}
+            events={events}
+            selectedId={selected?.id}
+            onSelect={setSelected}
+            links={links}
+            onLink={handleBoardLink}
+            onUnlink={handleBoardUnlink}
+            onRelink={handleBoardRelink}
+            onDelete={handleDelete}
+          />
+          {items.length === 0 && (
+            <p className="timeline-empty">{t("No timelines yet.")}</p>
+          )}
+        </>
       )}
-      <>
-        <TimelineBoard
-          items={items}
-          events={events}
-          selectedId={selected?.id}
-          onSelect={setSelected}
-          links={links}
-          onLink={handleBoardLink}
-          onUnlink={handleBoardUnlink}
-          onRelink={handleBoardRelink}
-          onDelete={handleDelete}
-        />
-        {items.length === 0 && (
-          <p className="timeline-empty">{t("No timelines yet.")}</p>
-        )}
-      </>
 
       <button
         type="button"

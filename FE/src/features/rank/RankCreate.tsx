@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/common/Button";
 import { FilterPanel } from "../../components/common/FilterPanel";
 import { Pagination } from "../../components/common/Pagination";
+import { ListPanel } from "../../components/common/ListPanel";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
@@ -105,6 +106,7 @@ export const RankCreate = () => {
   const [pageSize, setPageSize] = useState(20);
   const [hasNext, setHasNext] = useState(false);
   const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
+  const [showList, setShowList] = useState(false);
   const [filters, setFilters] = useState({
     q: "",
     name: "",
@@ -215,8 +217,11 @@ export const RankCreate = () => {
   }, [getRankBoardLayout, notify]);
 
   useEffect(() => {
+    if (!showList) {
+      return;
+    }
     void loadItems();
-  }, [loadItems, refreshKey]);
+  }, [loadItems, refreshKey, showList]);
 
   useEffect(() => {
     void loadBoardItems();
@@ -806,25 +811,30 @@ export const RankCreate = () => {
             </div>
           </div>
         )}
-        <RankList
-          items={items}
-          rankSystemNameById={rankSystemNameById}
-          onEdit={handleEditOpen}
-          onDelete={handleDelete}
-        />
-        {(items.length > 0 || page > 1 || hasNext) && (
-          <Pagination
-            page={page}
-            pageSize={pageSize}
-            itemCount={items.length}
-            hasNext={hasNext}
-            totalCount={totalCount}
-            onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
-            onPageSizeChange={(nextSize) => {
-              setPageSize(nextSize);
-              setPage(1);
-            }}
-          />
+        <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
+        {showList && (
+          <>
+            <RankList
+              items={items}
+              rankSystemNameById={rankSystemNameById}
+              onEdit={handleEditOpen}
+              onDelete={handleDelete}
+            />
+            {(items.length > 0 || page > 1 || hasNext) && (
+              <Pagination
+                page={page}
+                pageSize={pageSize}
+                itemCount={items.length}
+                hasNext={hasNext}
+                totalCount={totalCount}
+                onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+                onPageSizeChange={(nextSize) => {
+                  setPageSize(nextSize);
+                  setPage(1);
+                }}
+              />
+            )}
+          </>
         )}
       </div>
 

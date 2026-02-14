@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "../../components/common/Button";
 import { FilterPanel } from "../../components/common/FilterPanel";
 import { Pagination } from "../../components/common/Pagination";
+import { ListPanel } from "../../components/common/ListPanel";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
@@ -41,6 +42,7 @@ export const RaceCreate = () => {
   const [pageSize, setPageSize] = useState(20);
   const [hasNext, setHasNext] = useState(false);
   const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
+  const [showList, setShowList] = useState(false);
   const [filters, setFilters] = useState({
     q: "",
     name: "",
@@ -78,8 +80,11 @@ export const RaceCreate = () => {
   }, [page, pageSize, filters, notify, getRacesPage]);
 
   useEffect(() => {
+    if (!showList) {
+      return;
+    }
     void loadItems();
-  }, [loadItems, refreshKey]);
+  }, [loadItems, refreshKey, showList]);
 
   useProjectChange(() => {
     setPage(1);
@@ -248,6 +253,9 @@ export const RaceCreate = () => {
             </Button>
           </div>
         </FilterPanel>
+        <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
+        {showList && (
+          <>
         <RaceList items={items} onEdit={handleEditOpen} onDelete={handleDelete} />
         {(items.length > 0 || page > 1 || hasNext) && (
           <Pagination
@@ -262,6 +270,8 @@ export const RaceCreate = () => {
               setPage(1);
             }}
           />
+        )}
+          </>
         )}
       </div>
 

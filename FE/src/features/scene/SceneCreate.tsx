@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/common/Button";
 import { FilterPanel } from "../../components/common/FilterPanel";
 import { Pagination } from "../../components/common/Pagination";
+import { ListPanel } from "../../components/common/ListPanel";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
@@ -57,6 +58,7 @@ export const SceneCreate = () => {
   const [pageSize, setPageSize] = useState(20);
   const [hasNext, setHasNext] = useState(false);
   const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
+  const [showList, setShowList] = useState(false);
   const [filters, setFilters] = useState({
     q: "",
     name: "",
@@ -168,8 +170,11 @@ export const SceneCreate = () => {
   }, [getAllCharacters]);
 
   useEffect(() => {
+    if (!showList) {
+      return;
+    }
     void loadItems();
-  }, [loadItems, refreshKey]);
+  }, [loadItems, refreshKey, showList]);
 
   useEffect(() => {
     void loadChapters();
@@ -425,6 +430,9 @@ export const SceneCreate = () => {
             </Button>
           </div>
         </FilterPanel>
+        <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
+        {showList && (
+          <>
         <SceneList
           items={items}
           chaptersById={chaptersById}
@@ -447,6 +455,8 @@ export const SceneCreate = () => {
               setPage(1);
             }}
           />
+        )}
+          </>
         )}
       </div>
 

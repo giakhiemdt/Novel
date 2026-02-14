@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/common/Button";
 import { FilterPanel } from "../../components/common/FilterPanel";
 import { Pagination } from "../../components/common/Pagination";
+import { ListPanel } from "../../components/common/ListPanel";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
 import { Select } from "../../components/form/Select";
@@ -58,6 +59,7 @@ export const RelationshipCreate = () => {
     type: "",
   });
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showList, setShowList] = useState(false);
   const { notify } = useToast();
 
   const charactersById = useMemo(
@@ -145,8 +147,11 @@ export const RelationshipCreate = () => {
   }, [notify]);
 
   useEffect(() => {
+    if (!showList) {
+      return;
+    }
     void loadItems();
-  }, [loadItems, refreshKey]);
+  }, [loadItems, refreshKey, showList]);
 
   useEffect(() => {
     void loadCharacters();
@@ -328,6 +333,9 @@ export const RelationshipCreate = () => {
             </Button>
           </div>
         </FilterPanel>
+        <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
+        {showList && (
+          <>
         <RelationshipList
           items={pagedItems}
           charactersById={charactersById}
@@ -348,6 +356,8 @@ export const RelationshipCreate = () => {
               setPage(1);
             }}
           />
+        )}
+          </>
         )}
       </div>
 

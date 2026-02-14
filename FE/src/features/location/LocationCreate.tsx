@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "../../components/common/Button";
 import { FilterPanel } from "../../components/common/FilterPanel";
 import { Pagination } from "../../components/common/Pagination";
+import { ListPanel } from "../../components/common/ListPanel";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
@@ -118,6 +119,7 @@ export const LocationCreate = () => {
   const [pageSize, setPageSize] = useState(20);
   const [hasNext, setHasNext] = useState(false);
   const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
+  const [showList, setShowList] = useState(false);
   const [filters, setFilters] = useState({
     q: "",
     name: "",
@@ -158,8 +160,11 @@ export const LocationCreate = () => {
   }, [page, pageSize, filters, notify, getLocationsPage]);
 
   useEffect(() => {
+    if (!showList) {
+      return;
+    }
     void loadItems();
-  }, [loadItems, refreshKey]);
+  }, [loadItems, refreshKey, showList]);
 
   useProjectChange(() => {
     setPage(1);
@@ -447,6 +452,9 @@ export const LocationCreate = () => {
             </Button>
           </div>
         </FilterPanel>
+        <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
+        {showList && (
+          <>
         <LocationList
           items={items}
           onEdit={handleEditOpen}
@@ -468,6 +476,8 @@ export const LocationCreate = () => {
               setPage(1);
             }}
           />
+        )}
+          </>
         )}
       </div>
 

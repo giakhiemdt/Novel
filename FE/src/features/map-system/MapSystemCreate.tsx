@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/common/Button";
 import { FilterPanel } from "../../components/common/FilterPanel";
 import { Pagination } from "../../components/common/Pagination";
+import { ListPanel } from "../../components/common/ListPanel";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
@@ -107,6 +108,7 @@ export const MapSystemCreate = () => {
   const [pageSize, setPageSize] = useState(20);
   const [hasNext, setHasNext] = useState(false);
   const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
+  const [showList, setShowList] = useState(false);
   const [filters, setFilters] = useState({
     q: "",
     name: "",
@@ -165,8 +167,11 @@ export const MapSystemCreate = () => {
   }, [page, pageSize, filters, notify]);
 
   useEffect(() => {
+    if (!showList) {
+      return;
+    }
     void loadItems();
-  }, [loadItems, refreshKey]);
+  }, [loadItems, refreshKey, showList]);
 
   useProjectChange(() => {
     setPage(1);
@@ -499,20 +504,25 @@ export const MapSystemCreate = () => {
           </div>
         )}
 
-        <MapSystemList items={items} onEdit={handleEditOpen} onDelete={handleDelete} />
-        {(items.length > 0 || page > 1 || hasNext) && (
-          <Pagination
-            page={page}
-            pageSize={pageSize}
-            itemCount={items.length}
-            hasNext={hasNext}
-            totalCount={totalCount}
-            onPageChange={(nextPage) => setPage(nextPage)}
-            onPageSizeChange={(nextSize) => {
-              setPageSize(nextSize);
-              setPage(1);
-            }}
-          />
+        <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
+        {showList && (
+          <>
+            <MapSystemList items={items} onEdit={handleEditOpen} onDelete={handleDelete} />
+            {(items.length > 0 || page > 1 || hasNext) && (
+              <Pagination
+                page={page}
+                pageSize={pageSize}
+                itemCount={items.length}
+                hasNext={hasNext}
+                totalCount={totalCount}
+                onPageChange={(nextPage) => setPage(nextPage)}
+                onPageSizeChange={(nextSize) => {
+                  setPageSize(nextSize);
+                  setPage(1);
+                }}
+              />
+            )}
+          </>
         )}
       </div>
     </div>
