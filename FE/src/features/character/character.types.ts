@@ -1,9 +1,17 @@
+export type CharacterImportance =
+  | "Protagonist"
+  | "Major"
+  | "Supporting"
+  | "Minor"
+  | "Cameo";
+
 export type CharacterPayload = {
   id?: string;
   name: string;
   alias?: string[];
   level?: string;
   status?: "Alive" | "Dead";
+  importance?: CharacterImportance;
   isMainCharacter?: boolean;
   gender: "male" | "female" | "other";
   age?: number;

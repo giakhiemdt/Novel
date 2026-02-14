@@ -19,12 +19,20 @@ import { getSpecialAbilityByName } from "../special-ability/special-ability.repo
 import {
   CharacterInput,
   CharacterGender,
+  CharacterImportance,
   CharacterListQuery,
   CharacterNode,
   CharacterStatus,
 } from "./character.types";
 
 const STATUSES: CharacterStatus[] = ["Alive", "Dead"];
+const IMPORTANCE_LEVELS: CharacterImportance[] = [
+  "Protagonist",
+  "Major",
+  "Supporting",
+  "Minor",
+  "Cameo",
+];
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
 
@@ -232,11 +240,15 @@ const assertDatabaseName = (value: unknown): string => {
 
 const buildCharacterNode = (payload: CharacterInput): CharacterNode => {
   const now = new Date().toISOString();
+  const importance =
+    payload.importance ?? (payload.isMainCharacter ? "Protagonist" : "Supporting");
+  const isMainCharacter = payload.isMainCharacter ?? importance === "Protagonist";
   return {
     ...payload,
     id: payload.id ?? generateId(),
     status: payload.status ?? "Alive",
-    isMainCharacter: payload.isMainCharacter ?? false,
+    importance,
+    isMainCharacter,
     createdAt: now,
     updatedAt: now,
   };
@@ -273,7 +285,15 @@ const parseExtra = (value: unknown): Record<string, unknown> | undefined => {
 
 const withParsedExtra = (node: CharacterNode): CharacterNode => {
   const parsed = parseExtra(node.extra as unknown);
-  return parsed ? { ...node, extra: parsed } : node;
+  const withExtra = parsed ? { ...node, extra: parsed } : node;
+  const importance =
+    withExtra.importance ??
+    (withExtra.isMainCharacter ? "Protagonist" : "Supporting");
+  const isMainCharacter =
+    typeof withExtra.isMainCharacter === "boolean"
+      ? withExtra.isMainCharacter
+      : importance === "Protagonist";
+  return { ...withExtra, importance, isMainCharacter };
 };
 
 const parseCharacterListQuery = (query: unknown): CharacterListQuery => {
@@ -306,12 +326,19 @@ const parseCharacterListQuery = (query: unknown): CharacterListQuery => {
   const gender = parseOptionalQueryString(data.gender, "gender");
   const status = parseOptionalQueryString(data.status, "status");
   const level = parseOptionalQueryString(data.level, "level");
+  const importance = parseOptionalQueryString(data.importance, "importance");
 
   if (gender && !["male", "female", "other"].includes(gender)) {
     throw new AppError("gender must be one of male, female, other", 400);
   }
   if (status && !STATUSES.includes(status as CharacterStatus)) {
     throw new AppError(`status must be one of ${STATUSES.join(", ")}`, 400);
+  }
+  if (importance && !IMPORTANCE_LEVELS.includes(importance as CharacterImportance)) {
+    throw new AppError(
+      `importance must be one of ${IMPORTANCE_LEVELS.join(", ")}`,
+      400
+    );
   }
 
   const result: CharacterListQuery = {
@@ -327,6 +354,7 @@ const parseCharacterListQuery = (query: unknown): CharacterListQuery => {
   addIfDefined(result, "gender", gender as CharacterGender | undefined);
   addIfDefined(result, "status", status as CharacterStatus | undefined);
   addIfDefined(result, "level", level);
+  addIfDefined(result, "importance", importance as CharacterImportance | undefined);
   addIfDefined(
     result,
     "isMainCharacter",
@@ -359,6 +387,11 @@ const validateCharacterPayload = (payload: unknown): CharacterInput => {
     result,
     "status",
     assertOptionalEnum(data.status, STATUSES, "status")
+  );
+  addIfDefined(
+    result,
+    "importance",
+    assertOptionalEnum(data.importance, IMPORTANCE_LEVELS, "importance")
   );
   addIfDefined(
     result,
@@ -512,11 +545,17 @@ export const characterService = {
       }
     }
     const now = new Date().toISOString();
+    const importance =
+      validated.importance ??
+      (validated.isMainCharacter ? "Protagonist" : "Supporting");
+    const isMainCharacter =
+      validated.isMainCharacter ?? importance === "Protagonist";
     const node: CharacterNode = {
       ...validated,
       id,
       status: validated.status ?? "Alive",
-      isMainCharacter: validated.isMainCharacter ?? false,
+      importance,
+      isMainCharacter,
       createdAt: now,
       updatedAt: now,
       extra: serializeExtra(validated.extra) as unknown as Record<string, unknown>,

@@ -19,6 +19,7 @@ export type CharacterListQuery = {
   gender?: string;
   status?: string;
   level?: string;
+  importance?: string;
   isMainCharacter?: boolean;
 };
 

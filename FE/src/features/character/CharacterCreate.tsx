@@ -23,7 +23,11 @@ import { getAllRanks } from "../rank/rank.api";
 import { getAllSpecialAbilities } from "../special-ability/special-ability.api";
 import { CharacterList } from "./CharacterList";
 import { validateCharacter } from "./character.schema";
-import type { Character, CharacterPayload } from "./character.types";
+import type {
+  Character,
+  CharacterImportance,
+  CharacterPayload,
+} from "./character.types";
 import type { Race } from "../race/race.types";
 import type { Rank } from "../rank/rank.types";
 import type { SpecialAbility } from "../special-ability/special-ability.types";
@@ -35,7 +39,7 @@ const initialState = {
   alias: [] as string[],
   level: "",
   status: "" as Exclude<Character["status"], undefined> | "",
-  isMainCharacter: false,
+  importance: "Supporting" as CharacterImportance,
   gender: "",
   age: "",
   race: "",
@@ -62,6 +66,20 @@ const initialState = {
 };
 
 type CharacterFormState = typeof initialState;
+const CHARACTER_IMPORTANCE_OPTIONS: Array<{
+  value: CharacterImportance;
+  label: string;
+}> = [
+  { value: "Protagonist", label: "Protagonist" },
+  { value: "Major", label: "Major" },
+  { value: "Supporting", label: "Supporting" },
+  { value: "Minor", label: "Minor" },
+  { value: "Cameo", label: "Cameo" },
+];
+
+const getCharacterImportance = (item: Character): CharacterImportance =>
+  item.importance ?? (item.isMainCharacter ? "Protagonist" : "Supporting");
+
 const normalizeCharacterStatus = (
   value: string
 ): Exclude<Character["status"], undefined> | "" =>
@@ -93,7 +111,7 @@ export const CharacterCreate = () => {
     gender: "",
     status: "",
     level: "",
-    isMainCharacter: undefined as boolean | undefined,
+    importance: "",
   });
   const [refreshKey, setRefreshKey] = useState(0);
   const { notify } = useToast();
@@ -193,19 +211,12 @@ export const CharacterCreate = () => {
       | "specialAbility"
       | "gender"
       | "status"
-      | "level",
+      | "level"
+      | "importance",
     value: string
   ) => {
     setPage(1);
     setFilters((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const handleMainCharacterFilterChange = (value: string) => {
-    setPage(1);
-    setFilters((prev) => ({
-      ...prev,
-      isMainCharacter: value === "" ? undefined : value === "true",
-    }));
   };
 
   const handleClearFilters = () => {
@@ -219,7 +230,7 @@ export const CharacterCreate = () => {
       gender: "",
       status: "",
       level: "",
-      isMainCharacter: undefined,
+      importance: "",
     });
   };
 
@@ -268,7 +279,7 @@ export const CharacterCreate = () => {
     alias: item.alias ?? [],
     level: item.level ?? "",
     status: item.status ?? "",
-    isMainCharacter: item.isMainCharacter ?? false,
+    importance: getCharacterImportance(item),
     gender: item.gender ?? "",
     age: item.age !== undefined ? String(item.age) : "",
     race: item.race ?? "",
@@ -299,7 +310,8 @@ export const CharacterCreate = () => {
     alias: values.alias,
     level: values.level || undefined,
     status: values.status as CharacterPayload["status"],
-    isMainCharacter: values.isMainCharacter,
+    importance: values.importance,
+    isMainCharacter: values.importance === "Protagonist",
     gender: values.gender as CharacterPayload["gender"],
     age: values.age === "" ? undefined : Number(values.age),
     race: values.race || undefined,
@@ -370,7 +382,8 @@ export const CharacterCreate = () => {
         alias: editValues.alias,
         level: editValues.level || undefined,
         status: editValues.status || undefined,
-        isMainCharacter: editValues.isMainCharacter,
+        importance: editValues.importance,
+        isMainCharacter: editValues.importance === "Protagonist",
         gender: editValues.gender as Character["gender"],
         age: editValues.age === "" ? undefined : Number(editValues.age),
         race: editValues.race || undefined,
@@ -593,17 +606,10 @@ export const CharacterCreate = () => {
             placeholder="All"
           />
           <Select
-            label="Main Character"
-            value={
-              filters.isMainCharacter === undefined
-                ? ""
-                : String(filters.isMainCharacter)
-            }
-            onChange={(value) => handleMainCharacterFilterChange(value)}
-            options={[
-              { value: "true", label: "Yes" },
-              { value: "false", label: "No" },
-            ]}
+            label="Importance"
+            value={filters.importance}
+            onChange={(value) => handleFilterChange("importance", value)}
+            options={CHARACTER_IMPORTANCE_OPTIONS}
             placeholder="All"
           />
           <div className="form-field filter-actions">
@@ -725,25 +731,18 @@ export const CharacterCreate = () => {
               />
             </div>
             <div className="form-field--narrow">
-              <label className="toggle">
-                <span>{t("Main character")}</span>
-                <input
-                  type="checkbox"
-                  checked={editValues.isMainCharacter}
-                  onChange={(event) =>
-                    setEditValues(
-                      (prev) =>
-                        prev && {
-                          ...prev,
-                          isMainCharacter: event.target.checked,
-                        }
-                    )
-                  }
-                />
-                <span className="toggle__track" aria-hidden="true">
-                  <span className="toggle__thumb" />
-                </span>
-              </label>
+              <Select
+                label="Importance"
+                value={editValues.importance}
+                onChange={(value) =>
+                  setEditValues((prev) =>
+                    prev
+                      ? { ...prev, importance: value as CharacterImportance }
+                      : prev
+                  )
+                }
+                options={CHARACTER_IMPORTANCE_OPTIONS}
+              />
             </div>
             <div className="form-field--wide">
               <MultiSelect
@@ -1088,19 +1087,14 @@ export const CharacterCreate = () => {
           />
         </div>
         <div className="form-field--narrow">
-          <label className="toggle">
-            <span>{t("Main character")}</span>
-            <input
-              type="checkbox"
-              checked={values.isMainCharacter}
-              onChange={(event) =>
-                setField("isMainCharacter", event.target.checked)
-              }
-            />
-            <span className="toggle__track" aria-hidden="true">
-              <span className="toggle__thumb" />
-            </span>
-          </label>
+          <Select
+            label="Importance"
+            value={values.importance}
+            onChange={(value) =>
+              setField("importance", value as CharacterImportance)
+            }
+            options={CHARACTER_IMPORTANCE_OPTIONS}
+          />
         </div>
         <div className="form-field--wide">
           <MultiSelect

@@ -1,5 +1,11 @@
 export type CharacterStatus = "Alive" | "Dead";
 export type CharacterGender = "male" | "female" | "other";
+export type CharacterImportance =
+  | "Protagonist"
+  | "Major"
+  | "Supporting"
+  | "Minor"
+  | "Cameo";
 
 export type CharacterInput = {
   id?: string;
@@ -8,6 +14,7 @@ export type CharacterInput = {
   level?: string;
   status?: CharacterStatus;
   isMainCharacter?: boolean;
+  importance?: CharacterImportance;
   gender: CharacterGender;
   age?: number;
   race?: string;
@@ -37,6 +44,7 @@ export type CharacterNode = CharacterInput & {
   id: string;
   status: CharacterStatus;
   isMainCharacter: boolean;
+  importance: CharacterImportance;
   createdAt: string;
   updatedAt: string;
 };
@@ -53,5 +61,6 @@ export type CharacterListQuery = {
   status?: CharacterStatus;
   level?: string;
   isMainCharacter?: boolean;
+  importance?: CharacterImportance;
   total?: number;
 };

@@ -59,7 +59,7 @@ export const nodeDocs: NodeDoc[] = [
       "alias[]",
       "level",
       "status",
-      "isMainCharacter",
+      "importance",
       "age",
       "race",
       "specialAbilities[]",
@@ -92,7 +92,10 @@ export const nodeDocs: NodeDoc[] = [
       "PUT /characters/:id",
       "DELETE /characters/:id",
     ],
-    notes: ["Hỗ trợ filter/pagination/search q ở BE"],
+    notes: [
+      "Hỗ trợ filter/pagination/search q ở BE",
+      "Giữ tương thích ngược với isMainCharacter (legacy)",
+    ],
   },
   {
     id: "race",

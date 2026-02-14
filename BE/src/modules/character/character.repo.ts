@@ -14,6 +14,7 @@ CREATE (c:${nodeLabels.character} {
   level: $level,
   status: $status,
   isMainCharacter: $isMainCharacter,
+  importance: $importance,
   gender: $gender,
   age: $age,
   race: $race,
@@ -51,6 +52,7 @@ SET
   c.level = $level,
   c.status = $status,
   c.isMainCharacter = $isMainCharacter,
+  c.importance = $importance,
   c.gender = $gender,
   c.age = $age,
   c.race = $race,
@@ -88,6 +90,20 @@ WHERE
   AND ($gender IS NULL OR c.gender = $gender)
   AND ($status IS NULL OR c.status = $status)
   AND ($level IS NULL OR c.level = $level)
+  AND (
+    $importance IS NULL
+    OR c.importance = $importance
+    OR (
+      c.importance IS NULL
+      AND $importance = 'Protagonist'
+      AND c.isMainCharacter = true
+    )
+    OR (
+      c.importance IS NULL
+      AND $importance = 'Supporting'
+      AND coalesce(c.isMainCharacter, false) = false
+    )
+  )
   AND ($isMainCharacter IS NULL OR c.isMainCharacter = $isMainCharacter)
 RETURN c
 ORDER BY c.createdAt DESC
@@ -106,6 +122,20 @@ WHERE
   AND ($gender IS NULL OR c.gender = $gender)
   AND ($status IS NULL OR c.status = $status)
   AND ($level IS NULL OR c.level = $level)
+  AND (
+    $importance IS NULL
+    OR c.importance = $importance
+    OR (
+      c.importance IS NULL
+      AND $importance = 'Protagonist'
+      AND c.isMainCharacter = true
+    )
+    OR (
+      c.importance IS NULL
+      AND $importance = 'Supporting'
+      AND coalesce(c.isMainCharacter, false) = false
+    )
+  )
   AND ($isMainCharacter IS NULL OR c.isMainCharacter = $isMainCharacter)
 RETURN c
 ORDER BY score DESC, c.createdAt DESC
@@ -123,6 +153,20 @@ WHERE
   AND ($gender IS NULL OR c.gender = $gender)
   AND ($status IS NULL OR c.status = $status)
   AND ($level IS NULL OR c.level = $level)
+  AND (
+    $importance IS NULL
+    OR c.importance = $importance
+    OR (
+      c.importance IS NULL
+      AND $importance = 'Protagonist'
+      AND c.isMainCharacter = true
+    )
+    OR (
+      c.importance IS NULL
+      AND $importance = 'Supporting'
+      AND coalesce(c.isMainCharacter, false) = false
+    )
+  )
   AND ($isMainCharacter IS NULL OR c.isMainCharacter = $isMainCharacter)
 RETURN count(c) AS total
 `;
@@ -138,6 +182,20 @@ WHERE
   AND ($gender IS NULL OR c.gender = $gender)
   AND ($status IS NULL OR c.status = $status)
   AND ($level IS NULL OR c.level = $level)
+  AND (
+    $importance IS NULL
+    OR c.importance = $importance
+    OR (
+      c.importance IS NULL
+      AND $importance = 'Protagonist'
+      AND c.isMainCharacter = true
+    )
+    OR (
+      c.importance IS NULL
+      AND $importance = 'Supporting'
+      AND coalesce(c.isMainCharacter, false) = false
+    )
+  )
   AND ($isMainCharacter IS NULL OR c.isMainCharacter = $isMainCharacter)
 RETURN count(c) AS total
 `;
@@ -201,6 +259,7 @@ const CHARACTER_PARAMS = [
   "level",
   "status",
   "isMainCharacter",
+  "importance",
   "gender",
   "age",
   "race",
@@ -283,6 +342,7 @@ export const getCharacters = async (
       gender: query.gender ?? null,
       status: query.status ?? null,
       level: query.level ?? null,
+      importance: query.importance ?? null,
       isMainCharacter:
         typeof query.isMainCharacter === "boolean"
           ? query.isMainCharacter
@@ -315,6 +375,7 @@ export const getCharacterCount = async (
       gender: query.gender ?? null,
       status: query.status ?? null,
       level: query.level ?? null,
+      importance: query.importance ?? null,
       isMainCharacter:
         typeof query.isMainCharacter === "boolean"
           ? query.isMainCharacter

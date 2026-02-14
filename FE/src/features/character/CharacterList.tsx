@@ -45,6 +45,9 @@ export const CharacterList = ({
     return value as string | number;
   };
 
+  const getImportance = (item: Character): string =>
+    item.importance ?? (item.isMainCharacter ? "Protagonist" : "Supporting");
+
   const detailSections = (item: Character) => [
     {
       title: t("Core Identity"),
@@ -56,7 +59,7 @@ export const CharacterList = ({
         { label: t("Gender"), value: item.gender ? t(item.gender) : "-", size: "narrow" },
         { label: t("Age"), value: item.age, size: "narrow" },
         { label: t("Race"), value: item.race ? t(item.race) : "-", size: "narrow" },
-        { label: t("Main"), value: item.isMainCharacter, size: "narrow" },
+        { label: t("Importance"), value: getImportance(item), size: "narrow" },
         {
           label: t("Special Ability"),
           value: item.specialAbilities ?? [],
@@ -110,15 +113,19 @@ export const CharacterList = ({
             <th>{t("Race")}</th>
             <th>{t("Alias")}</th>
             <th>{t("Age")}</th>
+            <th>{t("Importance")}</th>
             <th>{t("Actions")}</th>
           </tr>
         </thead>
         <tbody>
           {items.map((item) => {
             const aliasText = item.alias?.length ? item.alias.join(", ") : "-";
+            const importance = getImportance(item);
             const rowClassName = [
               "table__row",
-              item.isMainCharacter ? "table__row--main" : "table__row--supporting",
+              importance === "Protagonist"
+                ? "table__row--main"
+                : "table__row--supporting",
             ]
               .filter(Boolean)
               .join(" ");
@@ -145,6 +152,7 @@ export const CharacterList = ({
                 <td>{item.race ? t(item.race) : "-"}</td>
                 <td>{aliasText}</td>
                 <td>{item.age ?? "-"}</td>
+                <td>{importance}</td>
                 <td className="table__actions">
                   <button
                     type="button"
