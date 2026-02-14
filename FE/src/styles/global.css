@@ -1327,9 +1327,8 @@ h3 {
 }
 
 .rank-board__canvas {
-  position: relative;
-  min-width: 100%;
-  min-height: 100%;
+  position: absolute;
+  inset: 0;
   transform-origin: top left;
   will-change: transform;
 }
