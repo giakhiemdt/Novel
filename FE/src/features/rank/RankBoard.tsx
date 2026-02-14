@@ -2,6 +2,7 @@ import {
   type PointerEvent,
   type WheelEvent,
   type CSSProperties,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -129,6 +130,11 @@ const buildOrthPath = (startX: number, startY: number, endX: number, endY: numbe
   return `M ${startX} ${startY} H ${midX} V ${endY} H ${endX}`;
 };
 
+const getLayoutStorageKey = (): string => {
+  const dbName = window.localStorage.getItem("novel-selected-project-db") || "default";
+  return `novel-rank-board-layout:${dbName}`;
+};
+
 export const RankBoard = ({
   items,
   links,
@@ -174,6 +180,37 @@ export const RankBoard = ({
     [items]
   );
 
+  const loadManualPositions = useCallback(() => {
+    try {
+      const raw = window.localStorage.getItem(getLayoutStorageKey());
+      if (!raw) {
+        setManualPositions({});
+        return;
+      }
+      const parsed = JSON.parse(raw) as Record<string, Position>;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        setManualPositions({});
+        return;
+      }
+      const normalized: Record<string, Position> = {};
+      Object.entries(parsed).forEach(([id, pos]) => {
+        if (
+          pos &&
+          typeof pos === "object" &&
+          typeof pos.x === "number" &&
+          typeof pos.y === "number" &&
+          Number.isFinite(pos.x) &&
+          Number.isFinite(pos.y)
+        ) {
+          normalized[id] = { x: pos.x, y: pos.y };
+        }
+      });
+      setManualPositions(normalized);
+    } catch {
+      setManualPositions({});
+    }
+  }, []);
+
   useEffect(() => {
     scaleRef.current = scale;
   }, [scale]);
@@ -189,6 +226,24 @@ export const RankBoard = ({
       }
     };
   }, []);
+
+  useEffect(() => {
+    loadManualPositions();
+    window.addEventListener("novel-project-changed", loadManualPositions);
+    return () =>
+      window.removeEventListener("novel-project-changed", loadManualPositions);
+  }, [loadManualPositions]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        getLayoutStorageKey(),
+        JSON.stringify(manualPositions)
+      );
+    } catch {
+      // Ignore storage write errors.
+    }
+  }, [manualPositions]);
 
   useEffect(() => {
     const node = boardRef.current;
