@@ -171,7 +171,6 @@ export const RankBoard = ({
   const rafRef = useRef<number | null>(null);
   const splitRef = useRef(false);
   const suppressClickRef = useRef(false);
-  const isHydratingPositionsRef = useRef(false);
 
   const itemsWithId = useMemo(
     () => items.filter((item): item is Rank & { id: string } => Boolean(item.id)),
@@ -195,20 +194,8 @@ export const RankBoard = ({
   }, []);
 
   useEffect(() => {
-    isHydratingPositionsRef.current = true;
     setManualPositions(initialPositions ?? {});
   }, [initialPositions]);
-
-  useEffect(() => {
-    if (isHydratingPositionsRef.current) {
-      isHydratingPositionsRef.current = false;
-      return;
-    }
-    if (itemsWithId.length === 0) {
-      return;
-    }
-    onPositionsChange?.(manualPositions);
-  }, [itemsWithId.length, manualPositions, onPositionsChange]);
 
   useEffect(() => {
     const node = boardRef.current;
@@ -403,9 +390,12 @@ export const RankBoard = ({
           changed = true;
         }
       });
+      if (changed) {
+        onPositionsChange?.(next);
+      }
       return changed ? next : prev;
     });
-  }, [itemsWithId]);
+  }, [itemsWithId, onPositionsChange]);
 
   const selectedItem = useMemo(
     () => itemsWithId.find((item) => item.id === selectedId) ?? null,
@@ -804,10 +794,14 @@ export const RankBoard = ({
           onLink(currentId, snapTarget.targetId);
         }
       } else if (dragPosition) {
-        setManualPositions((prev) => ({
-          ...prev,
-          [currentId]: dragPosition,
-        }));
+        setManualPositions((prev) => {
+          const next = {
+            ...prev,
+            [currentId]: dragPosition,
+          };
+          onPositionsChange?.(next);
+          return next;
+        });
       }
     }
 
@@ -875,6 +869,7 @@ export const RankBoard = ({
 
   const handleAutoLayout = () => {
     setManualPositions({});
+    onPositionsChange?.({});
   };
 
   const handleSelect = (item: Rank & { id: string }) => {
