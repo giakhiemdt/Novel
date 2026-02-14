@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/common/Button";
 import { FilterPanel } from "../../components/common/FilterPanel";
@@ -117,6 +117,8 @@ export const RankCreate = () => {
   const { notify } = useToast();
   const [layoutRevision, setLayoutRevision] = useState(0);
   const [layoutSaveTimer, setLayoutSaveTimer] = useState<number | null>(null);
+  const layoutLoadSeqRef = useRef(0);
+  const hasLayoutInteractionRef = useRef(false);
 
   const loadItems = useCallback(async () => {
     try {
@@ -190,11 +192,19 @@ export const RankCreate = () => {
   }, [getAllRankSystems, notify]);
 
   const loadBoardLayout = useCallback(async () => {
+    const seq = layoutLoadSeqRef.current + 1;
+    layoutLoadSeqRef.current = seq;
     try {
       const data = await getRankBoardLayout();
+      if (seq !== layoutLoadSeqRef.current || hasLayoutInteractionRef.current) {
+        return;
+      }
       setBoardPositions(data?.positions ?? {});
       setLayoutRevision((prev) => prev + 1);
     } catch (err) {
+      if (seq !== layoutLoadSeqRef.current || hasLayoutInteractionRef.current) {
+        return;
+      }
       const message = (err as Error).message;
       if (message !== "rank board layout not found") {
         notify(message, "error");
@@ -223,6 +233,7 @@ export const RankCreate = () => {
   useProjectChange(() => {
     setPage(1);
     setRefreshKey((prev) => prev + 1);
+    hasLayoutInteractionRef.current = false;
     void loadRankSystems();
     void loadBoardLayout();
   });
@@ -612,6 +623,7 @@ export const RankCreate = () => {
   }, [selectedLink, boardItemsById]);
 
   const handleBoardPositionsChange = (positions: Record<string, { x: number; y: number }>) => {
+    hasLayoutInteractionRef.current = true;
     setBoardPositions(positions);
     if (layoutSaveTimer !== null) {
       window.clearTimeout(layoutSaveTimer);

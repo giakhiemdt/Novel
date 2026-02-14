@@ -172,6 +172,7 @@ export const RankBoard = ({
   const rafRef = useRef<number | null>(null);
   const splitRef = useRef(false);
   const suppressClickRef = useRef(false);
+  const isHydratingPositionsRef = useRef(false);
 
   const itemsWithId = useMemo(
     () => items.filter((item): item is Rank & { id: string } => Boolean(item.id)),
@@ -195,10 +196,15 @@ export const RankBoard = ({
   }, []);
 
   useEffect(() => {
+    isHydratingPositionsRef.current = true;
     setManualPositions(initialPositions ?? {});
   }, [initialPositions]);
 
   useEffect(() => {
+    if (isHydratingPositionsRef.current) {
+      isHydratingPositionsRef.current = false;
+      return;
+    }
     onPositionsChange?.(manualPositions);
   }, [manualPositions, onPositionsChange]);
 
