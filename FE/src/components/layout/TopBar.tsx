@@ -4,6 +4,8 @@ import { Button } from "../common/Button";
 import { useI18n } from "../../i18n/I18nProvider";
 import { commandRegistry, normalizeCommand } from "../../features/command/commandRegistry";
 import backIcon from "../../assets/icons/arrow_back.svg";
+import docsIcon from "../../assets/icons/docs.svg";
+import settingsIcon from "../../assets/icons/settings.svg";
 
 export type TopBarProps = {
   sidebarOpen: boolean;
@@ -106,6 +108,7 @@ export const TopBar = ({ sidebarOpen, onToggleSidebar, onBack }: TopBarProps) =>
           onClick={() => navigate("/node-docs")}
           className="topbar__button"
         >
+          <img src={docsIcon} alt="" className="topbar__icon topbar__icon--nav" />
           {t("Docs")}
         </Button>
         <Button
@@ -113,6 +116,7 @@ export const TopBar = ({ sidebarOpen, onToggleSidebar, onBack }: TopBarProps) =>
           onClick={() => navigate("/settings")}
           className="topbar__button"
         >
+          <img src={settingsIcon} alt="" className="topbar__icon topbar__icon--nav" />
           {t("Settings")}
         </Button>
       </div>

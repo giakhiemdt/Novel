@@ -440,6 +440,9 @@ h3 {
   box-shadow: none;
   background: var(--surface-muted);
   color: var(--color-ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .topbar__button--icon {
@@ -452,8 +455,8 @@ h3 {
 }
 
 .topbar__icon {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   display: block;
   object-fit: contain;
 }
@@ -464,6 +467,16 @@ h3 {
 
 :root[data-theme="light"] .topbar__icon--back {
   filter: brightness(0) saturate(100%) opacity(0.7);
+}
+
+.topbar__icon--nav {
+  width: 18px;
+  height: 18px;
+  filter: none;
+}
+
+:root[data-theme="light"] .topbar__icon--nav {
+  filter: brightness(0) saturate(100%) opacity(0.72);
 }
 
 .topbar .button {
