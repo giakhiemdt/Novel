@@ -45,8 +45,8 @@ h3 {
   transition: grid-template-columns 0.25s ease;
 }
 
-.page-shell--no-sidebar {
-  --shell-columns: 1fr;
+.page-shell--sidebar-collapsed {
+  --sidebar-width: 72px;
 }
 
 .sidebar {
@@ -61,6 +61,43 @@ h3 {
   height: 100vh;
   width: var(--sidebar-width);
   transition: width 0.25s ease, padding 0.25s ease;
+}
+
+.sidebar--collapsed {
+  padding: var(--space-2);
+  align-items: center;
+  gap: 0;
+}
+
+.sidebar__toggle-row {
+  width: 100%;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar__toggle {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+  background: var(--surface-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar__toggle-icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  filter: none;
+}
+
+:root[data-theme="light"] .sidebar__toggle-icon {
+  filter: brightness(0) saturate(100%) opacity(0.7);
 }
 
 :root[data-theme="light"] .sidebar {

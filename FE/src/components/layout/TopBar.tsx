@@ -4,17 +4,14 @@ import { Button } from "../common/Button";
 import { useI18n } from "../../i18n/I18nProvider";
 import { commandRegistry, normalizeCommand } from "../../features/command/commandRegistry";
 import backIcon from "../../assets/icons/arrow_back.svg";
-import dockIcon from "../../assets/icons/dock.svg";
 import docsIcon from "../../assets/icons/docs.svg";
 import settingsIcon from "../../assets/icons/settings.svg";
 
 export type TopBarProps = {
-  sidebarOpen: boolean;
-  onToggleSidebar: () => void;
   onBack: () => void;
 };
 
-export const TopBar = ({ sidebarOpen, onToggleSidebar, onBack }: TopBarProps) => {
+export const TopBar = ({ onBack }: TopBarProps) => {
   const { t } = useI18n();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
@@ -63,15 +60,6 @@ export const TopBar = ({ sidebarOpen, onToggleSidebar, onBack }: TopBarProps) =>
           aria-label={t("Back")}
         >
           <img src={backIcon} alt="" className="topbar__icon topbar__icon--back" />
-        </Button>
-        <Button
-          variant="ghost"
-          onClick={onToggleSidebar}
-          className="topbar__button topbar__button--icon"
-          aria-label={sidebarOpen ? t("Hide sidebar") : t("Show sidebar")}
-          title={sidebarOpen ? t("Hide sidebar") : t("Show sidebar")}
-        >
-          <img src={dockIcon} alt="" className="topbar__icon topbar__icon--dock" />
         </Button>
       </div>
       <div className="topbar__center">

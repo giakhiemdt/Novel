@@ -54,14 +54,13 @@ export const PageLayout = ({ title, subtitle, children }: PageLayoutProps) => {
   };
 
   return (
-    <div className={`page-shell ${sidebarOpen ? "" : "page-shell--no-sidebar"}`}>
-      {sidebarOpen && <Sidebar />}
+    <div className={`page-shell ${sidebarOpen ? "" : "page-shell--sidebar-collapsed"}`}>
+      <Sidebar
+        collapsed={!sidebarOpen}
+        onToggle={() => setSidebarOpen((prev) => !prev)}
+      />
       <main className="main">
-        <TopBar
-          sidebarOpen={sidebarOpen}
-          onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
-          onBack={handleBack}
-        />
+        <TopBar onBack={handleBack} />
         <Header title={title} subtitle={subtitle} />
         {children}
       </main>

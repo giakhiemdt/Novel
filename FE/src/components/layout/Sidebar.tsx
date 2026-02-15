@@ -14,8 +14,14 @@ import type {
 } from "../../features/project/project.types";
 import { useI18n } from "../../i18n/I18nProvider";
 import { commandMap, normalizeCommand } from "../../features/command/commandRegistry";
+import dockIcon from "../../assets/icons/dock.svg";
 
-export const Sidebar = () => {
+type SidebarProps = {
+  collapsed: boolean;
+  onToggle: () => void;
+};
+
+export const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
   const { t } = useI18n();
   const { notify } = useToast();
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -187,55 +193,71 @@ export const Sidebar = () => {
 
   return (
     <>
-      <aside className="sidebar">
-        <nav className="sidebar__nav">
-          <div className="sidebar__section">
-            <span className="sidebar__section-title">{t("Favorites")}</span>
-            {favoriteCommands.length === 0 && (
-              <span className="header__subtitle">{t("No favorites yet.")}</span>
-            )}
-            {favoriteCommands.map((item) => (
-              <NavLink
-                key={`fav-${item?.code}`}
-                to={item?.route ?? "/"}
-                className={({ isActive }) =>
-                  isActive ? "sidebar__link sidebar__link--active" : "sidebar__link"
-                }
-              >
-                <span className="sidebar__label">{t(item?.label ?? "")}</span>
-              </NavLink>
-            ))}
-          </div>
-        </nav>
-        <div className="sidebar__project">
-          <span className="sidebar__project-label">{t("Project")}</span>
-          <select
-            className="sidebar__project-select"
-            value={selectedProjectId}
-            onChange={handleProjectChange}
-            disabled={isLoadingProjects}
+      <aside className={`sidebar ${collapsed ? "sidebar--collapsed" : ""}`}>
+        <div className="sidebar__toggle-row">
+          <Button
+            variant="ghost"
+            type="button"
+            className="sidebar__toggle"
+            onClick={onToggle}
+            aria-label={collapsed ? t("Show sidebar") : t("Hide sidebar")}
+            title={collapsed ? t("Show sidebar") : t("Hide sidebar")}
           >
-            {projects.length === 0 && (
-              <option value="">
-                {isLoadingProjects
-                  ? t("Loading projects...")
-                  : t("No projects yet")}
-              </option>
-            )}
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-            <option value="__create__">{t("Create new project")}</option>
-          </select>
+            <img src={dockIcon} alt="" className="sidebar__toggle-icon" />
+          </Button>
         </div>
-        <div className="sidebar__actions">
-          <NavLink to="/settings" className="button button--ghost sidebar__settings">
-            <span className="sidebar__settings-icon">⚙</span>
-            <span className="sidebar__settings-label">{t("Settings")}</span>
-          </NavLink>
-        </div>
+        {!collapsed && (
+          <>
+            <nav className="sidebar__nav">
+              <div className="sidebar__section">
+                <span className="sidebar__section-title">{t("Favorites")}</span>
+                {favoriteCommands.length === 0 && (
+                  <span className="header__subtitle">{t("No favorites yet.")}</span>
+                )}
+                {favoriteCommands.map((item) => (
+                  <NavLink
+                    key={`fav-${item?.code}`}
+                    to={item?.route ?? "/"}
+                    className={({ isActive }) =>
+                      isActive ? "sidebar__link sidebar__link--active" : "sidebar__link"
+                    }
+                  >
+                    <span className="sidebar__label">{t(item?.label ?? "")}</span>
+                  </NavLink>
+                ))}
+              </div>
+            </nav>
+            <div className="sidebar__project">
+              <span className="sidebar__project-label">{t("Project")}</span>
+              <select
+                className="sidebar__project-select"
+                value={selectedProjectId}
+                onChange={handleProjectChange}
+                disabled={isLoadingProjects}
+              >
+                {projects.length === 0 && (
+                  <option value="">
+                    {isLoadingProjects
+                      ? t("Loading projects...")
+                      : t("No projects yet")}
+                  </option>
+                )}
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+                <option value="__create__">{t("Create new project")}</option>
+              </select>
+            </div>
+            <div className="sidebar__actions">
+              <NavLink to="/settings" className="button button--ghost sidebar__settings">
+                <span className="sidebar__settings-icon">⚙</span>
+                <span className="sidebar__settings-label">{t("Settings")}</span>
+              </NavLink>
+            </div>
+          </>
+        )}
       </aside>
       {isProjectModalOpen && (
         <div className="modal__backdrop" onClick={closeModal}>
