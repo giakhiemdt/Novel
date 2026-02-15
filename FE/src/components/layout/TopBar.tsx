@@ -4,6 +4,7 @@ import { Button } from "../common/Button";
 import { useI18n } from "../../i18n/I18nProvider";
 import { commandRegistry, normalizeCommand } from "../../features/command/commandRegistry";
 import backIcon from "../../assets/icons/arrow_back.svg";
+import dockIcon from "../../assets/icons/dock.svg";
 import docsIcon from "../../assets/icons/docs.svg";
 import settingsIcon from "../../assets/icons/settings.svg";
 
@@ -63,8 +64,14 @@ export const TopBar = ({ sidebarOpen, onToggleSidebar, onBack }: TopBarProps) =>
         >
           <img src={backIcon} alt="" className="topbar__icon topbar__icon--back" />
         </Button>
-        <Button variant="ghost" onClick={onToggleSidebar} className="topbar__button">
-          {sidebarOpen ? t("Hide sidebar") : t("Show sidebar")}
+        <Button
+          variant="ghost"
+          onClick={onToggleSidebar}
+          className="topbar__button topbar__button--icon"
+          aria-label={sidebarOpen ? t("Hide sidebar") : t("Show sidebar")}
+          title={sidebarOpen ? t("Hide sidebar") : t("Show sidebar")}
+        >
+          <img src={dockIcon} alt="" className="topbar__icon topbar__icon--dock" />
         </Button>
       </div>
       <div className="topbar__center">
