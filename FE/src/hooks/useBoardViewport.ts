@@ -23,6 +23,7 @@ export const useBoardViewport = ({
   wheelZoomFactor = 0.001,
   consumeWheel = true,
 }: UseBoardViewportOptions) => {
+  const [boardNode, setBoardNode] = useState<HTMLElement | null>(null);
   const [scale, setScaleState] = useState(1);
   const [pan, setPanState] = useState<BoardPoint>(defaultPan);
   const [isPanning, setIsPanning] = useState(false);
@@ -31,6 +32,12 @@ export const useBoardViewport = ({
   const scaleRef = useRef(1);
   const panRef = useRef<BoardPoint>(defaultPan);
   const panStartRef = useRef<BoardPoint>({ x: 0, y: 0 });
+
+  useEffect(() => {
+    if (boardRef.current !== boardNode) {
+      setBoardNode(boardRef.current);
+    }
+  });
 
   const setScale = useCallback(
     (next: number | ((prev: number) => number)) => {
@@ -196,7 +203,7 @@ export const useBoardViewport = ({
   );
 
   useEffect(() => {
-    const node = boardRef.current;
+    const node = boardNode;
     if (!node) {
       return;
     }
@@ -207,13 +214,13 @@ export const useBoardViewport = ({
     const observer = new ResizeObserver(updateSize);
     observer.observe(node);
     return () => observer.disconnect();
-  }, [boardRef]);
+  }, [boardNode]);
 
   useEffect(() => {
     if (!consumeWheel) {
       return;
     }
-    const node = boardRef.current;
+    const node = boardNode;
     if (!node) {
       return;
     }
@@ -230,7 +237,7 @@ export const useBoardViewport = ({
     return () => {
       node.removeEventListener("wheel", handleWheel, true);
     };
-  }, [boardRef, consumeWheel, wheelZoomFactor, zoomAtPointer]);
+  }, [boardNode, consumeWheel, wheelZoomFactor, zoomAtPointer]);
 
   return {
     scale,
