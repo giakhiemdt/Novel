@@ -863,8 +863,8 @@ export const RankBoard = ({
         }
       }
       setConditionDragPosition({
-        x: Math.max(PADDING / 2, pointerX - conditionDragOffset.x),
-        y: Math.max(PADDING / 2, pointerY - conditionDragOffset.y),
+        x: pointerX - conditionDragOffset.x,
+        y: pointerY - conditionDragOffset.y,
       });
       return;
     }
@@ -910,8 +910,8 @@ export const RankBoard = ({
       }
     }
 
-    let nextX = Math.max(PADDING / 2, pointerX - dragOffset.x);
-    let nextY = Math.max(PADDING / 2, pointerY - dragOffset.y);
+    let nextX = pointerX - dragOffset.x;
+    let nextY = pointerY - dragOffset.y;
     let target: SnapTarget | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
     let bestAlignedX: number | null = null;
