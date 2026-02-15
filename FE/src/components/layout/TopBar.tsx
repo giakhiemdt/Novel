@@ -60,10 +60,10 @@ export const TopBar = ({ sidebarOpen, onToggleSidebar, onBack }: TopBarProps) =>
         >
           <svg
             className="topbar__icon topbar__icon--back"
-            viewBox="0 -960 960 960"
+            viewBox="0 0 24 24"
             aria-hidden="true"
           >
-            <path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80H313Z" />
+            <path d="M10.75 6.75a.75.75 0 0 1 0 1.06L8.56 10h8.69a.75.75 0 0 1 0 1.5H8.56l2.19 2.19a.75.75 0 1 1-1.06 1.06l-3.5-3.5a.75.75 0 0 1 0-1.06l3.5-3.5a.75.75 0 0 1 1.06 0Z" />
           </svg>
         </Button>
         <Button variant="ghost" onClick={onToggleSidebar} className="topbar__button">
