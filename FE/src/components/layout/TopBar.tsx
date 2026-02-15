@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../common/Button";
 import { useI18n } from "../../i18n/I18nProvider";
 import { commandRegistry, normalizeCommand } from "../../features/command/commandRegistry";
-import backIcon from "../../assets/icons8-back-90.png";
+import backIcon from "../../assets/icons/arrow_back.svg";
 
 export type TopBarProps = {
   sidebarOpen: boolean;
