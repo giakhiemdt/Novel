@@ -25,6 +25,7 @@ import { RankSystemLandscapeBoard } from "./RankSystemLandscapeBoard";
 import { RankSystemList } from "./RankSystemList";
 import { validateRankSystem } from "./rank-system.schema";
 import type { RankSystem, RankSystemPayload } from "./rank-system.types";
+import boardIcon from "../../assets/icons/board.svg";
 
 const initialState = {
   name: "",
@@ -54,6 +55,7 @@ export const RankSystemCreate = () => {
   const [hasNext, setHasNext] = useState(false);
   const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
   const [showList, setShowList] = useState(false);
+  const [showLandscape, setShowLandscape] = useState(false);
   const [filters, setFilters] = useState({
     q: "",
     name: "",
@@ -135,12 +137,18 @@ export const RankSystemCreate = () => {
   }, [loadItems, refreshKey, showList]);
 
   useEffect(() => {
+    if (!showLandscape) {
+      return;
+    }
     void loadAllRankSystems();
-  }, [loadAllRankSystems, refreshKey]);
+  }, [loadAllRankSystems, refreshKey, showLandscape]);
 
   useEffect(() => {
+    if (!showLandscape) {
+      return;
+    }
     void loadAllRanks();
-  }, [loadAllRanks, refreshKey]);
+  }, [loadAllRanks, refreshKey, showLandscape]);
 
   useProjectChange(() => {
     setPage(1);
@@ -325,17 +333,32 @@ export const RankSystemCreate = () => {
             </Button>
           </div>
         </FilterPanel>
-        <div className="card rank-system-landscape-card">
-          <div className="card__header">
-            <div>
-              <h3 className="section-title">{t("Rank system landscape")}</h3>
-              <p className="header__subtitle">
-                {t("Compare systems side by side, grouped by tier.")}
-              </p>
-            </div>
-          </div>
-          <RankSystemLandscapeBoard rankSystems={allRankSystems} ranks={allRanks} />
+        <div className="filter-block">
+          <button
+            type="button"
+            className="filter-toggle"
+            onClick={() => setShowLandscape((prev) => !prev)}
+            aria-expanded={showLandscape}
+          >
+            <img className="filter-toggle__icon" src={boardIcon} alt={t("Board")} />
+            <span className="filter-toggle__label">
+              {showLandscape ? t("Hide board") : t("Show board")}
+            </span>
+          </button>
         </div>
+        {showLandscape && (
+          <div className="card rank-system-landscape-card">
+            <div className="card__header">
+              <div>
+                <h3 className="section-title">{t("Rank system landscape")}</h3>
+                <p className="header__subtitle">
+                  {t("Compare systems side by side, grouped by tier.")}
+                </p>
+              </div>
+            </div>
+            <RankSystemLandscapeBoard rankSystems={allRankSystems} ranks={allRanks} />
+          </div>
+        )}
         <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
         {showList && (
           <>

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../../i18n/I18nProvider";
 import type { Rank } from "../rank/rank.types";
 import type { RankSystem } from "./rank-system.types";
@@ -117,6 +117,20 @@ export const RankSystemLandscapeBoard = ({
   ranks,
 }: RankSystemLandscapeBoardProps) => {
   const { t } = useI18n();
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [viewportWidth, setViewportWidth] = useState(0);
+
+  useEffect(() => {
+    const node = wrapRef.current;
+    if (!node) {
+      return;
+    }
+    const update = () => setViewportWidth(node.clientWidth);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   const layout = useMemo(() => {
     const validRanks = ranks.filter((rank): rank is RankWithId => Boolean(rank.id));
@@ -213,13 +227,31 @@ export const RankSystemLandscapeBoard = ({
       });
     }
 
+    const systemCount = Math.max(1, systemsSeed.length);
+    const minContentWidth =
+      TIER_LABEL_WIDTH +
+      BOARD_PADDING * 2 +
+      systemCount * COLUMN_WIDTH +
+      Math.max(0, systemCount - 1) * COLUMN_GAP;
+    const availableForColumns =
+      viewportWidth > 0
+        ? viewportWidth -
+          TIER_LABEL_WIDTH -
+          BOARD_PADDING * 2 -
+          Math.max(0, systemCount - 1) * COLUMN_GAP
+        : systemCount * COLUMN_WIDTH;
+    const responsiveColumnWidth = Math.max(
+      COLUMN_WIDTH,
+      availableForColumns / systemCount
+    );
+
     const systems: SystemColumn[] = systemsSeed.map((seed, index) => ({
       ...seed,
       left:
         TIER_LABEL_WIDTH +
         BOARD_PADDING +
-        index * (COLUMN_WIDTH + COLUMN_GAP),
-      width: COLUMN_WIDTH,
+        index * (responsiveColumnWidth + COLUMN_GAP),
+      width: responsiveColumnWidth,
     }));
 
     let yCursor = HEADER_HEIGHT + BOARD_PADDING;
@@ -320,8 +352,9 @@ export const RankSystemLandscapeBoard = ({
     const width =
       TIER_LABEL_WIDTH +
       BOARD_PADDING * 2 +
-      Math.max(1, systems.length) * COLUMN_WIDTH +
+      Math.max(1, systems.length) * responsiveColumnWidth +
       Math.max(0, systems.length - 1) * COLUMN_GAP;
+    const finalWidth = Math.max(minContentWidth, viewportWidth, width);
     const height = Math.max(HEADER_HEIGHT + 90, yCursor + BOARD_PADDING - ROW_GAP);
 
     return {
@@ -329,17 +362,17 @@ export const RankSystemLandscapeBoard = ({
       systems,
       nodes,
       edges,
-      width,
+      width: finalWidth,
       height,
     };
-  }, [rankSystems, ranks, t]);
+  }, [rankSystems, ranks, t, viewportWidth]);
 
   if (layout.rows.length === 0) {
     return <p className="header__subtitle">{t("No rank systems available.")}</p>;
   }
 
   return (
-    <div className="rank-system-matrix-wrap">
+    <div className="rank-system-matrix-wrap" ref={wrapRef}>
       <div className="rank-system-matrix" style={{ width: layout.width, height: layout.height }}>
         {layout.systems.map((system) => (
           <div
