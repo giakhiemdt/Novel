@@ -455,18 +455,15 @@ h3 {
   width: 18px;
   height: 18px;
   display: block;
+  object-fit: contain;
 }
 
 .topbar__icon--back {
-  color: var(--color-ink);
-}
-
-.topbar__icon--back path {
-  fill: currentColor;
+  filter: none;
 }
 
 :root[data-theme="light"] .topbar__icon--back {
-  color: var(--color-ink-soft);
+  filter: brightness(0) saturate(100%) opacity(0.7);
 }
 
 .topbar .button {
