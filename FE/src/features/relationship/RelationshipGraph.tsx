@@ -5,6 +5,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { BoardViewportControls } from "../../components/common/BoardViewportControls";
+import { useBoardViewport } from "../../hooks/useBoardViewport";
 import { useI18n } from "../../i18n/I18nProvider";
 import type { CharacterRelation } from "./relationship.types";
 
@@ -36,6 +38,10 @@ const NODE_RADIUS = 22;
 const MIN_SCALE = 0.45;
 const MAX_SCALE = 2.4;
 const DEFAULT_PAN = { x: 20, y: 20 };
+const MINIMAP_WIDTH = 220;
+const MINIMAP_HEIGHT = 140;
+const MINIMAP_PADDING = 10;
+const MINIMAP_HEADER_HEIGHT = 20;
 
 const palette = [
   "#2563EB",
@@ -81,9 +87,6 @@ const getEdgeColor = (
   return palette[index % palette.length];
 };
 
-const clampScale = (value: number) =>
-  Math.min(MAX_SCALE, Math.max(MIN_SCALE, value));
-
 const hashString = (value: string): number => {
   let hash = 0;
   for (let i = 0; i < value.length; i += 1) {
@@ -99,18 +102,33 @@ export const RelationshipGraph = ({
 }: RelationshipGraphProps) => {
   const { t } = useI18n();
   const boardRef = useRef<HTMLDivElement>(null);
-  const scaleRef = useRef(1);
-  const panRef = useRef(DEFAULT_PAN);
-  const [scale, setScale] = useState(1);
-  const [pan, setPan] = useState(DEFAULT_PAN);
-  const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [manualPositions, setManualPositions] = useState<
     Record<string, { x: number; y: number }>
   >({});
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+
+  const {
+    scale,
+    pan,
+    isPanning,
+    viewportSize,
+    zoomBy,
+    startPan,
+    movePan,
+    stopPan,
+    resetView,
+    fitToRect,
+    centerOnWorldPoint,
+    toWorldCoords,
+  } = useBoardViewport({
+    boardRef,
+    minScale: MIN_SCALE,
+    maxScale: MAX_SCALE,
+    defaultPan: DEFAULT_PAN,
+    wheelZoomFactor: 0.0012,
+    consumeWheel: true,
+  });
 
   const nodeIds = useMemo(() => {
     const unique = new Set<string>();
@@ -223,49 +241,8 @@ export const RelationshipGraph = ({
     });
   }, [nodeIds]);
 
-  useEffect(() => {
-    const node = boardRef.current;
-    if (!node) {
-      return;
-    }
-    const update = () => {
-      setViewportSize({
-        width: node.clientWidth,
-        height: node.clientHeight,
-      });
-    };
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [items.length]);
-
-  useEffect(() => {
-    scaleRef.current = scale;
-  }, [scale]);
-
-  useEffect(() => {
-    panRef.current = pan;
-  }, [pan]);
-
   const fitToBoard = () => {
-    const node = boardRef.current;
-    if (!node) {
-      return;
-    }
-    const padding = 36;
-    const targetScale = clampScale(
-      Math.min(
-        (node.clientWidth - padding * 2) / VIEWBOX_WIDTH,
-        (node.clientHeight - padding * 2) / VIEWBOX_HEIGHT
-      )
-    );
-    const centeredPan = {
-      x: (node.clientWidth - VIEWBOX_WIDTH * targetScale) / 2,
-      y: (node.clientHeight - VIEWBOX_HEIGHT * targetScale) / 2,
-    };
-    setScale(targetScale);
-    setPan(centeredPan);
+    fitToRect({ x: 0, y: 0, width: VIEWBOX_WIDTH, height: VIEWBOX_HEIGHT }, 36);
   };
 
   useEffect(() => {
@@ -276,83 +253,26 @@ export const RelationshipGraph = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.length, viewportSize.width, viewportSize.height]);
 
-  const setZoomAtPointer = (
-    nextScale: number,
-    pointerX: number,
-    pointerY: number
-  ) => {
-    const currentScale = scaleRef.current;
-    const currentPan = panRef.current;
-    const clamped = clampScale(nextScale);
-    if (clamped === currentScale) {
-      return;
-    }
-    const ratio = clamped / currentScale;
-    const nextPanX = pointerX - (pointerX - currentPan.x) * ratio;
-    const nextPanY = pointerY - (pointerY - currentPan.y) * ratio;
-    scaleRef.current = clamped;
-    panRef.current = { x: nextPanX, y: nextPanY };
-    setScale(clamped);
-    setPan({ x: nextPanX, y: nextPanY });
-  };
-
-  useEffect(() => {
-    const node = boardRef.current;
-    if (!node) {
-      return;
-    }
-    const handleWheelNative = (event: globalThis.WheelEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const rect = node.getBoundingClientRect();
-      const pointerX = event.clientX - rect.left;
-      const pointerY = event.clientY - rect.top;
-      const nextScale = scaleRef.current - event.deltaY * 0.0012;
-      setZoomAtPointer(nextScale, pointerX, pointerY);
-    };
-
-    node.addEventListener("wheel", handleWheelNative, {
-      passive: false,
-      capture: true,
-    });
-    return () => {
-      node.removeEventListener("wheel", handleWheelNative, true);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items.length, nodeIds.length]);
-
   const handleBoardPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) {
       return;
     }
     const target = event.target as HTMLElement;
     if (
-      target.closest(".relationship-graph__toolbar") ||
+      target.closest(".graph-board-toolbar") ||
+      target.closest(".graph-board-minimap") ||
       target.closest(".relationship-graph__node-handle")
     ) {
       return;
     }
-    const rect = boardRef.current?.getBoundingClientRect();
-    if (!rect) {
-      return;
-    }
+
     event.currentTarget.setPointerCapture(event.pointerId);
-    setIsPanning(true);
-    setPanStart({
-      x: event.clientX - rect.left - pan.x,
-      y: event.clientY - rect.top - pan.y,
-    });
+    startPan(event.clientX, event.clientY);
   };
 
   const handleBoardPointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    const rect = boardRef.current?.getBoundingClientRect();
-    if (!rect) {
-      return;
-    }
-
     if (draggingNodeId) {
-      const worldX = (event.clientX - rect.left - pan.x) / scale;
-      const worldY = (event.clientY - rect.top - pan.y) / scale;
+      const { x: worldX, y: worldY } = toWorldCoords(event.clientX, event.clientY);
       const minBound = NODE_RADIUS + 6;
       const maxX = VIEWBOX_WIDTH - NODE_RADIUS - 6;
       const maxY = VIEWBOX_HEIGHT - NODE_RADIUS - 6;
@@ -365,13 +285,7 @@ export const RelationshipGraph = ({
       return;
     }
 
-    if (!isPanning) {
-      return;
-    }
-    setPan({
-      x: event.clientX - rect.left - panStart.x,
-      y: event.clientY - rect.top - panStart.y,
-    });
+    movePan(event.clientX, event.clientY);
   };
 
   const handleBoardPointerUp = (event: PointerEvent<HTMLDivElement>) => {
@@ -383,9 +297,31 @@ export const RelationshipGraph = ({
     if (!isPanning) {
       return;
     }
-    setIsPanning(false);
+    stopPan();
     event.currentTarget.releasePointerCapture(event.pointerId);
   };
+
+  const minimapBounds = useMemo(() => {
+    const innerWidth = MINIMAP_WIDTH - MINIMAP_PADDING * 2;
+    const innerHeight = MINIMAP_HEIGHT - MINIMAP_HEADER_HEIGHT - MINIMAP_PADDING;
+    return {
+      innerWidth,
+      innerHeight,
+      scale: Math.min(innerWidth / VIEWBOX_WIDTH, innerHeight / VIEWBOX_HEIGHT),
+    };
+  }, []);
+
+  const viewportWorld = useMemo(() => {
+    if (!viewportSize.width || !viewportSize.height) {
+      return null;
+    }
+    return {
+      x: -pan.x / scale,
+      y: -pan.y / scale,
+      width: viewportSize.width / scale,
+      height: viewportSize.height / scale,
+    };
+  }, [pan.x, pan.y, scale, viewportSize.height, viewportSize.width]);
 
   if (items.length === 0 || nodeIds.length === 0) {
     return <p className="header__subtitle">{t("No relationships to render as graph.")}</p>;
@@ -404,44 +340,78 @@ export const RelationshipGraph = ({
         onPointerUp={handleBoardPointerUp}
         onPointerLeave={handleBoardPointerUp}
       >
-        <div className="relationship-graph__toolbar">
-          <button
-            type="button"
-            className="relationship-graph__tool"
-            onClick={() => setScale((prev) => clampScale(prev - 0.15))}
-            title={t("Zoom out")}
-          >
-            -
-          </button>
-          <span className="relationship-graph__zoom">{Math.round(scale * 100)}%</span>
-          <button
-            type="button"
-            className="relationship-graph__tool"
-            onClick={() => setScale((prev) => clampScale(prev + 0.15))}
-            title={t("Zoom in")}
-          >
-            +
-          </button>
-          <button
-            type="button"
-            className="relationship-graph__tool"
-            onClick={fitToBoard}
-            title={t("Fit view")}
-          >
-            {t("Fit")}
-          </button>
-          <button
-            type="button"
-            className="relationship-graph__tool"
-            onClick={() => {
-              setScale(1);
-              setPan(DEFAULT_PAN);
-            }}
-            title={t("Reset view")}
-          >
-            {t("Reset")}
-          </button>
-        </div>
+        <BoardViewportControls
+          zoom={scale}
+          onZoomOut={() => zoomBy(-0.15)}
+          onZoomIn={() => zoomBy(0.15)}
+          onFit={fitToBoard}
+          onReset={resetView}
+          minimapTitle={t("Mini map")}
+          minimap={(
+            <svg width={MINIMAP_WIDTH} height={MINIMAP_HEIGHT} role="img" aria-label={t("Mini map")}
+              onPointerDown={(event) => {
+                const rect = event.currentTarget.getBoundingClientRect();
+                const localX = event.clientX - rect.left;
+                const localY = event.clientY - rect.top - MINIMAP_HEADER_HEIGHT;
+                const worldX = (localX - MINIMAP_PADDING) / minimapBounds.scale;
+                const worldY = (localY - MINIMAP_PADDING) / minimapBounds.scale;
+                centerOnWorldPoint(worldX, worldY);
+              }}
+            >
+              <rect
+                x={MINIMAP_PADDING}
+                y={MINIMAP_HEADER_HEIGHT}
+                width={minimapBounds.innerWidth}
+                height={minimapBounds.innerHeight}
+                className="graph-board-minimap__frame"
+              />
+
+              {bundledEdges.map((edge) => {
+                const from = layout[edge.a];
+                const to = layout[edge.b];
+                if (!from || !to) {
+                  return null;
+                }
+                return (
+                  <line
+                    key={`mini-edge-${edge.key}`}
+                    x1={MINIMAP_PADDING + from.x * minimapBounds.scale}
+                    y1={MINIMAP_HEADER_HEIGHT + MINIMAP_PADDING + from.y * minimapBounds.scale}
+                    x2={MINIMAP_PADDING + to.x * minimapBounds.scale}
+                    y2={MINIMAP_HEADER_HEIGHT + MINIMAP_PADDING + to.y * minimapBounds.scale}
+                    className="graph-board-minimap__edge"
+                  />
+                );
+              })}
+
+              {nodeIds.map((id) => {
+                const node = layout[id];
+                if (!node) {
+                  return null;
+                }
+                return (
+                  <circle
+                    key={`mini-node-${id}`}
+                    cx={MINIMAP_PADDING + node.x * minimapBounds.scale}
+                    cy={MINIMAP_HEADER_HEIGHT + MINIMAP_PADDING + node.y * minimapBounds.scale}
+                    r={Math.max(2, NODE_RADIUS * minimapBounds.scale * 0.68)}
+                    className="graph-board-minimap__node"
+                  />
+                );
+              })}
+
+              {viewportWorld ? (
+                <rect
+                  x={MINIMAP_PADDING + viewportWorld.x * minimapBounds.scale}
+                  y={MINIMAP_HEADER_HEIGHT + MINIMAP_PADDING + viewportWorld.y * minimapBounds.scale}
+                  width={viewportWorld.width * minimapBounds.scale}
+                  height={viewportWorld.height * minimapBounds.scale}
+                  className="graph-board-minimap__viewport"
+                />
+              ) : null}
+            </svg>
+          )}
+        />
 
         <div
           className="relationship-graph__surface"
@@ -550,12 +520,10 @@ export const RelationshipGraph = ({
                       return;
                     }
                     event.stopPropagation();
-                    const rect = boardRef.current?.getBoundingClientRect();
-                    if (!rect) {
-                      return;
-                    }
-                    const worldX = (event.clientX - rect.left - pan.x) / scale;
-                    const worldY = (event.clientY - rect.top - pan.y) / scale;
+                    const { x: worldX, y: worldY } = toWorldCoords(
+                      event.clientX,
+                      event.clientY
+                    );
                     setDraggingNodeId(id);
                     setDragOffset({ x: worldX - node.x, y: worldY - node.y });
                     event.currentTarget.setPointerCapture(event.pointerId);

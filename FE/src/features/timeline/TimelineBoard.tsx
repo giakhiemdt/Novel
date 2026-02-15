@@ -1,11 +1,12 @@
 import {
   type PointerEvent,
-  type WheelEvent,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { BoardViewportControls } from "../../components/common/BoardViewportControls";
+import { useBoardViewport } from "../../hooks/useBoardViewport";
 import { useI18n } from "../../i18n/I18nProvider";
 import type { Event } from "../event/event.types";
 import type { Timeline } from "./timeline.types";
@@ -33,6 +34,10 @@ const COL_GAP = 22;
 const EVENT_ROW_GAP = 16;
 const EVENT_OFFSET_Y = 22;
 const EVENT_DOT = 8;
+const MINIMAP_WIDTH = 220;
+const MINIMAP_HEIGHT = 140;
+const MINIMAP_PADDING = 10;
+const MINIMAP_HEADER_HEIGHT = 20;
 const PALETTE = [
   "#3d8fa6",
   "#c28a35",
@@ -70,26 +75,32 @@ export const TimelineBoard = ({
   const [hasDragged, setHasDragged] = useState(false);
   const [snapTarget, setSnapTarget] = useState<SnapTarget | null>(null);
   const [dragChain, setDragChain] = useState<string[] | null>(null);
-  const [scale, setScale] = useState(1);
-  const [pan, setPan] = useState<Position>({ x: 0, y: 0 });
-  const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState<Position>({ x: 0, y: 0 });
-  const scaleRef = useRef(1);
-  const panRef = useRef<Position>({ x: 0, y: 0 });
-  const rafRef = useRef<number | null>(null);
   const splitRef = useRef(false);
+  const {
+    scale,
+    pan,
+    isPanning,
+    viewportSize,
+    zoomBy,
+    startPan,
+    movePan,
+    stopPan,
+    fitToRect,
+    resetView,
+    centerOnWorldPoint,
+    toWorldCoords,
+  } = useBoardViewport({
+    boardRef,
+    minScale: 0.5,
+    maxScale: 2.2,
+    defaultPan: { x: 0, y: 0 },
+    wheelZoomFactor: 0.001,
+    consumeWheel: true,
+  });
   const itemsWithId = useMemo(
     () => items.filter((item): item is Timeline & { id: string } => Boolean(item.id)),
     [items]
   );
-
-  useEffect(() => {
-    scaleRef.current = scale;
-  }, [scale]);
-
-  useEffect(() => {
-    panRef.current = pan;
-  }, [pan]);
 
   const durations = useMemo(() => {
     const values = itemsWithId.map((item) => Math.max(1, item.durationYears || 1));
@@ -241,14 +252,6 @@ export const TimelineBoard = ({
   }, []);
 
   useEffect(() => {
-    return () => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
     setPositions((prev) => {
       const next = { ...prev };
       const columns =
@@ -341,13 +344,7 @@ export const TimelineBoard = ({
   });
 
   const toBoardCoords = (clientX: number, clientY: number) => {
-    const rect = boardRef.current?.getBoundingClientRect();
-    const rawX = clientX - (rect?.left ?? 0);
-    const rawY = clientY - (rect?.top ?? 0);
-    return {
-      x: (rawX - pan.x) / scale,
-      y: (rawY - pan.y) / scale,
-    };
+    return toWorldCoords(clientX, clientY);
   };
 
   const handlePointerDown = (
@@ -378,12 +375,8 @@ export const TimelineBoard = ({
   };
 
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    if (isPanning && boardRef.current) {
-      const rect = boardRef.current.getBoundingClientRect();
-      const nextX = event.clientX - rect.left - panStart.x;
-      const nextY = event.clientY - rect.top - panStart.y;
-      panRef.current = { x: nextX, y: nextY };
-      setPan({ x: nextX, y: nextY });
+    if (isPanning) {
+      movePan(event.clientX, event.clientY);
       return;
     }
     if (!draggingId || !boardRef.current) {
@@ -492,7 +485,7 @@ export const TimelineBoard = ({
 
   const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
     if (isPanning) {
-      setIsPanning(false);
+      stopPan();
       return;
     }
     if (!draggingId) {
@@ -563,47 +556,14 @@ export const TimelineBoard = ({
     if ((event.target as HTMLElement).closest(".timeline-bar")) {
       return;
     }
-    const rect = boardRef.current?.getBoundingClientRect();
-    if (!rect) {
+    if ((event.target as HTMLElement).closest(".graph-board-toolbar")) {
       return;
     }
-    setIsPanning(true);
-    setPanStart({
-      x: event.clientX - rect.left - pan.x,
-      y: event.clientY - rect.top - pan.y,
-    });
+    if ((event.target as HTMLElement).closest(".graph-board-minimap")) {
+      return;
+    }
+    startPan(event.clientX, event.clientY);
     onSelect(null);
-  };
-
-  const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
-    if (!boardRef.current) {
-      return;
-    }
-    event.preventDefault();
-    const rect = boardRef.current.getBoundingClientRect();
-    const pointerX = event.clientX - rect.left;
-    const pointerY = event.clientY - rect.top;
-    const currentScale = scaleRef.current;
-    const nextScale = Math.min(
-      2.2,
-      Math.max(0.5, currentScale - event.deltaY * 0.001)
-    );
-    if (nextScale === currentScale) {
-      return;
-    }
-    const currentPan = panRef.current;
-    const scaleRatio = nextScale / currentScale;
-    const nextPanX = pointerX - (pointerX - currentPan.x) * scaleRatio;
-    const nextPanY = pointerY - (pointerY - currentPan.y) * scaleRatio;
-    scaleRef.current = nextScale;
-    panRef.current = { x: nextPanX, y: nextPanY };
-    if (rafRef.current === null) {
-      rafRef.current = requestAnimationFrame(() => {
-        setScale(scaleRef.current);
-        setPan(panRef.current);
-        rafRef.current = null;
-      });
-    }
   };
 
   const selected = itemsWithId.find((item) => item.id === selectedId);
@@ -682,6 +642,67 @@ export const TimelineBoard = ({
     return eventPins;
   }, [events, itemsWithId, positions, startYears, getWidth]);
 
+  const contentBounds = useMemo(() => {
+    if (!itemsWithId.length) {
+      return { x: 0, y: 0, width: 600, height: 320 };
+    }
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+
+    itemsWithId.forEach((item) => {
+      const position = positions[item.id];
+      if (!position) {
+        return;
+      }
+      const width = getWidth(item);
+      minX = Math.min(minX, position.x);
+      minY = Math.min(minY, position.y);
+      maxX = Math.max(maxX, position.x + width);
+      maxY = Math.max(maxY, position.y + BAR_HEIGHT);
+    });
+
+    eventPositions.forEach((event) => {
+      minX = Math.min(minX, event.x - 12);
+      minY = Math.min(minY, event.y - 12);
+      maxX = Math.max(maxX, event.x + 80);
+      maxY = Math.max(maxY, event.y + 18);
+    });
+
+    if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+      return { x: 0, y: 0, width: 600, height: 320 };
+    }
+    const padding = 40;
+    return {
+      x: minX - padding,
+      y: minY - padding,
+      width: maxX - minX + padding * 2,
+      height: maxY - minY + padding * 2,
+    };
+  }, [eventPositions, getWidth, itemsWithId, positions]);
+
+  const minimapScale = useMemo(() => {
+    const innerWidth = MINIMAP_WIDTH - MINIMAP_PADDING * 2;
+    const innerHeight = MINIMAP_HEIGHT - MINIMAP_HEADER_HEIGHT - MINIMAP_PADDING;
+    return Math.min(
+      innerWidth / Math.max(contentBounds.width, 1),
+      innerHeight / Math.max(contentBounds.height, 1)
+    );
+  }, [contentBounds.height, contentBounds.width]);
+
+  const viewportWorld = useMemo(() => {
+    if (!viewportSize.width || !viewportSize.height) {
+      return null;
+    }
+    return {
+      x: -pan.x / scale,
+      y: -pan.y / scale,
+      width: viewportSize.width / scale,
+      height: viewportSize.height / scale,
+    };
+  }, [pan.x, pan.y, scale, viewportSize.height, viewportSize.width]);
+
   return (
     <div
       className="timeline-board"
@@ -690,8 +711,84 @@ export const TimelineBoard = ({
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
       onPointerDown={handleBoardPointerDown}
-      onWheel={handleWheel}
     >
+      <BoardViewportControls
+        zoom={scale}
+        onZoomOut={() => zoomBy(-0.12)}
+        onZoomIn={() => zoomBy(0.12)}
+        onFit={() => fitToRect(contentBounds, 28)}
+        onReset={resetView}
+        minimapTitle={t("Mini map")}
+        minimap={(
+          <svg
+            width={MINIMAP_WIDTH}
+            height={MINIMAP_HEIGHT}
+            role="img"
+            aria-label={t("Mini map")}
+            onPointerDown={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              const localX = event.clientX - rect.left;
+              const localY = event.clientY - rect.top - MINIMAP_HEADER_HEIGHT;
+              const worldX =
+                contentBounds.x + (localX - MINIMAP_PADDING) / minimapScale;
+              const worldY =
+                contentBounds.y + (localY - MINIMAP_PADDING) / minimapScale;
+              centerOnWorldPoint(worldX, worldY);
+            }}
+          >
+            <rect
+              x={MINIMAP_PADDING}
+              y={MINIMAP_HEADER_HEIGHT}
+              width={MINIMAP_WIDTH - MINIMAP_PADDING * 2}
+              height={MINIMAP_HEIGHT - MINIMAP_HEADER_HEIGHT - MINIMAP_PADDING}
+              className="graph-board-minimap__frame"
+            />
+
+            {itemsWithId.map((item) => {
+              const position = positions[item.id];
+              if (!position) {
+                return null;
+              }
+              const width = getWidth(item);
+              return (
+                <rect
+                  key={`mini-${item.id}`}
+                  x={
+                    MINIMAP_PADDING +
+                    (position.x - contentBounds.x) * minimapScale
+                  }
+                  y={
+                    MINIMAP_HEADER_HEIGHT +
+                    MINIMAP_PADDING +
+                    (position.y - contentBounds.y) * minimapScale
+                  }
+                  width={Math.max(5, width * minimapScale)}
+                  height={Math.max(3, BAR_HEIGHT * minimapScale)}
+                  className="graph-board-minimap__node"
+                />
+              );
+            })}
+
+            {viewportWorld ? (
+              <rect
+                x={
+                  MINIMAP_PADDING +
+                  (viewportWorld.x - contentBounds.x) * minimapScale
+                }
+                y={
+                  MINIMAP_HEADER_HEIGHT +
+                  MINIMAP_PADDING +
+                  (viewportWorld.y - contentBounds.y) * minimapScale
+                }
+                width={viewportWorld.width * minimapScale}
+                height={viewportWorld.height * minimapScale}
+                className="graph-board-minimap__viewport"
+              />
+            ) : null}
+          </svg>
+        )}
+      />
+
       <div
         className="timeline-board__canvas"
         style={{

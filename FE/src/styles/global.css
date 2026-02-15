@@ -1344,6 +1344,106 @@ h3 {
   will-change: transform;
 }
 
+.graph-board-toolbar {
+  position: absolute;
+  top: 12px;
+  z-index: 8;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-popover) 90%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.graph-board-toolbar--left {
+  left: 12px;
+}
+
+.graph-board-toolbar--right {
+  right: 12px;
+}
+
+.graph-board-tool {
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  background: var(--surface-soft);
+  color: var(--color-ink);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.graph-board-tool:hover {
+  border-color: var(--border-strong);
+}
+
+.graph-board-zoom {
+  min-width: 52px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.graph-board-minimap {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  width: 220px;
+  height: 140px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-popover) 92%, transparent);
+  box-shadow: var(--shadow-1);
+  z-index: 7;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.graph-board-minimap__title {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.graph-board-minimap__content svg {
+  display: block;
+}
+
+.graph-board-minimap__frame {
+  fill: rgba(123, 149, 186, 0.03);
+  stroke: rgba(123, 149, 186, 0.2);
+  stroke-width: 0.5;
+}
+
+.graph-board-minimap__edge {
+  stroke: rgba(70, 92, 122, 0.55);
+  stroke-width: 0.4;
+  opacity: 0.38;
+}
+
+.graph-board-minimap__node {
+  fill: rgba(89, 123, 170, 0.2);
+  stroke: rgba(89, 123, 170, 0.58);
+  stroke-width: 0.7;
+}
+
+.graph-board-minimap__viewport {
+  fill: rgba(103, 150, 208, 0.03);
+  stroke: rgba(103, 150, 208, 0.62);
+  stroke-width: 0.8;
+}
+
 .rank-board {
   position: relative;
   min-height: 720px;
