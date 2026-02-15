@@ -1346,8 +1346,8 @@ h3 {
 
 .rank-board {
   position: relative;
-  min-height: 360px;
-  max-height: 60vh;
+  min-height: 720px;
+  max-height: 120vh;
   border-radius: var(--radius-md);
   border: 1px dashed var(--timeline-board-border);
   background: var(--timeline-board-bg);
