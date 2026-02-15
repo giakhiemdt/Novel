@@ -454,7 +454,17 @@ h3 {
 .topbar__icon {
   width: 18px;
   height: 18px;
-  object-fit: contain;
+  display: inline-block;
+}
+
+.topbar__icon--back {
+  background-color: var(--color-ink);
+  -webkit-mask: url("../assets/icons/arrow_back.svg") center / contain no-repeat;
+  mask: url("../assets/icons/arrow_back.svg") center / contain no-repeat;
+}
+
+:root[data-theme="light"] .topbar__icon--back {
+  background-color: var(--color-ink-soft);
 }
 
 .topbar .button {

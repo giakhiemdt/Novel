@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../common/Button";
 import { useI18n } from "../../i18n/I18nProvider";
 import { commandRegistry, normalizeCommand } from "../../features/command/commandRegistry";
-import backIcon from "../../assets/icons/arrow_back.svg";
 
 export type TopBarProps = {
   sidebarOpen: boolean;
@@ -53,8 +52,13 @@ export const TopBar = ({ sidebarOpen, onToggleSidebar, onBack }: TopBarProps) =>
   return (
     <div className="topbar">
       <div className="topbar__left">
-        <Button variant="ghost" onClick={onBack} className="topbar__button topbar__button--icon">
-          <img src={backIcon} alt={t("Back")} className="topbar__icon" />
+        <Button
+          variant="ghost"
+          onClick={onBack}
+          className="topbar__button topbar__button--icon"
+          aria-label={t("Back")}
+        >
+          <span className="topbar__icon topbar__icon--back" aria-hidden="true" />
         </Button>
         <Button variant="ghost" onClick={onToggleSidebar} className="topbar__button">
           {sidebarOpen ? t("Hide sidebar") : t("Show sidebar")}
