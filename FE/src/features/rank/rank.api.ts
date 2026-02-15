@@ -7,6 +7,7 @@ import type { Rank, RankLinkPayload, RankPayload } from "./rank.types";
 
 export type RankBoardLayout = {
   positions: Record<string, { x: number; y: number }>;
+  linkBends?: Record<string, { midX: number }>;
   updatedAt?: string;
 };
 
@@ -61,9 +62,12 @@ export const updateRankLinkConditions = (payload: RankLinkPayload) =>
 export const getRankBoardLayout = () =>
   api.get<RankBoardLayout>(`${endpoints.ranks}/board-layout`, withDatabaseHeader());
 
-export const saveRankBoardLayout = (positions: Record<string, { x: number; y: number }>) =>
+export const saveRankBoardLayout = (
+  positions: Record<string, { x: number; y: number }>,
+  linkBends: Record<string, { midX: number }> = {}
+) =>
   api.put<RankBoardLayout>(
     `${endpoints.ranks}/board-layout`,
-    { positions },
+    { positions, linkBends },
     withDatabaseHeader()
   );

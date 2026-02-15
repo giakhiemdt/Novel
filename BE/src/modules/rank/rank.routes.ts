@@ -270,6 +270,7 @@ export const rankRoutes: RouteConfig[] = [
               type: "object",
               properties: {
                 positions: { type: "object", additionalProperties: true },
+                linkBends: { type: "object", additionalProperties: true },
                 updatedAt: { type: "string", format: "date-time" },
               },
             },
@@ -290,6 +291,7 @@ export const rankRoutes: RouteConfig[] = [
         required: ["positions"],
         properties: {
           positions: { type: "object", additionalProperties: true },
+          linkBends: { type: "object", additionalProperties: true },
         },
       },
       response: {
@@ -300,6 +302,7 @@ export const rankRoutes: RouteConfig[] = [
               type: "object",
               properties: {
                 positions: { type: "object", additionalProperties: true },
+                linkBends: { type: "object", additionalProperties: true },
                 updatedAt: { type: "string", format: "date-time" },
               },
             },

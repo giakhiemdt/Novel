@@ -196,6 +196,33 @@ const parseBoardLayoutPositions = (
   return positions;
 };
 
+const parseBoardLayoutLinkBends = (
+  value: unknown
+): Record<string, { midX: number }> => {
+  if (value === undefined || value === null) {
+    return {};
+  }
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new AppError("linkBends must be an object", 400);
+  }
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length > 5000) {
+    throw new AppError("linkBends contains too many entries", 400);
+  }
+  const linkBends: Record<string, { midX: number }> = {};
+  entries.forEach(([id, bend]) => {
+    if (!bend || typeof bend !== "object" || Array.isArray(bend)) {
+      throw new AppError(`linkBends.${id} must be an object`, 400);
+    }
+    const point = bend as Record<string, unknown>;
+    if (typeof point.midX !== "number" || !Number.isFinite(point.midX)) {
+      throw new AppError(`linkBends.${id}.midX must be a finite number`, 400);
+    }
+    linkBends[id] = { midX: point.midX };
+  });
+  return linkBends;
+};
+
 const validateRankPayload = (payload: unknown): RankInput => {
   if (!payload || typeof payload !== "object") {
     throw new AppError("payload must be an object", 400);
@@ -440,6 +467,7 @@ export const rankService = {
     }
     const data = payload as Record<string, unknown>;
     const positions = parseBoardLayoutPositions(data.positions);
-    return saveRankBoardLayout(database, positions);
+    const linkBends = parseBoardLayoutLinkBends(data.linkBends);
+    return saveRankBoardLayout(database, positions, linkBends);
   },
 };

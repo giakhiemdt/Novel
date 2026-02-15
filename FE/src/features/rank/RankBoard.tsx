@@ -21,16 +21,19 @@ type RankBoardProps = {
   selectedId?: string;
   selectedLink?: { currentId: string; previousId: string } | null;
   initialPositions?: Record<string, Position>;
+  initialLinkBends?: Record<string, LinkBend>;
   onSelect?: (item: Rank | null) => void;
   onSelectLink?: (link: RankLinkSelection | null) => void;
   onLink: (currentId: string, previousId: string) => void;
   onUnlink: (currentId: string, previousId: string) => void;
   onPositionsChange?: (positions: Record<string, Position>) => void;
+  onLinkBendsChange?: (linkBends: Record<string, LinkBend>) => void;
   onColorChange?: (id: string, color: string) => void;
   isSavingColor?: boolean;
 };
 
 type Position = { x: number; y: number };
+type LinkBend = { midX: number };
 
 type SnapTarget = { targetId: string };
 
@@ -63,6 +66,14 @@ type BoardEdge = {
   parentId: string;
   childId: string;
   path: string;
+};
+
+type LinkHandle = {
+  linkKey: string;
+  parentId: string;
+  childId: string;
+  x: number;
+  y: number;
 };
 
 const NODE_WIDTH = 160;
@@ -125,10 +136,95 @@ const normalizeConditions = (conditions?: RankCondition[]): RankCondition[] => {
     .filter((item) => item.name.length > 0);
 };
 
-const buildOrthPath = (startX: number, startY: number, endX: number, endY: number): string => {
-  const midX = startX + (endX - startX) / 2;
-  return `M ${startX} ${startY} H ${midX} V ${endY} H ${endX}`;
+const buildOrthPath = (
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+  midX?: number
+): string => {
+  const resolvedMidX = midX ?? startX + (endX - startX) / 2;
+  return `M ${startX} ${startY} H ${resolvedMidX} V ${endY} H ${endX}`;
 };
+
+const clampMidX = (midX: number, startX: number, endX: number): number => {
+  const minX = Math.min(startX, endX) + 24;
+  const maxX = Math.max(startX, endX) - 24;
+  if (minX > maxX) {
+    return startX + (endX - startX) / 2;
+  }
+  return Math.max(minX, Math.min(maxX, midX));
+};
+
+const resolveMidX = (
+  startX: number,
+  endX: number,
+  bend?: LinkBend
+): number => {
+  const fallback = startX + (endX - startX) / 2;
+  if (!bend || !Number.isFinite(bend.midX)) {
+    return clampMidX(fallback, startX, endX);
+  }
+  return clampMidX(bend.midX, startX, endX);
+};
+
+const getDefaultMidX = (startX: number, endX: number) => {
+  return startX + (endX - startX) / 2;
+};
+
+const shouldKeepBend = (midX: number, startX: number, endX: number): boolean => {
+  return Math.abs(midX - getDefaultMidX(startX, endX)) > 4;
+};
+
+const toHandleId = (linkKey: string) => `bend-${linkKey}`;
+
+const isFiniteMidX = (value: unknown): value is LinkBend =>
+  Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      typeof (value as { midX?: unknown }).midX === "number" &&
+      Number.isFinite((value as { midX: number }).midX)
+  );
+
+const sanitizeLinkBends = (
+  value: Record<string, LinkBend> | undefined
+): Record<string, LinkBend> => {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+  const next: Record<string, LinkBend> = {};
+  Object.entries(value).forEach(([key, bend]) => {
+    if (isFiniteMidX(bend)) {
+      next[key] = { midX: bend.midX };
+    }
+  });
+  return next;
+};
+
+const mergeLinkBendsForLink = (
+  current: Record<string, LinkBend>,
+  linkKey: string,
+  startX: number,
+  endX: number,
+  pointerX: number
+) => {
+  const midX = clampMidX(pointerX, startX, endX);
+  const next = { ...current };
+  if (shouldKeepBend(midX, startX, endX)) {
+    next[linkKey] = { midX };
+  } else {
+    delete next[linkKey];
+  }
+  return next;
+};
+
+const buildLinkSegmentPath = (
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number
+): string => buildOrthPath(startX, startY, endX, endY);
 
 export const RankBoard = ({
   items,
@@ -136,11 +232,13 @@ export const RankBoard = ({
   selectedId,
   selectedLink,
   initialPositions,
+  initialLinkBends,
   onSelect,
   onSelectLink,
   onLink,
   onUnlink,
   onPositionsChange,
+  onLinkBendsChange,
   onColorChange,
   isSavingColor = false,
 }: RankBoardProps) => {
@@ -150,6 +248,7 @@ export const RankBoard = ({
 
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [manualPositions, setManualPositions] = useState<Record<string, Position>>({});
+  const [manualLinkBends, setManualLinkBends] = useState<Record<string, LinkBend>>({});
 
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 });
@@ -165,6 +264,7 @@ export const RankBoard = ({
   const [panStart, setPanStart] = useState<Position>({ x: 0, y: 0 });
 
   const [isMinimapDragging, setIsMinimapDragging] = useState(false);
+  const [draggingBend, setDraggingBend] = useState<LinkHandle | null>(null);
 
   const scaleRef = useRef(1);
   const panRef = useRef<Position>(DEFAULT_PAN);
@@ -196,6 +296,10 @@ export const RankBoard = ({
   useEffect(() => {
     setManualPositions(initialPositions ?? {});
   }, [initialPositions]);
+
+  useEffect(() => {
+    setManualLinkBends(sanitizeLinkBends(initialLinkBends));
+  }, [initialLinkBends]);
 
   useEffect(() => {
     const node = boardRef.current;
@@ -418,9 +522,10 @@ export const RankBoard = ({
     return base;
   }, [itemsWithId, manualPositions, autoLayout.positions, draggingId, dragPosition]);
 
-  const { edgeList, conditionNodes } = useMemo(() => {
+  const { edgeList, conditionNodes, linkHandles } = useMemo(() => {
     const nextEdges: BoardEdge[] = [];
     const nextConditionNodes: ConditionNode[] = [];
+    const nextHandles: LinkHandle[] = [];
 
     Object.entries(incomingById).forEach(([childId, parentIds]) => {
       parentIds.forEach((parentId) => {
@@ -435,6 +540,15 @@ export const RankBoard = ({
         const startY = parentPos.y + NODE_HEIGHT / 2;
         const endX = childPos.x;
         const endY = childPos.y + NODE_HEIGHT / 2;
+        const midX = resolveMidX(startX, endX, manualLinkBends[linkKey]);
+
+        nextHandles.push({
+          linkKey,
+          parentId,
+          childId,
+          x: midX,
+          y: startY + (endY - startY) / 2,
+        });
 
         const conditions = linkConditionsByKey[linkKey] ?? [];
         if (conditions.length === 0) {
@@ -443,7 +557,7 @@ export const RankBoard = ({
             linkKey,
             parentId,
             childId,
-            path: buildOrthPath(startX, startY, endX, endY),
+            path: buildOrthPath(startX, startY, endX, endY, midX),
           });
           return;
         }
@@ -452,7 +566,7 @@ export const RankBoard = ({
           conditions.length * CONDITION_HEIGHT +
           Math.max(0, conditions.length - 1) * CONDITION_GAP;
         const topY = (startY + endY) / 2 - totalHeight / 2;
-        const nodeX = startX + (endX - startX) / 2 - CONDITION_WIDTH / 2;
+        const nodeX = midX - CONDITION_WIDTH / 2;
 
         conditions.forEach((condition, index) => {
           const nodeId = `${linkKey}-condition-${index + 1}`;
@@ -479,21 +593,21 @@ export const RankBoard = ({
             linkKey,
             parentId,
             childId,
-            path: buildOrthPath(startX, startY, conditionInputX, conditionMidY),
+            path: buildLinkSegmentPath(startX, startY, conditionInputX, conditionMidY),
           });
           nextEdges.push({
             id: `${nodeId}-out`,
             linkKey,
             parentId,
             childId,
-            path: buildOrthPath(conditionOutputX, conditionMidY, endX, endY),
+            path: buildLinkSegmentPath(conditionOutputX, conditionMidY, endX, endY),
           });
         });
       });
     });
 
-    return { edgeList: nextEdges, conditionNodes: nextConditionNodes };
-  }, [incomingById, linkConditionsByKey, positionById]);
+    return { edgeList: nextEdges, conditionNodes: nextConditionNodes, linkHandles: nextHandles };
+  }, [incomingById, linkConditionsByKey, manualLinkBends, positionById]);
 
   const conditionNodeByEdgeId = useMemo(() => {
     const map = new Map<string, ConditionNode>();
@@ -503,6 +617,28 @@ export const RankBoard = ({
     });
     return map;
   }, [conditionNodes]);
+
+  useEffect(() => {
+    const valid = new Set<string>();
+    Object.entries(incomingById).forEach(([childId, parentIds]) => {
+      parentIds.forEach((parentId) => valid.add(`${parentId}-${childId}`));
+    });
+    setManualLinkBends((prev) => {
+      let changed = false;
+      const next: Record<string, LinkBend> = {};
+      Object.entries(prev).forEach(([key, bend]) => {
+        if (valid.has(key)) {
+          next[key] = bend;
+        } else {
+          changed = true;
+        }
+      });
+      if (changed) {
+        onLinkBendsChange?.(next);
+      }
+      return changed ? next : prev;
+    });
+  }, [incomingById, onLinkBendsChange]);
 
   const worldBounds = useMemo<WorldBounds>(() => {
     let minX = Number.POSITIVE_INFINITY;
@@ -702,6 +838,28 @@ export const RankBoard = ({
       moveViewportFromMinimap(event.clientX, event.clientY);
       return;
     }
+    if (draggingBend) {
+      const childPos = positionById[draggingBend.childId];
+      const parentPos = positionById[draggingBend.parentId];
+      if (!childPos || !parentPos) {
+        return;
+      }
+      const { x: pointerX } = toBoardCoords(event.clientX, event.clientY);
+      const startX = parentPos.x + NODE_WIDTH;
+      const endX = childPos.x;
+      setManualLinkBends((prev) => {
+        const next = mergeLinkBendsForLink(
+          prev,
+          draggingBend.linkKey,
+          startX,
+          endX,
+          pointerX
+        );
+        onLinkBendsChange?.(next);
+        return next;
+      });
+      return;
+    }
     if (isPanning && boardRef.current) {
       const rect = boardRef.current.getBoundingClientRect();
       const nextX = event.clientX - rect.left - panStart.x;
@@ -765,6 +923,10 @@ export const RankBoard = ({
       setIsMinimapDragging(false);
       return;
     }
+    if (draggingBend) {
+      setDraggingBend(null);
+      return;
+    }
     if (isPanning) {
       setIsPanning(false);
       return;
@@ -818,6 +980,7 @@ export const RankBoard = ({
       target.closest(".rank-bar") ||
       target.closest(".rank-condition-node") ||
       target.closest(".rank-edge-hit") ||
+      target.closest(".rank-edge-handle") ||
       target.closest(".rank-board__toolbar") ||
       target.closest(".rank-board__minimap")
     ) {
@@ -885,6 +1048,14 @@ export const RankBoard = ({
     const conditions = linkConditionsByKey[`${previousId}-${currentId}`] ?? [];
     onSelect?.(null);
     onSelectLink?.({ currentId, previousId, conditions });
+  };
+
+  const handleBendPointerDown = (event: PointerEvent<SVGCircleElement>, handle: LinkHandle) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDraggingBend(handle);
+    handleSelectLinkByIds(handle.childId, handle.parentId);
   };
 
   const handleMinimapPointerDown = (event: PointerEvent<HTMLDivElement>) => {
@@ -1022,6 +1193,22 @@ export const RankBoard = ({
                   onDoubleClick={() => handleSelectLinkByIds(edge.childId, edge.parentId)}
                 />
               </g>
+            );
+          })}
+          {linkHandles.map((handle) => {
+            const isSelected = handle.linkKey === selectedLinkKey;
+            if (!isSelected) {
+              return null;
+            }
+            return (
+              <circle
+                key={toHandleId(handle.linkKey)}
+                cx={handle.x}
+                cy={handle.y}
+                r={6}
+                className="rank-edge-handle"
+                onPointerDown={(event) => handleBendPointerDown(event, handle)}
+              />
             );
           })}
         </svg>

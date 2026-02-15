@@ -94,6 +94,9 @@ export const RankCreate = () => {
   const [boardPositions, setBoardPositions] = useState<
     Record<string, { x: number; y: number }>
   >({});
+  const [boardLinkBends, setBoardLinkBends] = useState<
+    Record<string, { midX: number }>
+  >({});
   const [selectedLink, setSelectedLink] = useState<{
     currentId: string;
     previousId: string;
@@ -121,6 +124,8 @@ export const RankCreate = () => {
   const [layoutSaveTimer, setLayoutSaveTimer] = useState<number | null>(null);
   const layoutLoadSeqRef = useRef(0);
   const hasLayoutInteractionRef = useRef(false);
+  const layoutPositionsRef = useRef<Record<string, { x: number; y: number }>>({});
+  const layoutLinkBendsRef = useRef<Record<string, { midX: number }>>({});
 
   const loadItems = useCallback(async () => {
     try {
@@ -202,6 +207,9 @@ export const RankCreate = () => {
         return;
       }
       setBoardPositions(data?.positions ?? {});
+      setBoardLinkBends(data?.linkBends ?? {});
+      layoutPositionsRef.current = data?.positions ?? {};
+      layoutLinkBendsRef.current = data?.linkBends ?? {};
       setLayoutRevision((prev) => prev + 1);
     } catch (err) {
       if (seq !== layoutLoadSeqRef.current || hasLayoutInteractionRef.current) {
@@ -212,6 +220,9 @@ export const RankCreate = () => {
         notify(message, "error");
       }
       setBoardPositions({});
+      setBoardLinkBends({});
+      layoutPositionsRef.current = {};
+      layoutLinkBendsRef.current = {};
       setLayoutRevision((prev) => prev + 1);
     }
   }, [getRankBoardLayout, notify]);
@@ -630,12 +641,38 @@ export const RankCreate = () => {
   const handleBoardPositionsChange = (positions: Record<string, { x: number; y: number }>) => {
     hasLayoutInteractionRef.current = true;
     setBoardPositions(positions);
+    layoutPositionsRef.current = positions;
     if (layoutSaveTimer !== null) {
       window.clearTimeout(layoutSaveTimer);
     }
     const timer = window.setTimeout(async () => {
       try {
-        await saveRankBoardLayout(positions);
+        await saveRankBoardLayout(
+          layoutPositionsRef.current,
+          layoutLinkBendsRef.current
+        );
+      } catch (err) {
+        notify((err as Error).message, "error");
+      }
+    }, 350);
+    setLayoutSaveTimer(timer);
+  };
+
+  const handleBoardLinkBendsChange = (
+    linkBends: Record<string, { midX: number }>
+  ) => {
+    hasLayoutInteractionRef.current = true;
+    setBoardLinkBends(linkBends);
+    layoutLinkBendsRef.current = linkBends;
+    if (layoutSaveTimer !== null) {
+      window.clearTimeout(layoutSaveTimer);
+    }
+    const timer = window.setTimeout(async () => {
+      try {
+        await saveRankBoardLayout(
+          layoutPositionsRef.current,
+          layoutLinkBendsRef.current
+        );
       } catch (err) {
         notify((err as Error).message, "error");
       }
@@ -707,6 +744,7 @@ export const RankCreate = () => {
           items={visibleBoardItems}
           links={links}
           initialPositions={boardPositions}
+          initialLinkBends={boardLinkBends}
           selectedId={editItem?.id}
           selectedLink={selectedLink}
           onSelect={(item) => {
@@ -720,6 +758,7 @@ export const RankCreate = () => {
           onLink={handleBoardLink}
           onUnlink={handleBoardUnlink}
           onPositionsChange={handleBoardPositionsChange}
+          onLinkBendsChange={handleBoardLinkBendsChange}
           onColorChange={handleBoardColorChange}
           isSavingColor={isSavingColor}
           key={`rank-board-${layoutRevision}`}

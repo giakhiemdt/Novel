@@ -13,8 +13,13 @@ export type RankBoardPosition = {
   y: number;
 };
 
+export type RankBoardLinkBend = {
+  midX: number;
+};
+
 export type RankBoardLayout = {
   positions: Record<string, RankBoardPosition>;
+  linkBends?: Record<string, RankBoardLinkBend>;
   updatedAt: string;
 };
 

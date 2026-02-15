@@ -1489,6 +1489,17 @@ h3 {
   cursor: pointer;
 }
 
+.rank-edge-handle {
+  fill: var(--color-panel);
+  stroke: color-mix(in srgb, var(--color-primary) 78%, transparent);
+  stroke-width: 1.8;
+  cursor: ew-resize;
+}
+
+.rank-edge-handle:hover {
+  fill: color-mix(in srgb, var(--color-primary) 18%, var(--color-panel));
+}
+
 .rank-edge-label {
   position: absolute;
   padding: 2px 8px;

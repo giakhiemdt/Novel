@@ -192,6 +192,7 @@ const UPSERT_RANK_BOARD_LAYOUT = `
 MERGE (layout:${nodeLabels.rankBoardLayout} {id: 'rank-board-layout'})
 SET
   layout.positionsJson = $positionsJson,
+  layout.linkBendsJson = $linkBendsJson,
   layout.updatedAt = $updatedAt
 RETURN layout
 `;
@@ -525,9 +526,14 @@ export const getRankBoardLayout = async (
     const result = await session.run(GET_RANK_BOARD_LAYOUT);
     const node = result.records[0]?.get("layout");
     const properties = mapNode(
-      node?.properties ?? { positionsJson: "{}", updatedAt: new Date().toISOString() }
-    ) as { positionsJson?: string; updatedAt?: string };
+      node?.properties ?? {
+        positionsJson: "{}",
+        linkBendsJson: "{}",
+        updatedAt: new Date().toISOString(),
+      }
+    ) as { positionsJson?: string; linkBendsJson?: string; updatedAt?: string };
     let positions: Record<string, { x: number; y: number }> = {};
+    let linkBends: Record<string, { midX: number }> = {};
     if (typeof properties.positionsJson === "string") {
       try {
         const parsed = JSON.parse(properties.positionsJson) as Record<
@@ -541,8 +547,22 @@ export const getRankBoardLayout = async (
         positions = {};
       }
     }
+    if (typeof properties.linkBendsJson === "string") {
+      try {
+        const parsed = JSON.parse(properties.linkBendsJson) as Record<
+          string,
+          { midX: number }
+        >;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          linkBends = parsed;
+        }
+      } catch {
+        linkBends = {};
+      }
+    }
     return {
       positions,
+      linkBends,
       updatedAt:
         typeof properties.updatedAt === "string"
           ? properties.updatedAt
@@ -555,20 +575,27 @@ export const getRankBoardLayout = async (
 
 export const saveRankBoardLayout = async (
   database: string,
-  positions: Record<string, { x: number; y: number }>
+  positions: Record<string, { x: number; y: number }>,
+  linkBends: Record<string, { midX: number }>
 ): Promise<RankBoardLayout> => {
   const session = getSessionForDatabase(database, neo4j.session.WRITE);
   try {
     const updatedAt = new Date().toISOString();
     const result = await session.run(UPSERT_RANK_BOARD_LAYOUT, {
       positionsJson: JSON.stringify(positions),
+      linkBendsJson: JSON.stringify(linkBends),
       updatedAt,
     });
     const node = result.records[0]?.get("layout");
     const properties = mapNode(
-      node?.properties ?? { positionsJson: JSON.stringify(positions), updatedAt }
-    ) as { positionsJson?: string; updatedAt?: string };
+      node?.properties ?? {
+        positionsJson: JSON.stringify(positions),
+        linkBendsJson: JSON.stringify(linkBends),
+        updatedAt,
+      }
+    ) as { positionsJson?: string; linkBendsJson?: string; updatedAt?: string };
     let parsedPositions: Record<string, { x: number; y: number }> = positions;
+    let parsedLinkBends: Record<string, { midX: number }> = linkBends;
     if (typeof properties.positionsJson === "string") {
       try {
         const parsed = JSON.parse(properties.positionsJson) as Record<
@@ -582,8 +609,22 @@ export const saveRankBoardLayout = async (
         parsedPositions = positions;
       }
     }
+    if (typeof properties.linkBendsJson === "string") {
+      try {
+        const parsed = JSON.parse(properties.linkBendsJson) as Record<
+          string,
+          { midX: number }
+        >;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          parsedLinkBends = parsed;
+        }
+      } catch {
+        parsedLinkBends = linkBends;
+      }
+    }
     return {
       positions: parsedPositions,
+      linkBends: parsedLinkBends,
       updatedAt:
         typeof properties.updatedAt === "string"
           ? properties.updatedAt
