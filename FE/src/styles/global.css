@@ -367,6 +367,10 @@ h3 {
   object-fit: contain;
 }
 
+:root[data-theme="light"] .filter-toggle__icon {
+  filter: brightness(0) saturate(100%) opacity(0.72);
+}
+
 .filter-toggle__label {
   font-size: 0.95rem;
 }

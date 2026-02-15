@@ -1,5 +1,6 @@
 import { ReactNode, useState } from "react";
 import { useI18n } from "../../i18n/I18nProvider";
+import filterIcon from "../../assets/icons/filter.svg";
 
 export type FilterPanelProps = {
   children: ReactNode;
@@ -20,7 +21,7 @@ export const FilterPanel = ({ children, defaultOpen = false }: FilterPanelProps)
       >
         <img
           className="filter-toggle__icon"
-          src="/icons8-filter-100.png"
+          src={filterIcon}
           alt={t("Filters")}
         />
         <span className="filter-toggle__label">

@@ -1,4 +1,5 @@
 import { useI18n } from "../../i18n/I18nProvider";
+import listIcon from "../../assets/icons/list.svg";
 
 export type ListPanelProps = {
   open: boolean;
@@ -16,6 +17,7 @@ export const ListPanel = ({ open, onToggle }: ListPanelProps) => {
         onClick={onToggle}
         aria-expanded={open}
       >
+        <img className="filter-toggle__icon" src={listIcon} alt={t("List")} />
         <span className="filter-toggle__label">
           {open ? t("Hide list") : t("Show list")}
         </span>
@@ -24,4 +26,3 @@ export const ListPanel = ({ open, onToggle }: ListPanelProps) => {
     </div>
   );
 };
-
