@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useI18n } from "../../i18n/I18nProvider";
 import { nodeDocById, nodeDocs } from "./node-docs.data";
+import { describeField } from "./field-docs";
 
 export const NodeDocsPage = () => {
   const { t } = useI18n();
@@ -31,6 +32,32 @@ export const NodeDocsPage = () => {
     }
     return filtered[0] ?? null;
   }, [filtered, params.nodeId]);
+
+  const renderFieldTable = (fields: string[], scope: "required" | "optional") => {
+    if (fields.length === 0) {
+      return <p className="header__subtitle">{t("No data")}</p>;
+    }
+    return (
+      <table className="table table--clean node-docs-field-table">
+        <thead>
+          <tr>
+            <th>{t("Field")}</th>
+            <th>{t("Meaning")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {fields.map((field) => (
+            <tr key={`${scope}-${field}`} className="table__row">
+              <td>
+                <code>{field}</code>
+              </td>
+              <td>{describeField(field)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
 
   return (
     <div className="card">
@@ -99,20 +126,12 @@ export const NodeDocsPage = () => {
 
               <div className="node-docs-section">
                 <h5>{t("Required fields")}</h5>
-                <ul>
-                  {selected.requiredFields.map((field) => (
-                    <li key={`required-${field}`}>{field}</li>
-                  ))}
-                </ul>
+                {renderFieldTable(selected.requiredFields, "required")}
               </div>
 
               <div className="node-docs-section">
                 <h5>{t("Optional fields")}</h5>
-                <ul>
-                  {selected.optionalFields.map((field) => (
-                    <li key={`optional-${field}`}>{field}</li>
-                  ))}
-                </ul>
+                {renderFieldTable(selected.optionalFields, "optional")}
               </div>
 
               <div className="node-docs-section">
