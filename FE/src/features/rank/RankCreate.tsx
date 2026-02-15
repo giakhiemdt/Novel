@@ -13,6 +13,7 @@ import { TextInput } from "../../components/form/TextInput";
 import { useForm } from "../../hooks/useForm";
 import { useProjectChange } from "../../hooks/useProjectChange";
 import { useI18n } from "../../i18n/I18nProvider";
+import boardIcon from "../../assets/icons/board.svg";
 import {
   createRank,
   deleteRank,
@@ -113,6 +114,7 @@ export const RankCreate = () => {
   const [hasNext, setHasNext] = useState(false);
   const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
   const [showList, setShowList] = useState(false);
+  const [showBoard, setShowBoard] = useState(false);
   const [filters, setFilters] = useState({
     q: "",
     name: "",
@@ -245,23 +247,31 @@ export const RankCreate = () => {
   }, [loadItems, refreshKey, showList]);
 
   useEffect(() => {
+    if (!showBoard) {
+      return;
+    }
     void loadBoardItems();
-  }, [loadBoardItems, refreshKey]);
+  }, [loadBoardItems, refreshKey, showBoard]);
 
   useEffect(() => {
     void loadRankSystems();
   }, [loadRankSystems]);
 
   useEffect(() => {
+    if (!showBoard) {
+      return;
+    }
     void loadBoardLayout();
-  }, [loadBoardLayout]);
+  }, [loadBoardLayout, showBoard]);
 
   useProjectChange(() => {
     setPage(1);
     setRefreshKey((prev) => prev + 1);
     hasLayoutInteractionRef.current = false;
     void loadRankSystems();
-    void loadBoardLayout();
+    if (showBoard) {
+      void loadBoardLayout();
+    }
   });
 
   useEffect(() => {
@@ -271,6 +281,13 @@ export const RankCreate = () => {
       }
     };
   }, [layoutSaveTimer]);
+
+  useEffect(() => {
+    if (!showBoard) {
+      setSelectedLink(null);
+      setLinkConditionsDraft([createEmptyCondition()]);
+    }
+  }, [showBoard]);
 
   const handleFilterChange = (
     key: "q" | "name" | "tag" | "tier" | "systemId" | "system",
@@ -775,32 +792,50 @@ export const RankCreate = () => {
             </Button>
           </div>
         </FilterPanel>
-        <RankBoard
-          items={visibleBoardItems}
-          links={links}
-          initialPositions={boardPositions}
-          initialLinkBends={boardLinkBends}
-          initialConditionNodePositions={boardConditionNodePositions}
-          selectedId={editItem?.id}
-          selectedLink={selectedLink}
-          onSelect={(item) => {
-            if (!item) {
-              handleEditCancel();
-              return;
-            }
-            handleEditOpen(item);
-          }}
-          onSelectLink={handleSelectLink}
-          onLink={handleBoardLink}
-          onUnlink={handleBoardUnlink}
-          onPositionsChange={handleBoardPositionsChange}
-          onLinkBendsChange={handleBoardLinkBendsChange}
-          onConditionNodePositionsChange={handleBoardConditionNodePositionsChange}
-          onColorChange={handleBoardColorChange}
-          isSavingColor={isSavingColor}
-          key={`rank-board-${layoutRevision}`}
-        />
-        {selectedLink && (
+        <div className="filter-block">
+          <button
+            type="button"
+            className="filter-toggle"
+            onClick={() => setShowBoard((prev) => !prev)}
+            aria-expanded={showBoard}
+          >
+            <img className="filter-toggle__icon" src={boardIcon} alt={t("Board")} />
+            <span className="filter-toggle__label">
+              {showBoard ? t("Hide board") : t("Show board")}
+            </span>
+          </button>
+          {showBoard && <p className="header__subtitle">{t("Board")}</p>}
+        </div>
+        {showBoard && (
+          <>
+            <RankBoard
+              items={visibleBoardItems}
+              links={links}
+              initialPositions={boardPositions}
+              initialLinkBends={boardLinkBends}
+              initialConditionNodePositions={boardConditionNodePositions}
+              selectedId={editItem?.id}
+              selectedLink={selectedLink}
+              onSelect={(item) => {
+                if (!item) {
+                  handleEditCancel();
+                  return;
+                }
+                handleEditOpen(item);
+              }}
+              onSelectLink={handleSelectLink}
+              onLink={handleBoardLink}
+              onUnlink={handleBoardUnlink}
+              onPositionsChange={handleBoardPositionsChange}
+              onLinkBendsChange={handleBoardLinkBendsChange}
+              onConditionNodePositionsChange={handleBoardConditionNodePositionsChange}
+              onColorChange={handleBoardColorChange}
+              isSavingColor={isSavingColor}
+              key={`rank-board-${layoutRevision}`}
+            />
+          </>
+        )}
+        {showBoard && selectedLink && (
           <div className="card rank-link-editor">
             <div className="card__header">
               <div>
