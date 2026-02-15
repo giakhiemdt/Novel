@@ -29,6 +29,7 @@ import type {
   CharacterRelation,
   CharacterRelationPayload,
 } from "./relationship.types";
+import boardIcon from "../../assets/icons/board.svg";
 
 const initialState = {
   fromId: "",
@@ -60,6 +61,7 @@ export const RelationshipCreate = () => {
   });
   const [refreshKey, setRefreshKey] = useState(0);
   const [showList, setShowList] = useState(false);
+  const [showBoard, setShowBoard] = useState(false);
   const { notify } = useToast();
 
   const charactersById = useMemo(
@@ -147,11 +149,11 @@ export const RelationshipCreate = () => {
   }, [notify]);
 
   useEffect(() => {
-    if (!showList) {
+    if (!showList && !showBoard) {
       return;
     }
     void loadItems();
-  }, [loadItems, refreshKey, showList]);
+  }, [loadItems, refreshKey, showBoard, showList]);
 
   useEffect(() => {
     void loadCharacters();
@@ -334,6 +336,20 @@ export const RelationshipCreate = () => {
           </div>
         </FilterPanel>
         <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
+        <div className="filter-block">
+          <button
+            type="button"
+            className="filter-toggle"
+            onClick={() => setShowBoard((prev) => !prev)}
+            aria-expanded={showBoard}
+          >
+            <img className="filter-toggle__icon" src={boardIcon} alt={t("Board")} />
+            <span className="filter-toggle__label">
+              {showBoard ? t("Hide board") : t("Show board")}
+            </span>
+          </button>
+          {showBoard && <p className="header__subtitle">{t("Board")}</p>}
+        </div>
         {showList && (
           <>
         <RelationshipList
@@ -361,21 +377,23 @@ export const RelationshipCreate = () => {
         )}
       </div>
 
-      <div className="card">
-        <div className="card__header">
-          <div>
-            <h3 className="section-title">{t("Relationship graph")}</h3>
-            <p className="header__subtitle">
-              {t("Visual map of character-to-character connections.")}
-            </p>
+      {showBoard && (
+        <div className="card">
+          <div className="card__header">
+            <div>
+              <h3 className="section-title">{t("Relationship graph")}</h3>
+              <p className="header__subtitle">
+                {t("Visual map of character-to-character connections.")}
+              </p>
+            </div>
           </div>
+          <RelationshipGraph
+            items={items}
+            charactersById={charactersById}
+            relationshipTypesByCode={relationshipTypeMetaByCode}
+          />
         </div>
-        <RelationshipGraph
-          items={items}
-          charactersById={charactersById}
-          relationshipTypesByCode={relationshipTypeMetaByCode}
-        />
-      </div>
+      )}
 
       {editItem && editValues && (
         <>

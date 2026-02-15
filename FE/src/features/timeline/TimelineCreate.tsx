@@ -17,6 +17,7 @@ import {
 import { getAllEvents } from "../event/event.api";
 import type { Event } from "../event/event.types";
 import { TimelineBoard } from "./TimelineBoard";
+import { TimelineList } from "./TimelineList";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
 import { Select } from "../../components/form/Select";
@@ -25,6 +26,7 @@ import { TextInput } from "../../components/form/TextInput";
 import { validateTimeline } from "./timeline.schema";
 import type { Timeline, TimelinePayload } from "./timeline.types";
 import { useI18n } from "../../i18n/I18nProvider";
+import boardIcon from "../../assets/icons/board.svg";
 
 const initialState = {
   name: "",
@@ -60,6 +62,7 @@ export const TimelineCreate = () => {
   const [hasNext, setHasNext] = useState(false);
   const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
   const [showList, setShowList] = useState(false);
+  const [showBoard, setShowBoard] = useState(false);
   const [filters, setFilters] = useState({
     q: "",
     name: "",
@@ -143,11 +146,11 @@ export const TimelineCreate = () => {
   }, [page, pageSize, filters, notify, getTimelinesPage]);
 
   useEffect(() => {
-    if (!showList) {
+    if (!showList && !showBoard) {
       return;
     }
     void loadItems();
-  }, [loadItems, refreshKey, showList]);
+  }, [loadItems, refreshKey, showBoard, showList]);
 
   useEffect(() => {
     void loadEvents();
@@ -321,6 +324,11 @@ export const TimelineCreate = () => {
       <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
       {showList && (
         <>
+          <TimelineList
+            items={items}
+            selectedId={selected?.id}
+            onSelect={setSelected}
+          />
           {(items.length > 0 || page > 1 || hasNext) && (
             <Pagination
               page={page}
@@ -335,6 +343,24 @@ export const TimelineCreate = () => {
               }}
             />
           )}
+        </>
+      )}
+      <div className="filter-block">
+        <button
+          type="button"
+          className="filter-toggle"
+          onClick={() => setShowBoard((prev) => !prev)}
+          aria-expanded={showBoard}
+        >
+          <img className="filter-toggle__icon" src={boardIcon} alt={t("Board")} />
+          <span className="filter-toggle__label">
+            {showBoard ? t("Hide board") : t("Show board")}
+          </span>
+        </button>
+        {showBoard && <p className="header__subtitle">{t("Board")}</p>}
+      </div>
+      {showBoard && (
+        <>
           <TimelineBoard
             items={items}
             events={events}
