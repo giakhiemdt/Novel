@@ -52,7 +52,7 @@ h3 {
 .sidebar {
   background: var(--bg-sidebar);
   color: var(--color-ink);
-  padding: var(--space-3) var(--space-3);
+  padding: var(--space-2) var(--space-3);
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
@@ -74,16 +74,17 @@ h3 {
   min-height: 40px;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
 }
 
 .sidebar__toggle {
-  width: 40px;
-  height: 40px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   border: none;
+  border-radius: 0;
   box-shadow: none;
-  background: var(--surface-muted);
+  background: transparent;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -98,6 +99,10 @@ h3 {
 
 :root[data-theme="light"] .sidebar__toggle-icon {
   filter: brightness(0) saturate(100%) opacity(0.7);
+}
+
+.sidebar--collapsed .sidebar__toggle-row {
+  justify-content: center;
 }
 
 :root[data-theme="light"] .sidebar {
