@@ -85,6 +85,7 @@ const CONDITION_HEIGHT = 26;
 const CONDITION_GAP = 8;
 const PADDING = 32;
 const SNAP_DISTANCE = 30;
+const ALIGN_SNAP_DISTANCE = 14;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 2.4;
 const DEFAULT_PAN = { x: 24, y: 24 };
@@ -884,6 +885,10 @@ export const RankBoard = ({
     let nextY = Math.max(PADDING / 2, pointerY - dragOffset.y);
     let target: SnapTarget | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
+    let bestAlignedX: number | null = null;
+    let bestAlignedY: number | null = null;
+    let bestAlignedXDistance = Number.POSITIVE_INFINITY;
+    let bestAlignedYDistance = Number.POSITIVE_INFINITY;
 
     itemsWithId.forEach((item) => {
       if (item.id === draggingId) {
@@ -912,7 +917,28 @@ export const RankBoard = ({
         nextX = targetPos.x + NODE_WIDTH + H_GAP;
         nextY = targetPos.y;
       }
+
+      const deltaX = Math.abs(nextX - targetPos.x);
+      if (deltaX <= ALIGN_SNAP_DISTANCE && deltaX < bestAlignedXDistance) {
+        bestAlignedXDistance = deltaX;
+        bestAlignedX = targetPos.x;
+      }
+
+      const deltaY = Math.abs(nextY - targetPos.y);
+      if (deltaY <= ALIGN_SNAP_DISTANCE && deltaY < bestAlignedYDistance) {
+        bestAlignedYDistance = deltaY;
+        bestAlignedY = targetPos.y;
+      }
     });
+
+    if (!target) {
+      if (bestAlignedX !== null) {
+        nextX = bestAlignedX;
+      }
+      if (bestAlignedY !== null) {
+        nextY = bestAlignedY;
+      }
+    }
 
     setSnapTarget(target);
     setDragPosition({ x: nextX, y: nextY });
