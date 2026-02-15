@@ -1186,49 +1186,6 @@ export const RankBoard = ({
       onPointerDown={handleBoardPointerDown}
     >
       <div className="rank-board__toolbar">
-        <div className="rank-board__toolbar-inner rank-board__toolbar-inner--tools">
-          <button
-            type="button"
-            className="rank-board__tool-button"
-            onClick={() => handleZoomStep(-0.15)}
-            title={t("Zoom out")}
-          >
-            −
-          </button>
-          <span className="rank-board__zoom">{Math.round(scale * 100)}%</span>
-          <button
-            type="button"
-            className="rank-board__tool-button"
-            onClick={() => handleZoomStep(0.15)}
-            title={t("Zoom in")}
-          >
-            +
-          </button>
-          <button
-            type="button"
-            className="rank-board__tool-button"
-            onClick={handleFitView}
-            title={t("Fit view")}
-          >
-            {t("Fit")}
-          </button>
-          <button
-            type="button"
-            className="rank-board__tool-button"
-            onClick={handleResetView}
-            title={t("Reset view")}
-          >
-            {t("Reset")}
-          </button>
-          <button
-            type="button"
-            className="rank-board__tool-button"
-            onClick={handleAutoLayout}
-            title={t("Auto layout")}
-          >
-            {t("Auto")}
-          </button>
-        </div>
         {selectedItem && onColorChange && (
           <div className="rank-board__toolbar-inner">
             <span className="rank-board__toolbar-title">{selectedItem.name}</span>
@@ -1244,6 +1201,33 @@ export const RankBoard = ({
             />
           </div>
         )}
+        <div className="rank-board__toolbar-inner rank-board__toolbar-inner--tools">
+          <button
+            type="button"
+            className="rank-board__tool-button"
+            onClick={() => handleZoomStep(-0.15)}
+            title={t("Zoom out")}
+          >
+            −
+          </button>
+          <button
+            type="button"
+            className="rank-board__tool-button"
+            onClick={() => handleZoomStep(0.15)}
+            title={t("Zoom in")}
+          >
+            +
+          </button>
+          <button
+            type="button"
+            className="rank-board__tool-button"
+            onClick={handleResetView}
+            title={t("Reset view")}
+          >
+            {t("Reset")}
+          </button>
+          <span className="rank-board__zoom">{Math.round(scale * 100)}%</span>
+        </div>
       </div>
 
       <div
