@@ -1900,7 +1900,7 @@ h3 {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  max-width: 190px;
+  max-width: 112px;
 }
 
 .rank-system-matrix__system-label strong {

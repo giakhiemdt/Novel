@@ -16,13 +16,20 @@ type TierInfo = {
   numeric: number | null;
 };
 
-type SystemRow = {
+type SystemColumn = {
   id: string;
   name: string;
   code?: string;
   domain?: string;
   isVirtual?: boolean;
+  left: number;
+  width: number;
   ranks: RankWithId[];
+};
+
+type TierRow = {
+  key: string;
+  label: string;
   top: number;
   height: number;
   buckets: Record<string, RankWithId[]>;
@@ -43,10 +50,11 @@ type EdgeLayout = {
   path: string;
 };
 
-const SYSTEM_LABEL_WIDTH = 220;
-const COLUMN_WIDTH = 190;
-const HEADER_HEIGHT = 56;
+const TIER_LABEL_WIDTH = 130;
+const COLUMN_WIDTH = 182;
+const HEADER_HEIGHT = 72;
 const BOARD_PADDING = 12;
+const COLUMN_GAP = 10;
 const ROW_GAP = 12;
 const ROW_MIN_HEIGHT = 72;
 const ROW_PADDING_Y = 10;
@@ -89,9 +97,14 @@ const parseTier = (tier: string | undefined): TierInfo => {
   };
 };
 
-const buildOrthPath = (startX: number, startY: number, endX: number, endY: number): string => {
-  const midX = startX + (endX - startX) / 2;
-  return `M ${startX} ${startY} H ${midX} V ${endY} H ${endX}`;
+const buildOrthPathVertical = (
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number
+): string => {
+  const midY = startY + (endY - startY) / 2;
+  return `M ${startX} ${startY} V ${midY} H ${endX} V ${endY}`;
 };
 
 const getRankColor = (rank: RankWithId): string => rank.color?.trim() || "#6b9fd0";
@@ -127,13 +140,13 @@ export const RankSystemLandscapeBoard = ({
       }
     });
 
-    const tierColumns: Array<{ key: string; label: string }> = [];
+    const tierRows: Array<{ key: string; label: string }> = [];
     if (numericTiers.size > 0) {
       const numbers = Array.from(numericTiers).sort((a, b) => a - b);
       const min = numbers[0] ?? 1;
       const max = numbers[numbers.length - 1] ?? min;
       for (let tier = min; tier <= max; tier += 1) {
-        tierColumns.push({ key: `n:${tier}`, label: `${t("Tier")} ${tier}` });
+        tierRows.push({ key: `n:${tier}`, label: `${t("Tier")} ${tier}` });
       }
     }
 
@@ -142,15 +155,15 @@ export const RankSystemLandscapeBoard = ({
         (tierLabelByKey.get(a) ?? a).localeCompare(tierLabelByKey.get(b) ?? b)
       )
       .forEach((key) => {
-        tierColumns.push({ key, label: tierLabelByKey.get(key) ?? key });
+        tierRows.push({ key, label: tierLabelByKey.get(key) ?? key });
       });
 
     if (hasUntiered) {
-      tierColumns.push({ key: "u:untiered", label: t("Untiered") });
+      tierRows.push({ key: "u:untiered", label: t("Untiered") });
     }
 
-    if (tierColumns.length === 0) {
-      tierColumns.push({ key: "u:untiered", label: t("Untiered") });
+    if (tierRows.length === 0) {
+      tierRows.push({ key: "u:untiered", label: t("Untiered") });
     }
 
     const ranksBySystem = new Map<string, RankWithId[]>();
@@ -176,7 +189,7 @@ export const RankSystemLandscapeBoard = ({
       return sortByName(a, b);
     });
 
-    const rowsSeed: Array<{
+    const systemsSeed: Array<{
       id: string;
       name: string;
       code?: string;
@@ -192,7 +205,7 @@ export const RankSystemLandscapeBoard = ({
     }));
 
     if (unassigned.length > 0) {
-      rowsSeed.push({
+      systemsSeed.push({
         id: "__unassigned__",
         name: t("Unassigned ranks"),
         isVirtual: true,
@@ -200,21 +213,30 @@ export const RankSystemLandscapeBoard = ({
       });
     }
 
+    const systems: SystemColumn[] = systemsSeed.map((seed, index) => ({
+      ...seed,
+      left:
+        TIER_LABEL_WIDTH +
+        BOARD_PADDING +
+        index * (COLUMN_WIDTH + COLUMN_GAP),
+      width: COLUMN_WIDTH,
+    }));
+
     let yCursor = HEADER_HEIGHT + BOARD_PADDING;
 
-    const rows: SystemRow[] = rowsSeed.map((seed) => {
+    const rows: TierRow[] = tierRows.map((tier) => {
       const buckets: Record<string, RankWithId[]> = {};
-      tierColumns.forEach((column) => {
-        buckets[column.key] = [];
+      systems.forEach((system) => {
+        buckets[system.id] = [];
       });
 
-      seed.ranks.forEach((rank) => {
-        const parsedTier = tierByRankId.get(rank.id) ?? parseTier(rank.tier);
-        const key = parsedTier.key;
-        if (!buckets[key]) {
-          buckets[key] = [];
-        }
-        buckets[key]?.push(rank);
+      systems.forEach((system) => {
+        system.ranks.forEach((rank) => {
+          const parsedTier = tierByRankId.get(rank.id) ?? parseTier(rank.tier);
+          if (parsedTier.key === tier.key) {
+            buckets[system.id]?.push(rank);
+          }
+        });
       });
 
       Object.keys(buckets).forEach((key) => {
@@ -233,8 +255,9 @@ export const RankSystemLandscapeBoard = ({
           Math.max(0, maxStack - 1) * STACK_GAP
       );
 
-      const row: SystemRow = {
-        ...seed,
+      const row: TierRow = {
+        key: tier.key,
+        label: tier.label,
         top: yCursor,
         height: rowHeight,
         buckets,
@@ -247,22 +270,17 @@ export const RankSystemLandscapeBoard = ({
     const nodes: NodeLayout[] = [];
 
     rows.forEach((row) => {
-      tierColumns.forEach((column, columnIndex) => {
-        const bucket = row.buckets[column.key] ?? [];
-        const centerX =
-          SYSTEM_LABEL_WIDTH +
-          BOARD_PADDING +
-          columnIndex * COLUMN_WIDTH +
-          COLUMN_WIDTH / 2;
+      systems.forEach((system) => {
+        const bucket = row.buckets[system.id] ?? [];
+        const centerX = system.left + system.width / 2;
 
         bucket.forEach((rank, stackIndex) => {
-          const y =
-            row.top + ROW_PADDING_Y + stackIndex * (NODE_HEIGHT + STACK_GAP);
+          const y = row.top + ROW_PADDING_Y + stackIndex * (NODE_HEIGHT + STACK_GAP);
           const x = centerX - NODE_WIDTH / 2;
           nodes.push({
             id: rank.id,
             rank,
-            systemId: row.id,
+            systemId: system.id,
             x,
             y,
             width: NODE_WIDTH,
@@ -275,8 +293,8 @@ export const RankSystemLandscapeBoard = ({
     const nodeById = new Map(nodes.map((node) => [node.id, node]));
 
     const edges: EdgeLayout[] = [];
-    rows.forEach((row) => {
-      row.ranks.forEach((rank) => {
+    systems.forEach((system) => {
+      system.ranks.forEach((rank) => {
         const previousIds =
           rank.previousLinks?.map((link) => link.previousId) ??
           (rank.previousId ? [rank.previousId] : []);
@@ -288,11 +306,11 @@ export const RankSystemLandscapeBoard = ({
           }
           edges.push({
             id: `${previousId}-${rank.id}`,
-            path: buildOrthPath(
-              source.x + source.width,
-              source.y + source.height / 2,
-              target.x,
-              target.y + target.height / 2
+            path: buildOrthPathVertical(
+              source.x + source.width / 2,
+              source.y + source.height,
+              target.x + target.width / 2,
+              target.y
             ),
           });
         });
@@ -300,19 +318,17 @@ export const RankSystemLandscapeBoard = ({
     });
 
     const width =
-      SYSTEM_LABEL_WIDTH +
+      TIER_LABEL_WIDTH +
       BOARD_PADDING * 2 +
-      tierColumns.length * COLUMN_WIDTH;
-    const height = Math.max(
-      HEADER_HEIGHT + 90,
-      yCursor + BOARD_PADDING - ROW_GAP
-    );
+      Math.max(1, systems.length) * COLUMN_WIDTH +
+      Math.max(0, systems.length - 1) * COLUMN_GAP;
+    const height = Math.max(HEADER_HEIGHT + 90, yCursor + BOARD_PADDING - ROW_GAP);
 
     return {
       rows,
+      systems,
       nodes,
       edges,
-      tierColumns,
       width,
       height,
     };
@@ -324,45 +340,33 @@ export const RankSystemLandscapeBoard = ({
 
   return (
     <div className="rank-system-matrix-wrap">
-      <div
-        className="rank-system-matrix"
-        style={{ width: layout.width, height: layout.height }}
-      >
-        {layout.tierColumns.map((column, index) => (
+      <div className="rank-system-matrix" style={{ width: layout.width, height: layout.height }}>
+        {layout.systems.map((system) => (
           <div
-            key={column.key}
+            key={system.id}
             className="rank-system-matrix__tier-column"
             style={{
-              left: SYSTEM_LABEL_WIDTH + BOARD_PADDING + index * COLUMN_WIDTH,
-              width: COLUMN_WIDTH,
+              left: system.left,
+              width: system.width,
             }}
           >
-            <span className="rank-system-matrix__tier-title">{column.label}</span>
+            <span className="rank-system-matrix__tier-title">{system.name}</span>
           </div>
         ))}
 
         {layout.rows.map((row) => (
           <div
-            key={`row-${row.id}`}
+            key={`row-${row.key}`}
             className="rank-system-matrix__row"
             style={{ top: row.top, height: row.height }}
           >
             <div className="rank-system-matrix__system-label">
-              <strong>{row.name}</strong>
-              <span>
-                {row.code ? `#${row.code}` : "-"}
-                {row.domain ? ` • ${row.domain}` : ""}
-              </span>
+              <strong>{row.label}</strong>
             </div>
           </div>
         ))}
 
-        <svg
-          className="rank-system-matrix__edges"
-          width={layout.width}
-          height={layout.height}
-          aria-hidden="true"
-        >
+        <svg className="rank-system-matrix__edges" width={layout.width} height={layout.height} aria-hidden="true">
           {layout.edges.map((edge) => (
             <path key={edge.id} d={edge.path} className="rank-system-matrix__edge" />
           ))}
