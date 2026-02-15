@@ -4,6 +4,7 @@ export type RankSystemInput = {
   code?: string;
   description?: string;
   domain?: string;
+  energyTypeId?: string;
   energyType?: string;
   priority?: number;
   isPrimary?: boolean;
@@ -11,6 +12,7 @@ export type RankSystemInput = {
 };
 
 export type RankSystemNode = RankSystemInput & {
+  energyTypeName?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -21,6 +23,6 @@ export type RankSystemListQuery = {
   q?: string;
   name?: string;
   domain?: string;
-  energyType?: string;
+  energyTypeId?: string;
   total?: number;
 };

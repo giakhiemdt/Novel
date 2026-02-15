@@ -1,6 +1,7 @@
 import neo4j from "neo4j-driver";
 import { getSessionForDatabase } from "../../database";
 import { nodeLabels } from "../../shared/constants/node-labels";
+import { relationTypes } from "../../shared/constants/relation-types";
 import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
 import { RankSystemListQuery, RankSystemNode } from "./rank-system.types";
@@ -19,7 +20,12 @@ CREATE (rs:${nodeLabels.rankSystem} {
   createdAt: $createdAt,
   updatedAt: $updatedAt
 })
-RETURN rs
+WITH rs
+OPTIONAL MATCH (et:${nodeLabels.energyType} {id: $energyTypeId})
+FOREACH (_ IN CASE WHEN et IS NULL THEN [] ELSE [1] END |
+  MERGE (rs)-[:${relationTypes.usesEnergy}]->(et)
+)
+RETURN rs { .*, energyTypeId: et.id, energyTypeName: et.name } AS rs
 `;
 
 const UPDATE_RANK_SYSTEM = `
@@ -34,16 +40,25 @@ SET
   rs.isPrimary = $isPrimary,
   rs.tags = $tags,
   rs.updatedAt = $updatedAt
-RETURN rs
+WITH rs
+OPTIONAL MATCH (rs)-[oldRel:${relationTypes.usesEnergy}]->(:${nodeLabels.energyType})
+DELETE oldRel
+WITH rs
+OPTIONAL MATCH (et:${nodeLabels.energyType} {id: $energyTypeId})
+FOREACH (_ IN CASE WHEN et IS NULL THEN [] ELSE [1] END |
+  MERGE (rs)-[:${relationTypes.usesEnergy}]->(et)
+)
+RETURN rs { .*, energyTypeId: et.id, energyTypeName: et.name } AS rs
 `;
 
 const GET_RANK_SYSTEMS = `
 MATCH (rs:${nodeLabels.rankSystem})
+OPTIONAL MATCH (rs)-[:${relationTypes.usesEnergy}]->(et:${nodeLabels.energyType})
 WHERE
   ($name IS NULL OR toLower(rs.name) CONTAINS toLower($name))
   AND ($domain IS NULL OR rs.domain = $domain)
-  AND ($energyType IS NULL OR rs.energyType = $energyType)
-RETURN rs
+  AND ($energyTypeId IS NULL OR et.id = $energyTypeId)
+RETURN rs { .*, energyTypeId: et.id, energyTypeName: et.name } AS rs
 ORDER BY rs.priority ASC, rs.createdAt DESC
 SKIP toInteger($offset)
 LIMIT toInteger($limit)
@@ -52,11 +67,12 @@ LIMIT toInteger($limit)
 const GET_RANK_SYSTEMS_BY_SEARCH = `
 CALL db.index.fulltext.queryNodes("rank_system_search", $q) YIELD node, score
 WITH node AS rs, score
+OPTIONAL MATCH (rs)-[:${relationTypes.usesEnergy}]->(et:${nodeLabels.energyType})
 WHERE
   ($name IS NULL OR toLower(rs.name) CONTAINS toLower($name))
   AND ($domain IS NULL OR rs.domain = $domain)
-  AND ($energyType IS NULL OR rs.energyType = $energyType)
-RETURN rs
+  AND ($energyTypeId IS NULL OR et.id = $energyTypeId)
+RETURN rs { .*, energyTypeId: et.id, energyTypeName: et.name } AS rs, score
 ORDER BY score DESC, rs.priority ASC, rs.createdAt DESC
 SKIP toInteger($offset)
 LIMIT toInteger($limit)
@@ -64,20 +80,22 @@ LIMIT toInteger($limit)
 
 const COUNT_RANK_SYSTEMS = `
 MATCH (rs:${nodeLabels.rankSystem})
+OPTIONAL MATCH (rs)-[:${relationTypes.usesEnergy}]->(et:${nodeLabels.energyType})
 WHERE
   ($name IS NULL OR toLower(rs.name) CONTAINS toLower($name))
   AND ($domain IS NULL OR rs.domain = $domain)
-  AND ($energyType IS NULL OR rs.energyType = $energyType)
+  AND ($energyTypeId IS NULL OR et.id = $energyTypeId)
 RETURN count(rs) AS total
 `;
 
 const COUNT_RANK_SYSTEMS_BY_SEARCH = `
 CALL db.index.fulltext.queryNodes("rank_system_search", $q) YIELD node, score
 WITH node AS rs, score
+OPTIONAL MATCH (rs)-[:${relationTypes.usesEnergy}]->(et:${nodeLabels.energyType})
 WHERE
   ($name IS NULL OR toLower(rs.name) CONTAINS toLower($name))
   AND ($domain IS NULL OR rs.domain = $domain)
-  AND ($energyType IS NULL OR rs.energyType = $energyType)
+  AND ($energyTypeId IS NULL OR et.id = $energyTypeId)
 RETURN count(rs) AS total
 `;
 
@@ -99,6 +117,7 @@ const RANK_SYSTEM_PARAMS = [
   "code",
   "description",
   "domain",
+  "energyTypeId",
   "energyType",
   "priority",
   "isPrimary",
@@ -121,7 +140,7 @@ export const createRankSystem = async (
     const result = await session.run(CREATE_RANK_SYSTEM, params);
     const record = result.records[0];
     const node = record?.get("rs");
-    return mapNode(node?.properties ?? data) as RankSystemNode;
+    return mapNode(node ?? data) as RankSystemNode;
   } finally {
     await session.close();
   }
@@ -140,7 +159,7 @@ export const updateRankSystem = async (
       return null;
     }
     const node = record.get("rs");
-    return mapNode(node?.properties ?? data) as RankSystemNode;
+    return mapNode(node ?? data) as RankSystemNode;
   } finally {
     await session.close();
   }
@@ -157,13 +176,13 @@ export const getRankSystems = async (
       q: query.q ?? "",
       name: query.name ?? null,
       domain: query.domain ?? null,
-      energyType: query.energyType ?? null,
+      energyTypeId: query.energyTypeId ?? null,
       offset: query.offset ?? 0,
       limit: query.limit ?? 50,
     });
     return result.records.map((record) => {
       const node = record.get("rs");
-      return mapNode(node?.properties ?? {}) as RankSystemNode;
+      return mapNode(node ?? {}) as RankSystemNode;
     });
   } finally {
     await session.close();
@@ -183,7 +202,7 @@ export const getRankSystemCount = async (
       q: query.q ?? "",
       name: query.name ?? null,
       domain: query.domain ?? null,
-      energyType: query.energyType ?? null,
+      energyTypeId: query.energyTypeId ?? null,
     });
     const total = result.records[0]?.get("total");
     if (neo4j.isInt(total)) {

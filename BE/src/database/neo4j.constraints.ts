@@ -40,6 +40,8 @@ const constraintStatements = [
   "CREATE CONSTRAINT worldrule_title_unique IF NOT EXISTS FOR (n:WorldRule) REQUIRE n.title IS UNIQUE",
   "CREATE CONSTRAINT relationship_type_id_unique IF NOT EXISTS FOR (n:RelationshipType) REQUIRE n.id IS UNIQUE",
   "CREATE CONSTRAINT relationship_type_code_unique IF NOT EXISTS FOR (n:RelationshipType) REQUIRE n.code IS UNIQUE",
+  "CREATE CONSTRAINT energy_type_id_unique IF NOT EXISTS FOR (n:EnergyType) REQUIRE n.id IS UNIQUE",
+  "CREATE CONSTRAINT energy_type_code_unique IF NOT EXISTS FOR (n:EnergyType) REQUIRE n.code IS UNIQUE",
   "CREATE FULLTEXT INDEX character_search IF NOT EXISTS FOR (n:Character) ON EACH [n.name, n.alias, n.background, n.appearance, n.notes]",
   "CREATE FULLTEXT INDEX race_search IF NOT EXISTS FOR (n:Race) ON EACH [n.name, n.alias, n.description, n.notes]",
   "CREATE FULLTEXT INDEX rank_search IF NOT EXISTS FOR (n:Rank) ON EACH [n.name, n.alias, n.description, n.notes]",
@@ -58,6 +60,7 @@ const constraintStatements = [
   "CREATE FULLTEXT INDEX item_search IF NOT EXISTS FOR (n:Item) ON EACH [n.name, n.origin, n.powerDescription, n.notes]",
   "CREATE FULLTEXT INDEX worldrule_search IF NOT EXISTS FOR (n:WorldRule) ON EACH [n.title, n.description, n.constraints, n.exceptions, n.notes]",
   "CREATE FULLTEXT INDEX relationship_type_search IF NOT EXISTS FOR (n:RelationshipType) ON EACH [n.code, n.name, n.description]",
+  "CREATE FULLTEXT INDEX energy_type_search IF NOT EXISTS FOR (n:EnergyType) ON EACH [n.code, n.name, n.description]",
 ];
 
 export const ensureConstraintsForDatabase = async (

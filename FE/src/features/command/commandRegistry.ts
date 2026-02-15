@@ -24,6 +24,7 @@ export const commandRegistry: CommandDefinition[] = [
   { code: "SC01", label: "Scenes", route: "/scenes" },
   { code: "RL01", label: "Relationships", route: "/relationships" },
   { code: "RT01", label: "Relationship Types", route: "/relationship-types" },
+  { code: "EN01", label: "Energy Types", route: "/energy-types" },
   { code: "CF01", label: "Conflicts", route: "/conflicts" },
   { code: "SM01", label: "Schemas", route: "/schemas" },
   { code: "ND01", label: "Node Documentation", route: "/node-docs" },

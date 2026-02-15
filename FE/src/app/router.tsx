@@ -10,6 +10,7 @@ import { SceneCreate } from "../features/scene/SceneCreate";
 import { ItemCreate } from "../features/item/ItemCreate";
 import { RelationshipCreate } from "../features/relationship/RelationshipCreate";
 import { RelationshipTypeCreate } from "../features/relationship-type/RelationshipTypeCreate";
+import { EnergyTypeCreate } from "../features/energy-type/EnergyTypeCreate";
 import { ConflictCheck } from "../features/conflict/ConflictCheck";
 import { WorldRuleCreate } from "../features/worldrule/WorldRuleCreate";
 import { RaceCreate } from "../features/race/RaceCreate";
@@ -49,6 +50,7 @@ export const AppRouter = () => {
       <Route path="/items" element={<ItemCreate />} />
       <Route path="/relationships" element={<RelationshipCreate />} />
       <Route path="/relationship-types" element={<RelationshipTypeCreate />} />
+      <Route path="/energy-types" element={<EnergyTypeCreate />} />
       <Route path="/world-rules" element={<WorldRuleCreate />} />
       <Route path="/conflicts" element={<ConflictCheck />} />
       <Route path="/settings" element={<Settings />} />

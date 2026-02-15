@@ -133,7 +133,8 @@ export const nodeDocs: NodeDoc[] = [
       "code",
       "description",
       "domain",
-      "energyType",
+      "energyTypeId",
+      "energyTypeName",
       "priority",
       "isPrimary",
       "tags[]",
@@ -149,6 +150,28 @@ export const nodeDocs: NodeDoc[] = [
     notes: [
       "code là mã ngắn của cả hệ, không phải rankId",
       "domain dùng để nhóm ngữ nghĩa hệ",
+    ],
+  },
+  {
+    id: "energy-type",
+    name: "Energy Type",
+    nodeLabel: "EnergyType",
+    module: "energy-type",
+    tCode: "EN01",
+    route: "/energy-types",
+    purpose: "Master data loại năng lượng dùng bởi các hệ thống cấp bậc.",
+    requiredFields: ["code", "name"],
+    optionalFields: ["description", "color", "isActive"],
+    relations: ["USES_ENERGY <- RankSystem"],
+    apis: [
+      "GET /energy-types",
+      "POST /energy-types",
+      "PUT /energy-types/:id",
+      "DELETE /energy-types/:id",
+    ],
+    notes: [
+      "Dùng để chuẩn hóa nguồn năng lượng thay vì nhập text tự do",
+      "Có thể bật/tắt hoạt động để ẩn khỏi lựa chọn",
     ],
   },
   {

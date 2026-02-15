@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/common/Button";
 import { FilterPanel } from "../../components/common/FilterPanel";
 import { Pagination } from "../../components/common/Pagination";
@@ -26,13 +27,15 @@ import { RankSystemList } from "./RankSystemList";
 import { validateRankSystem } from "./rank-system.schema";
 import type { RankSystem, RankSystemPayload } from "./rank-system.types";
 import boardIcon from "../../assets/icons/board.svg";
+import { getEnergyTypes } from "../energy-type/energy-type.api";
+import type { EnergyType } from "../energy-type/energy-type.types";
 
 const initialState = {
   name: "",
   code: "",
   description: "",
   domain: "",
-  energyType: "",
+  energyTypeId: "",
   priority: "",
   isPrimary: false,
   tags: [] as string[],
@@ -43,10 +46,12 @@ const CUSTOM_CODE_VALUE = "__custom__";
 
 export const RankSystemCreate = () => {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const { values, setField, reset } = useForm<RankSystemFormState>(initialState);
   const [items, setItems] = useState<RankSystem[]>([]);
   const [allRankSystems, setAllRankSystems] = useState<RankSystem[]>([]);
   const [allRanks, setAllRanks] = useState<Rank[]>([]);
+  const [energyTypes, setEnergyTypes] = useState<EnergyType[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<RankSystem | null>(null);
   const [editValues, setEditValues] = useState<RankSystemFormState | null>(null);
@@ -61,7 +66,7 @@ export const RankSystemCreate = () => {
     q: "",
     name: "",
     domain: "",
-    energyType: "",
+    energyTypeId: "",
   });
   const [refreshKey, setRefreshKey] = useState(0);
   const { notify } = useToast();
@@ -131,6 +136,15 @@ export const RankSystemCreate = () => {
     }
   }, [getRanksPage, notify]);
 
+  const loadEnergyTypeItems = useCallback(async () => {
+    try {
+      const data = await getEnergyTypes(false);
+      setEnergyTypes(data ?? []);
+    } catch (err) {
+      notify((err as Error).message, "error");
+    }
+  }, [notify]);
+
   useEffect(() => {
     if (!showList) {
       return;
@@ -151,6 +165,10 @@ export const RankSystemCreate = () => {
     }
     void loadAllRanks();
   }, [loadAllRanks, refreshKey, showLandscape]);
+
+  useEffect(() => {
+    void loadEnergyTypeItems();
+  }, [loadEnergyTypeItems, refreshKey]);
 
   useProjectChange(() => {
     setPage(1);
@@ -179,17 +197,32 @@ export const RankSystemCreate = () => {
     [existingCodes, t]
   );
 
+  const energyTypeOptions = useMemo(
+    () => [
+      ...energyTypes.map((item) => ({
+        value: item.id,
+        label: `${item.name} (${item.code})`,
+      })),
+      { value: "__create__", label: t("Create energy type") },
+    ],
+    [energyTypes, t]
+  );
+
   const handleFilterChange = (
-    key: "q" | "name" | "domain" | "energyType",
+    key: "q" | "name" | "domain" | "energyTypeId",
     value: string
   ) => {
+    if (key === "energyTypeId" && value === "__create__") {
+      navigate("/energy-types");
+      return;
+    }
     setPage(1);
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleClearFilters = () => {
     setPage(1);
-    setFilters({ q: "", name: "", domain: "", energyType: "" });
+    setFilters({ q: "", name: "", domain: "", energyTypeId: "" });
   };
 
   const mapRankSystemToForm = (item: RankSystem): RankSystemFormState => ({
@@ -197,7 +230,7 @@ export const RankSystemCreate = () => {
     code: item.code ?? "",
     description: item.description ?? "",
     domain: item.domain ?? "",
-    energyType: item.energyType ?? "",
+    energyTypeId: item.energyTypeId ?? "",
     priority: item.priority === undefined || item.priority === null ? "" : String(item.priority),
     isPrimary: Boolean(item.isPrimary),
     tags: item.tags ?? [],
@@ -208,7 +241,7 @@ export const RankSystemCreate = () => {
     code: state.code || undefined,
     description: state.description || undefined,
     domain: state.domain || undefined,
-    energyType: state.energyType || undefined,
+    energyTypeId: state.energyTypeId || undefined,
     priority: state.priority === "" ? undefined : Number(state.priority),
     isPrimary: state.isPrimary,
     tags: state.tags,
@@ -334,10 +367,12 @@ export const RankSystemCreate = () => {
             value={filters.domain}
             onChange={(value) => handleFilterChange("domain", value)}
           />
-          <TextInput
+          <Select
             label="Energy Type"
-            value={filters.energyType}
-            onChange={(value) => handleFilterChange("energyType", value)}
+            value={filters.energyTypeId}
+            onChange={(value) => handleFilterChange("energyTypeId", value)}
+            options={energyTypeOptions}
+            placeholder={energyTypes.length > 0 ? "All" : "No energy types yet."}
           />
           <div className="form-field filter-actions">
             <Button type="button" variant="ghost" onClick={handleClearFilters}>
@@ -465,12 +500,20 @@ export const RankSystemCreate = () => {
               />
             </div>
             <div className="form-field--narrow">
-              <TextInput
+              <Select
                 label="Energy Type"
-                value={editValues.energyType}
-                onChange={(value) =>
-                  setEditValues((prev) => prev && { ...prev, energyType: value })
-                }
+                value={editValues.energyTypeId}
+                onChange={(value) => {
+                  if (value === "__create__") {
+                    navigate("/energy-types");
+                    return;
+                  }
+                  setEditValues((prev) =>
+                    prev ? { ...prev, energyTypeId: value } : prev
+                  );
+                }}
+                options={energyTypeOptions}
+                placeholder={t("Select")}
               />
             </div>
             <div className="form-field--narrow">
@@ -574,10 +617,18 @@ export const RankSystemCreate = () => {
               />
             </div>
             <div className="form-field--narrow">
-              <TextInput
+              <Select
                 label="Energy Type"
-                value={values.energyType}
-                onChange={(value) => setField("energyType", value)}
+                value={values.energyTypeId}
+                onChange={(value) => {
+                  if (value === "__create__") {
+                    navigate("/energy-types");
+                    return;
+                  }
+                  setField("energyTypeId", value);
+                }}
+                options={energyTypeOptions}
+                placeholder={t("Select")}
               />
             </div>
             <div className="form-field--narrow">

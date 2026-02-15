@@ -19,4 +19,5 @@ export const nodeLabels = {
   item: "Item",
   worldRule: "WorldRule",
   relationshipType: "RelationshipType",
+  energyType: "EnergyType",
 };

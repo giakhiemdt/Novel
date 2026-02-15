@@ -22,6 +22,7 @@ export const endpoints = {
   scenes: "/scenes",
   items: "/items",
   relationshipTypes: "/relationship-types",
+  energyTypes: "/energy-types",
   characterRelations: "/character-relations",
   conflicts: "/conflicts",
   worldRules: "/world-rules",

@@ -15,6 +15,7 @@ import {
   RankSystemNode,
 } from "./rank-system.types";
 import { RankListQuery, RankNode } from "../rank/rank.types";
+import { getEnergyTypeById } from "../energy-type/energy-type.repo";
 
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
@@ -164,8 +165,8 @@ const validateRankSystemPayload = (payload: unknown): RankSystemInput => {
   addIfDefined(result, "domain", assertOptionalString(data.domain, "domain"));
   addIfDefined(
     result,
-    "energyType",
-    assertOptionalString(data.energyType, "energyType")
+    "energyTypeId",
+    assertOptionalString(data.energyTypeId, "energyTypeId")
   );
   addIfDefined(result, "priority", assertOptionalNumber(data.priority, "priority"));
   addIfDefined(result, "isPrimary", assertOptionalBoolean(data.isPrimary, "isPrimary"));
@@ -206,8 +207,8 @@ const parseRankSystemListQuery = (query: unknown): RankSystemListQuery => {
   addIfDefined(result, "domain", parseOptionalQueryString(data.domain, "domain"));
   addIfDefined(
     result,
-    "energyType",
-    parseOptionalQueryString(data.energyType, "energyType")
+    "energyTypeId",
+    parseOptionalQueryString(data.energyTypeId, "energyTypeId")
   );
 
   return result;
@@ -253,6 +254,14 @@ export const rankSystemService = {
   create: async (payload: unknown, dbName: unknown): Promise<RankSystemNode> => {
     const database = assertDatabaseName(dbName);
     const validated = validateRankSystemPayload(payload);
+    let resolvedEnergyTypeName: string | undefined = undefined;
+    if (validated.energyTypeId) {
+      const energyType = await getEnergyTypeById(database, validated.energyTypeId);
+      if (!energyType) {
+        throw new AppError("energy type not found", 404);
+      }
+      resolvedEnergyTypeName = energyType.name;
+    }
     const now = new Date().toISOString();
     const node: RankSystemNode = {
       ...validated,
@@ -261,6 +270,9 @@ export const rankSystemService = {
       createdAt: now,
       updatedAt: now,
     };
+    if (resolvedEnergyTypeName !== undefined) {
+      node.energyType = resolvedEnergyTypeName;
+    }
     return createRankSystem(node, database);
   },
   update: async (
@@ -270,6 +282,14 @@ export const rankSystemService = {
   ): Promise<RankSystemNode> => {
     const database = assertDatabaseName(dbName);
     const validated = validateRankSystemPayload(payload);
+    let resolvedEnergyTypeName: string | undefined = undefined;
+    if (validated.energyTypeId) {
+      const energyType = await getEnergyTypeById(database, validated.energyTypeId);
+      if (!energyType) {
+        throw new AppError("energy type not found", 404);
+      }
+      resolvedEnergyTypeName = energyType.name;
+    }
     const now = new Date().toISOString();
     const node: RankSystemNode = {
       ...validated,
@@ -278,6 +298,9 @@ export const rankSystemService = {
       createdAt: now,
       updatedAt: now,
     };
+    if (resolvedEnergyTypeName !== undefined) {
+      node.energyType = resolvedEnergyTypeName;
+    }
     const updated = await updateRankSystem(node, database);
     if (!updated) {
       throw new AppError("rank system not found", 404);

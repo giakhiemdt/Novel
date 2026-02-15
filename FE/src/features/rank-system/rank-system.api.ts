@@ -14,7 +14,7 @@ export type RankSystemListQuery = {
   q?: string;
   name?: string;
   domain?: string;
-  energyType?: string;
+  energyTypeId?: string;
 };
 
 export const getRankSystemsPage = (query: RankSystemListQuery) =>
