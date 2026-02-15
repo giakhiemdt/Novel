@@ -464,7 +464,23 @@ h3 {
 
 .topbar__search {
   position: relative;
-  width: min(420px, 100%);
+  width: min(620px, 100%);
+}
+
+.topbar__search-icon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  width: 22px;
+  height: 22px;
+  transform: translateY(-50%);
+  object-fit: contain;
+  pointer-events: none;
+  filter: none;
+}
+
+:root[data-theme="light"] .topbar__search-icon {
+  filter: brightness(0) saturate(100%) opacity(0.7);
 }
 
 .topbar__input {
@@ -472,7 +488,7 @@ h3 {
   border: none;
   background: var(--surface-muted);
   box-shadow: none;
-  padding: 7px 10px;
+  padding: 7px 10px 7px 40px;
 }
 
 .topbar__suggestions {

@@ -4,6 +4,7 @@ import { Button } from "../common/Button";
 import { useI18n } from "../../i18n/I18nProvider";
 import { commandRegistry, normalizeCommand } from "../../features/command/commandRegistry";
 import backIcon from "../../assets/icons/arrow_back.svg";
+import searchIcon from "../../assets/icons/search.svg";
 import docsIcon from "../../assets/icons/docs.svg";
 import settingsIcon from "../../assets/icons/settings.svg";
 
@@ -15,6 +16,7 @@ export const TopBar = ({ onBack }: TopBarProps) => {
   const { t } = useI18n();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
 
   const commandMap = useMemo(
     () => new Map(commandRegistry.map((command) => [command.code, command])),
@@ -50,6 +52,16 @@ export const TopBar = ({ onBack }: TopBarProps) => {
     }
   };
 
+  const handleSelectSuggestion = (index: number) => {
+    const suggestion = suggestions[index];
+    if (!suggestion) {
+      return;
+    }
+    navigate(suggestion.route);
+    setQuery("");
+    setActiveSuggestionIndex(-1);
+  };
+
   return (
     <div className="topbar">
       <div className="topbar__left">
@@ -64,28 +76,62 @@ export const TopBar = ({ onBack }: TopBarProps) => {
       </div>
       <div className="topbar__center">
         <div className="topbar__search">
+          <img src={searchIcon} alt="" className="topbar__search-icon" />
           <input
             className="input topbar__input"
             placeholder={t("Type a T-code or name.")}
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setActiveSuggestionIndex(-1);
+            }}
             onKeyDown={(event) => {
+              if (event.key === "ArrowDown") {
+                event.preventDefault();
+                if (!suggestions.length) {
+                  return;
+                }
+                setActiveSuggestionIndex((prev) =>
+                  prev < suggestions.length - 1 ? prev + 1 : 0
+                );
+                return;
+              }
+              if (event.key === "ArrowUp") {
+                event.preventDefault();
+                if (!suggestions.length) {
+                  return;
+                }
+                setActiveSuggestionIndex((prev) =>
+                  prev > 0 ? prev - 1 : suggestions.length - 1
+                );
+                return;
+              }
               if (event.key === "Enter") {
                 event.preventDefault();
+                if (
+                  activeSuggestionIndex >= 0 &&
+                  activeSuggestionIndex < suggestions.length
+                ) {
+                  handleSelectSuggestion(activeSuggestionIndex);
+                  return;
+                }
                 handleCommand();
+              }
+              if (event.key === "Escape") {
+                setActiveSuggestionIndex(-1);
               }
             }}
           />
           {suggestions.length > 0 && (
             <div className="command-list topbar__suggestions">
-              {suggestions.map((command) => (
+              {suggestions.map((command, index) => (
                 <div
                   key={command.code}
-                  className="command-item"
-                  onClick={() => {
-                    navigate(command.route);
-                    setQuery("");
-                  }}
+                  className={`command-item ${
+                    index === activeSuggestionIndex ? "command-item--active" : ""
+                  }`}
+                  onMouseEnter={() => setActiveSuggestionIndex(index)}
+                  onClick={() => handleSelectSuggestion(index)}
                 >
                   <div>
                     <strong>{command.code}</strong>
