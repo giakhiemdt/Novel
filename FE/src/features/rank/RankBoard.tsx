@@ -523,28 +523,6 @@ export const RankBoard = ({
     return { positions, width, height };
   }, [childrenById, itemsWithId, roots]);
 
-  useEffect(() => {
-    if (itemsWithId.length === 0) {
-      return;
-    }
-    const validIds = new Set(itemsWithId.map((item) => item.id));
-    setManualPositions((prev) => {
-      let changed = false;
-      const next: Record<string, Position> = {};
-      Object.entries(prev).forEach(([id, pos]) => {
-        if (validIds.has(id)) {
-          next[id] = pos;
-        } else {
-          changed = true;
-        }
-      });
-      if (changed) {
-        onPositionsChange?.(next);
-      }
-      return changed ? next : prev;
-    });
-  }, [itemsWithId, onPositionsChange]);
-
   const selectedItem = useMemo(
     () => itemsWithId.find((item) => item.id === selectedId) ?? null,
     [itemsWithId, selectedId]
@@ -676,47 +654,6 @@ export const RankBoard = ({
     });
     return map;
   }, [conditionNodes]);
-
-  useEffect(() => {
-    const validIds = new Set(conditionNodes.map((node) => node.id));
-    setManualConditionNodePositions((prev) => {
-      let changed = false;
-      const next: Record<string, Position> = {};
-      Object.entries(prev).forEach(([id, pos]) => {
-        if (validIds.has(id)) {
-          next[id] = pos;
-        } else {
-          changed = true;
-        }
-      });
-      if (changed) {
-        onConditionNodePositionsChange?.(next);
-      }
-      return changed ? next : prev;
-    });
-  }, [conditionNodes, onConditionNodePositionsChange]);
-
-  useEffect(() => {
-    const valid = new Set<string>();
-    Object.entries(incomingById).forEach(([childId, parentIds]) => {
-      parentIds.forEach((parentId) => valid.add(`${parentId}-${childId}`));
-    });
-    setManualLinkBends((prev) => {
-      let changed = false;
-      const next: Record<string, LinkBend> = {};
-      Object.entries(prev).forEach(([key, bend]) => {
-        if (valid.has(key)) {
-          next[key] = bend;
-        } else {
-          changed = true;
-        }
-      });
-      if (changed) {
-        onLinkBendsChange?.(next);
-      }
-      return changed ? next : prev;
-    });
-  }, [incomingById, onLinkBendsChange]);
 
   const worldBounds = useMemo<WorldBounds>(() => {
     let minX = Number.POSITIVE_INFINITY;
