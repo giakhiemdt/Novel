@@ -58,7 +58,13 @@ export const TopBar = ({ sidebarOpen, onToggleSidebar, onBack }: TopBarProps) =>
           className="topbar__button topbar__button--icon"
           aria-label={t("Back")}
         >
-          <span className="topbar__icon topbar__icon--back" aria-hidden="true" />
+          <svg
+            className="topbar__icon topbar__icon--back"
+            viewBox="0 -960 960 960"
+            aria-hidden="true"
+          >
+            <path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80H313Z" />
+          </svg>
         </Button>
         <Button variant="ghost" onClick={onToggleSidebar} className="topbar__button">
           {sidebarOpen ? t("Hide sidebar") : t("Show sidebar")}

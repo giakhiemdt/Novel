@@ -454,17 +454,19 @@ h3 {
 .topbar__icon {
   width: 18px;
   height: 18px;
-  display: inline-block;
+  display: block;
 }
 
 .topbar__icon--back {
-  background-color: var(--color-ink);
-  -webkit-mask: url("../assets/icons/arrow_back.svg") center / contain no-repeat;
-  mask: url("../assets/icons/arrow_back.svg") center / contain no-repeat;
+  color: var(--color-ink);
+}
+
+.topbar__icon--back path {
+  fill: currentColor;
 }
 
 :root[data-theme="light"] .topbar__icon--back {
-  background-color: var(--color-ink-soft);
+  color: var(--color-ink-soft);
 }
 
 .topbar .button {
