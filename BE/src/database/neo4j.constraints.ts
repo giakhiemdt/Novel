@@ -43,7 +43,7 @@ const constraintStatements = [
   "CREATE FULLTEXT INDEX character_search IF NOT EXISTS FOR (n:Character) ON EACH [n.name, n.alias, n.background, n.appearance, n.notes]",
   "CREATE FULLTEXT INDEX race_search IF NOT EXISTS FOR (n:Race) ON EACH [n.name, n.alias, n.description, n.notes]",
   "CREATE FULLTEXT INDEX rank_search IF NOT EXISTS FOR (n:Rank) ON EACH [n.name, n.alias, n.description, n.notes]",
-  "CREATE FULLTEXT INDEX rank_system_search IF NOT EXISTS FOR (n:RankSystem) ON EACH [n.name, n.code, n.description, n.domain]",
+  "CREATE FULLTEXT INDEX rank_system_search IF NOT EXISTS FOR (n:RankSystem) ON EACH [n.name, n.code, n.description, n.domain, n.energyType]",
   "CREATE FULLTEXT INDEX map_system_search IF NOT EXISTS FOR (n:MapSystem) ON EACH [n.name, n.code, n.description, n.scope, n.notes]",
   "CREATE FULLTEXT INDEX special_ability_search IF NOT EXISTS FOR (n:SpecialAbility) ON EACH [n.name, n.description, n.notes]",
   "CREATE FULLTEXT INDEX event_search IF NOT EXISTS FOR (n:Event) ON EACH [n.name, n.summary, n.description, n.notes]",

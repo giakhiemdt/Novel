@@ -212,6 +212,8 @@ const vi: Dictionary = {
   "Map system deleted.": "Đã xoá hệ thống bản đồ.",
   "Rank system landscape": "Bản đồ hệ thống cấp bậc",
   "Compare systems side by side, grouped by tier.": "So sánh các hệ thống theo chiều ngang, nhóm theo tầng.",
+  "Energy Type": "Loại năng lượng",
+  "Core identity, domain, energy, and priority.": "Thông tin cốt lõi, miền, năng lượng và độ ưu tiên.",
   "Unassigned ranks": "Rank chưa gán hệ thống",
   "No rank systems available.": "Chưa có hệ thống cấp bậc nào.",
   "No rank in this system.": "Chưa có rank trong hệ thống này.",

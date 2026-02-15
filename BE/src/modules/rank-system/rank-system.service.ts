@@ -162,6 +162,11 @@ const validateRankSystemPayload = (payload: unknown): RankSystemInput => {
     assertOptionalString(data.description, "description")
   );
   addIfDefined(result, "domain", assertOptionalString(data.domain, "domain"));
+  addIfDefined(
+    result,
+    "energyType",
+    assertOptionalString(data.energyType, "energyType")
+  );
   addIfDefined(result, "priority", assertOptionalNumber(data.priority, "priority"));
   addIfDefined(result, "isPrimary", assertOptionalBoolean(data.isPrimary, "isPrimary"));
   addIfDefined(result, "tags", assertOptionalStringArray(data.tags, "tags"));
@@ -199,6 +204,11 @@ const parseRankSystemListQuery = (query: unknown): RankSystemListQuery => {
   addIfDefined(result, "q", parseOptionalQueryString(data.q, "q"));
   addIfDefined(result, "name", parseOptionalQueryString(data.name, "name"));
   addIfDefined(result, "domain", parseOptionalQueryString(data.domain, "domain"));
+  addIfDefined(
+    result,
+    "energyType",
+    parseOptionalQueryString(data.energyType, "energyType")
+  );
 
   return result;
 };

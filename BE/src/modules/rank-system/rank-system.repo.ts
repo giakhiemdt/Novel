@@ -12,6 +12,7 @@ CREATE (rs:${nodeLabels.rankSystem} {
   code: $code,
   description: $description,
   domain: $domain,
+  energyType: $energyType,
   priority: $priority,
   isPrimary: $isPrimary,
   tags: $tags,
@@ -28,6 +29,7 @@ SET
   rs.code = $code,
   rs.description = $description,
   rs.domain = $domain,
+  rs.energyType = $energyType,
   rs.priority = $priority,
   rs.isPrimary = $isPrimary,
   rs.tags = $tags,
@@ -40,6 +42,7 @@ MATCH (rs:${nodeLabels.rankSystem})
 WHERE
   ($name IS NULL OR toLower(rs.name) CONTAINS toLower($name))
   AND ($domain IS NULL OR rs.domain = $domain)
+  AND ($energyType IS NULL OR rs.energyType = $energyType)
 RETURN rs
 ORDER BY rs.priority ASC, rs.createdAt DESC
 SKIP toInteger($offset)
@@ -52,6 +55,7 @@ WITH node AS rs, score
 WHERE
   ($name IS NULL OR toLower(rs.name) CONTAINS toLower($name))
   AND ($domain IS NULL OR rs.domain = $domain)
+  AND ($energyType IS NULL OR rs.energyType = $energyType)
 RETURN rs
 ORDER BY score DESC, rs.priority ASC, rs.createdAt DESC
 SKIP toInteger($offset)
@@ -63,6 +67,7 @@ MATCH (rs:${nodeLabels.rankSystem})
 WHERE
   ($name IS NULL OR toLower(rs.name) CONTAINS toLower($name))
   AND ($domain IS NULL OR rs.domain = $domain)
+  AND ($energyType IS NULL OR rs.energyType = $energyType)
 RETURN count(rs) AS total
 `;
 
@@ -72,6 +77,7 @@ WITH node AS rs, score
 WHERE
   ($name IS NULL OR toLower(rs.name) CONTAINS toLower($name))
   AND ($domain IS NULL OR rs.domain = $domain)
+  AND ($energyType IS NULL OR rs.energyType = $energyType)
 RETURN count(rs) AS total
 `;
 
@@ -93,6 +99,7 @@ const RANK_SYSTEM_PARAMS = [
   "code",
   "description",
   "domain",
+  "energyType",
   "priority",
   "isPrimary",
   "tags",
@@ -150,6 +157,7 @@ export const getRankSystems = async (
       q: query.q ?? "",
       name: query.name ?? null,
       domain: query.domain ?? null,
+      energyType: query.energyType ?? null,
       offset: query.offset ?? 0,
       limit: query.limit ?? 50,
     });
@@ -175,6 +183,7 @@ export const getRankSystemCount = async (
       q: query.q ?? "",
       name: query.name ?? null,
       domain: query.domain ?? null,
+      energyType: query.energyType ?? null,
     });
     const total = result.records[0]?.get("total");
     if (neo4j.isInt(total)) {

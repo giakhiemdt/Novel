@@ -16,6 +16,8 @@ const fieldDescriptions: Record<string, string> = {
   dbName: "Tên database Neo4j mà project sử dụng.",
   genre: "Nhóm thể loại của truyện/dữ liệu.",
   module: "Nhóm chức năng quản lý node.",
+  domain: "Miền/hệ quy chiếu chính của hệ thống cấp bậc.",
+  energyType: "Loại năng lượng cốt lõi mà hệ thống cấp bậc này sử dụng.",
   route: "Đường dẫn FE để mở màn hình quản lý.",
   tCode: "Mã lệnh nhanh trong command bar.",
   gender: "Giới tính nhân vật.",

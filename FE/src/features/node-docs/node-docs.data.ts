@@ -129,7 +129,15 @@ export const nodeDocs: NodeDoc[] = [
     route: "/rank-systems",
     purpose: "Khung hệ thống rank, chứa nhiều node Rank.",
     requiredFields: ["name"],
-    optionalFields: ["code", "description", "domain", "priority", "isPrimary", "tags[]"],
+    optionalFields: [
+      "code",
+      "description",
+      "domain",
+      "energyType",
+      "priority",
+      "isPrimary",
+      "tags[]",
+    ],
     relations: ["HAS_RANK -> Rank"],
     apis: [
       "GET /rank-systems",

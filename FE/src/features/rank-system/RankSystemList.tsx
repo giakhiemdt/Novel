@@ -53,6 +53,7 @@ export const RankSystemList = ({
         { label: t("Name"), value: item.name, size: "wide" },
         { label: t("Code"), value: item.code, size: "narrow" },
         { label: t("Domain"), value: item.domain, size: "narrow" },
+        { label: t("Energy Type"), value: item.energyType, size: "narrow" },
         { label: t("Priority"), value: item.priority, size: "narrow" },
         { label: t("Primary"), value: item.isPrimary, size: "narrow" },
       ],
@@ -75,6 +76,7 @@ export const RankSystemList = ({
             <th>{t("Name")}</th>
             <th>{t("Code")}</th>
             <th>{t("Domain")}</th>
+            <th>{t("Energy Type")}</th>
             <th>{t("Priority")}</th>
             <th>{t("Primary")}</th>
             <th>{t("Actions")}</th>
@@ -100,6 +102,7 @@ export const RankSystemList = ({
               </td>
               <td>{item.code ?? "-"}</td>
               <td>{item.domain ?? "-"}</td>
+              <td>{item.energyType ?? "-"}</td>
               <td>{item.priority ?? "-"}</td>
               <td>{item.isPrimary ? t("Yes") : t("No")}</td>
               <td className="table__actions">

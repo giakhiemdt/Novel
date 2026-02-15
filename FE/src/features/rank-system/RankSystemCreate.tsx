@@ -32,6 +32,7 @@ const initialState = {
   code: "",
   description: "",
   domain: "",
+  energyType: "",
   priority: "",
   isPrimary: false,
   tags: [] as string[],
@@ -60,6 +61,7 @@ export const RankSystemCreate = () => {
     q: "",
     name: "",
     domain: "",
+    energyType: "",
   });
   const [refreshKey, setRefreshKey] = useState(0);
   const { notify } = useToast();
@@ -177,14 +179,17 @@ export const RankSystemCreate = () => {
     [existingCodes, t]
   );
 
-  const handleFilterChange = (key: "q" | "name" | "domain", value: string) => {
+  const handleFilterChange = (
+    key: "q" | "name" | "domain" | "energyType",
+    value: string
+  ) => {
     setPage(1);
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleClearFilters = () => {
     setPage(1);
-    setFilters({ q: "", name: "", domain: "" });
+    setFilters({ q: "", name: "", domain: "", energyType: "" });
   };
 
   const mapRankSystemToForm = (item: RankSystem): RankSystemFormState => ({
@@ -192,6 +197,7 @@ export const RankSystemCreate = () => {
     code: item.code ?? "",
     description: item.description ?? "",
     domain: item.domain ?? "",
+    energyType: item.energyType ?? "",
     priority: item.priority === undefined || item.priority === null ? "" : String(item.priority),
     isPrimary: Boolean(item.isPrimary),
     tags: item.tags ?? [],
@@ -202,6 +208,7 @@ export const RankSystemCreate = () => {
     code: state.code || undefined,
     description: state.description || undefined,
     domain: state.domain || undefined,
+    energyType: state.energyType || undefined,
     priority: state.priority === "" ? undefined : Number(state.priority),
     isPrimary: state.isPrimary,
     tags: state.tags,
@@ -327,6 +334,11 @@ export const RankSystemCreate = () => {
             value={filters.domain}
             onChange={(value) => handleFilterChange("domain", value)}
           />
+          <TextInput
+            label="Energy Type"
+            value={filters.energyType}
+            onChange={(value) => handleFilterChange("energyType", value)}
+          />
           <div className="form-field filter-actions">
             <Button type="button" variant="ghost" onClick={handleClearFilters}>
               Clear filters
@@ -401,7 +413,7 @@ export const RankSystemCreate = () => {
 
           <FormSection
             title="Rank System Identity"
-            description="Core identity, domain, and priority."
+            description="Core identity, domain, energy, and priority."
           >
             <div className="form-field--wide">
               <TextInput
@@ -449,6 +461,15 @@ export const RankSystemCreate = () => {
                 value={editValues.domain}
                 onChange={(value) =>
                   setEditValues((prev) => prev && { ...prev, domain: value })
+                }
+              />
+            </div>
+            <div className="form-field--narrow">
+              <TextInput
+                label="Energy Type"
+                value={editValues.energyType}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, energyType: value })
                 }
               />
             </div>
@@ -514,7 +535,7 @@ export const RankSystemCreate = () => {
         <>
           <FormSection
             title="Rank System Identity"
-            description="Core identity, domain, and priority."
+            description="Core identity, domain, energy, and priority."
           >
             <div className="form-field--wide">
               <TextInput
@@ -550,6 +571,13 @@ export const RankSystemCreate = () => {
                 label="Domain"
                 value={values.domain}
                 onChange={(value) => setField("domain", value)}
+              />
+            </div>
+            <div className="form-field--narrow">
+              <TextInput
+                label="Energy Type"
+                value={values.energyType}
+                onChange={(value) => setField("energyType", value)}
               />
             </div>
             <div className="form-field--narrow">

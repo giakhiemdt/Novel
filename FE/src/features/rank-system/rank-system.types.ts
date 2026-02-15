@@ -4,6 +4,7 @@ export type RankSystemPayload = {
   code?: string;
   description?: string;
   domain?: string;
+  energyType?: string;
   priority?: number;
   isPrimary?: boolean;
   tags?: string[];
