@@ -223,6 +223,41 @@ const parseBoardLayoutLinkBends = (
   return linkBends;
 };
 
+const parseBoardLayoutConditionNodePositions = (
+  value: unknown
+): Record<string, { x: number; y: number }> => {
+  if (value === undefined || value === null) {
+    return {};
+  }
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new AppError("conditionNodePositions must be an object", 400);
+  }
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length > 5000) {
+    throw new AppError("conditionNodePositions contains too many entries", 400);
+  }
+  const positions: Record<string, { x: number; y: number }> = {};
+  entries.forEach(([id, pos]) => {
+    if (!pos || typeof pos !== "object" || Array.isArray(pos)) {
+      throw new AppError(`conditionNodePositions.${id} must be an object`, 400);
+    }
+    const point = pos as Record<string, unknown>;
+    if (
+      typeof point.x !== "number" ||
+      typeof point.y !== "number" ||
+      !Number.isFinite(point.x) ||
+      !Number.isFinite(point.y)
+    ) {
+      throw new AppError(
+        `conditionNodePositions.${id} must contain finite x/y numbers`,
+        400
+      );
+    }
+    positions[id] = { x: point.x, y: point.y };
+  });
+  return positions;
+};
+
 const validateRankPayload = (payload: unknown): RankInput => {
   if (!payload || typeof payload !== "object") {
     throw new AppError("payload must be an object", 400);
@@ -468,6 +503,14 @@ export const rankService = {
     const data = payload as Record<string, unknown>;
     const positions = parseBoardLayoutPositions(data.positions);
     const linkBends = parseBoardLayoutLinkBends(data.linkBends);
-    return saveRankBoardLayout(database, positions, linkBends);
+    const conditionNodePositions = parseBoardLayoutConditionNodePositions(
+      data.conditionNodePositions
+    );
+    return saveRankBoardLayout(
+      database,
+      positions,
+      linkBends,
+      conditionNodePositions
+    );
   },
 };

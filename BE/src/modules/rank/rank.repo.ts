@@ -193,6 +193,7 @@ MERGE (layout:${nodeLabels.rankBoardLayout} {id: 'rank-board-layout'})
 SET
   layout.positionsJson = $positionsJson,
   layout.linkBendsJson = $linkBendsJson,
+  layout.conditionNodePositionsJson = $conditionNodePositionsJson,
   layout.updatedAt = $updatedAt
 RETURN layout
 `;
@@ -529,11 +530,18 @@ export const getRankBoardLayout = async (
       node?.properties ?? {
         positionsJson: "{}",
         linkBendsJson: "{}",
+        conditionNodePositionsJson: "{}",
         updatedAt: new Date().toISOString(),
       }
-    ) as { positionsJson?: string; linkBendsJson?: string; updatedAt?: string };
+    ) as {
+      positionsJson?: string;
+      linkBendsJson?: string;
+      conditionNodePositionsJson?: string;
+      updatedAt?: string;
+    };
     let positions: Record<string, { x: number; y: number }> = {};
     let linkBends: Record<string, { midX: number }> = {};
+    let conditionNodePositions: Record<string, { x: number; y: number }> = {};
     if (typeof properties.positionsJson === "string") {
       try {
         const parsed = JSON.parse(properties.positionsJson) as Record<
@@ -560,9 +568,23 @@ export const getRankBoardLayout = async (
         linkBends = {};
       }
     }
+    if (typeof properties.conditionNodePositionsJson === "string") {
+      try {
+        const parsed = JSON.parse(properties.conditionNodePositionsJson) as Record<
+          string,
+          { x: number; y: number }
+        >;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          conditionNodePositions = parsed;
+        }
+      } catch {
+        conditionNodePositions = {};
+      }
+    }
     return {
       positions,
       linkBends,
+      conditionNodePositions,
       updatedAt:
         typeof properties.updatedAt === "string"
           ? properties.updatedAt
@@ -576,7 +598,8 @@ export const getRankBoardLayout = async (
 export const saveRankBoardLayout = async (
   database: string,
   positions: Record<string, { x: number; y: number }>,
-  linkBends: Record<string, { midX: number }>
+  linkBends: Record<string, { midX: number }>,
+  conditionNodePositions: Record<string, { x: number; y: number }>
 ): Promise<RankBoardLayout> => {
   const session = getSessionForDatabase(database, neo4j.session.WRITE);
   try {
@@ -584,6 +607,7 @@ export const saveRankBoardLayout = async (
     const result = await session.run(UPSERT_RANK_BOARD_LAYOUT, {
       positionsJson: JSON.stringify(positions),
       linkBendsJson: JSON.stringify(linkBends),
+      conditionNodePositionsJson: JSON.stringify(conditionNodePositions),
       updatedAt,
     });
     const node = result.records[0]?.get("layout");
@@ -591,11 +615,19 @@ export const saveRankBoardLayout = async (
       node?.properties ?? {
         positionsJson: JSON.stringify(positions),
         linkBendsJson: JSON.stringify(linkBends),
+        conditionNodePositionsJson: JSON.stringify(conditionNodePositions),
         updatedAt,
       }
-    ) as { positionsJson?: string; linkBendsJson?: string; updatedAt?: string };
+    ) as {
+      positionsJson?: string;
+      linkBendsJson?: string;
+      conditionNodePositionsJson?: string;
+      updatedAt?: string;
+    };
     let parsedPositions: Record<string, { x: number; y: number }> = positions;
     let parsedLinkBends: Record<string, { midX: number }> = linkBends;
+    let parsedConditionNodePositions: Record<string, { x: number; y: number }> =
+      conditionNodePositions;
     if (typeof properties.positionsJson === "string") {
       try {
         const parsed = JSON.parse(properties.positionsJson) as Record<
@@ -622,9 +654,23 @@ export const saveRankBoardLayout = async (
         parsedLinkBends = linkBends;
       }
     }
+    if (typeof properties.conditionNodePositionsJson === "string") {
+      try {
+        const parsed = JSON.parse(properties.conditionNodePositionsJson) as Record<
+          string,
+          { x: number; y: number }
+        >;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          parsedConditionNodePositions = parsed;
+        }
+      } catch {
+        parsedConditionNodePositions = conditionNodePositions;
+      }
+    }
     return {
       positions: parsedPositions,
       linkBends: parsedLinkBends,
+      conditionNodePositions: parsedConditionNodePositions,
       updatedAt:
         typeof properties.updatedAt === "string"
           ? properties.updatedAt

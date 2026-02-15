@@ -1567,9 +1567,13 @@ h3 {
   align-items: center;
   justify-content: center;
   text-align: center;
-  cursor: pointer;
+  cursor: grab;
   z-index: 3;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.rank-condition-node:active {
+  cursor: grabbing;
 }
 
 .rank-condition-node:hover {

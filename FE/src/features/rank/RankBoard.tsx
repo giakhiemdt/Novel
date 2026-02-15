@@ -22,12 +22,16 @@ type RankBoardProps = {
   selectedLink?: { currentId: string; previousId: string } | null;
   initialPositions?: Record<string, Position>;
   initialLinkBends?: Record<string, LinkBend>;
+  initialConditionNodePositions?: Record<string, Position>;
   onSelect?: (item: Rank | null) => void;
   onSelectLink?: (link: RankLinkSelection | null) => void;
   onLink: (currentId: string, previousId: string) => void;
   onUnlink: (currentId: string, previousId: string) => void;
   onPositionsChange?: (positions: Record<string, Position>) => void;
   onLinkBendsChange?: (linkBends: Record<string, LinkBend>) => void;
+  onConditionNodePositionsChange?: (
+    conditionNodePositions: Record<string, Position>
+  ) => void;
   onColorChange?: (id: string, color: string) => void;
   isSavingColor?: boolean;
 };
@@ -203,6 +207,29 @@ const sanitizeLinkBends = (
   return next;
 };
 
+const sanitizeConditionNodePositions = (
+  value: Record<string, Position> | undefined
+): Record<string, Position> => {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+  const next: Record<string, Position> = {};
+  Object.entries(value).forEach(([key, pos]) => {
+    if (
+      pos &&
+      typeof pos === "object" &&
+      !Array.isArray(pos) &&
+      typeof pos.x === "number" &&
+      typeof pos.y === "number" &&
+      Number.isFinite(pos.x) &&
+      Number.isFinite(pos.y)
+    ) {
+      next[key] = { x: pos.x, y: pos.y };
+    }
+  });
+  return next;
+};
+
 const mergeLinkBendsForLink = (
   current: Record<string, LinkBend>,
   linkKey: string,
@@ -234,12 +261,14 @@ export const RankBoard = ({
   selectedLink,
   initialPositions,
   initialLinkBends,
+  initialConditionNodePositions,
   onSelect,
   onSelectLink,
   onLink,
   onUnlink,
   onPositionsChange,
   onLinkBendsChange,
+  onConditionNodePositionsChange,
   onColorChange,
   isSavingColor = false,
 }: RankBoardProps) => {
@@ -250,6 +279,9 @@ export const RankBoard = ({
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [manualPositions, setManualPositions] = useState<Record<string, Position>>({});
   const [manualLinkBends, setManualLinkBends] = useState<Record<string, LinkBend>>({});
+  const [manualConditionNodePositions, setManualConditionNodePositions] = useState<
+    Record<string, Position>
+  >({});
 
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 });
@@ -266,6 +298,11 @@ export const RankBoard = ({
 
   const [isMinimapDragging, setIsMinimapDragging] = useState(false);
   const [draggingBend, setDraggingBend] = useState<LinkHandle | null>(null);
+  const [draggingConditionNodeId, setDraggingConditionNodeId] = useState<string | null>(null);
+  const [conditionDragOffset, setConditionDragOffset] = useState<Position>({ x: 0, y: 0 });
+  const [conditionDragStart, setConditionDragStart] = useState<Position>({ x: 0, y: 0 });
+  const [conditionDragPosition, setConditionDragPosition] = useState<Position | null>(null);
+  const [hasDraggedCondition, setHasDraggedCondition] = useState(false);
 
   const scaleRef = useRef(1);
   const panRef = useRef<Position>(DEFAULT_PAN);
@@ -301,6 +338,12 @@ export const RankBoard = ({
   useEffect(() => {
     setManualLinkBends(sanitizeLinkBends(initialLinkBends));
   }, [initialLinkBends]);
+
+  useEffect(() => {
+    setManualConditionNodePositions(
+      sanitizeConditionNodePositions(initialConditionNodePositions)
+    );
+  }, [initialConditionNodePositions]);
 
   useEffect(() => {
     const node = boardRef.current;
@@ -571,15 +614,22 @@ export const RankBoard = ({
 
         conditions.forEach((condition, index) => {
           const nodeId = `${linkKey}-condition-${index + 1}`;
-          const nodeY = topY + index * (CONDITION_HEIGHT + CONDITION_GAP);
+          const defaultNodeY = topY + index * (CONDITION_HEIGHT + CONDITION_GAP);
+          const defaultNodeX = nodeX;
+          const manualPos = manualConditionNodePositions[nodeId];
+          const draggedPos =
+            draggingConditionNodeId === nodeId ? conditionDragPosition : null;
+          const resolvedPos = draggedPos ?? manualPos;
+          const nodeXResolved = resolvedPos?.x ?? defaultNodeX;
+          const nodeYResolved = resolvedPos?.y ?? defaultNodeY;
           const conditionNode: ConditionNode = {
             id: nodeId,
             linkKey,
             parentId,
             childId,
             condition,
-            x: nodeX,
-            y: nodeY,
+            x: nodeXResolved,
+            y: nodeYResolved,
             width: CONDITION_WIDTH,
             height: CONDITION_HEIGHT,
           };
@@ -608,7 +658,15 @@ export const RankBoard = ({
     });
 
     return { edgeList: nextEdges, conditionNodes: nextConditionNodes, linkHandles: nextHandles };
-  }, [incomingById, linkConditionsByKey, manualLinkBends, positionById]);
+  }, [
+    conditionDragPosition,
+    draggingConditionNodeId,
+    incomingById,
+    linkConditionsByKey,
+    manualConditionNodePositions,
+    manualLinkBends,
+    positionById,
+  ]);
 
   const conditionNodeByEdgeId = useMemo(() => {
     const map = new Map<string, ConditionNode>();
@@ -618,6 +676,25 @@ export const RankBoard = ({
     });
     return map;
   }, [conditionNodes]);
+
+  useEffect(() => {
+    const validIds = new Set(conditionNodes.map((node) => node.id));
+    setManualConditionNodePositions((prev) => {
+      let changed = false;
+      const next: Record<string, Position> = {};
+      Object.entries(prev).forEach(([id, pos]) => {
+        if (validIds.has(id)) {
+          next[id] = pos;
+        } else {
+          changed = true;
+        }
+      });
+      if (changed) {
+        onConditionNodePositionsChange?.(next);
+      }
+      return changed ? next : prev;
+    });
+  }, [conditionNodes, onConditionNodePositionsChange]);
 
   useEffect(() => {
     const valid = new Set<string>();
@@ -839,6 +916,21 @@ export const RankBoard = ({
       moveViewportFromMinimap(event.clientX, event.clientY);
       return;
     }
+    if (draggingConditionNodeId) {
+      const { x: pointerX, y: pointerY } = toBoardCoords(event.clientX, event.clientY);
+      if (!hasDraggedCondition) {
+        const deltaX = Math.abs(pointerX - conditionDragStart.x);
+        const deltaY = Math.abs(pointerY - conditionDragStart.y);
+        if (deltaX > 3 || deltaY > 3) {
+          setHasDraggedCondition(true);
+        }
+      }
+      setConditionDragPosition({
+        x: Math.max(PADDING / 2, pointerX - conditionDragOffset.x),
+        y: Math.max(PADDING / 2, pointerY - conditionDragOffset.y),
+      });
+      return;
+    }
     if (draggingBend) {
       const childPos = positionById[draggingBend.childId];
       const parentPos = positionById[draggingBend.parentId];
@@ -951,6 +1043,31 @@ export const RankBoard = ({
     }
     if (draggingBend) {
       setDraggingBend(null);
+      return;
+    }
+    if (draggingConditionNodeId) {
+      try {
+        if (event.pointerId) {
+          const target = event.target as HTMLElement;
+          target.releasePointerCapture?.(event.pointerId);
+        }
+      } catch {
+        // ignore
+      }
+      if (hasDraggedCondition && conditionDragPosition) {
+        suppressClickRef.current = true;
+        setManualConditionNodePositions((prev) => {
+          const next = {
+            ...prev,
+            [draggingConditionNodeId]: conditionDragPosition,
+          };
+          onConditionNodePositionsChange?.(next);
+          return next;
+        });
+      }
+      setDraggingConditionNodeId(null);
+      setConditionDragPosition(null);
+      setHasDraggedCondition(false);
       return;
     }
     if (isPanning) {
@@ -1082,6 +1199,22 @@ export const RankBoard = ({
     event.currentTarget.setPointerCapture(event.pointerId);
     setDraggingBend(handle);
     handleSelectLinkByIds(handle.childId, handle.parentId);
+  };
+
+  const handleConditionPointerDown = (
+    event: PointerEvent<HTMLButtonElement>,
+    node: ConditionNode
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const { x: pointerX, y: pointerY } = toBoardCoords(event.clientX, event.clientY);
+    setConditionDragOffset({ x: pointerX - node.x, y: pointerY - node.y });
+    setConditionDragStart({ x: pointerX, y: pointerY });
+    setConditionDragPosition({ x: node.x, y: node.y });
+    setHasDraggedCondition(false);
+    setDraggingConditionNodeId(node.id);
+    handleSelectLinkByIds(node.childId, node.parentId);
   };
 
   const handleMinimapPointerDown = (event: PointerEvent<HTMLDivElement>) => {
@@ -1252,8 +1385,14 @@ export const RankBoard = ({
                 transform: `translate(${node.x}px, ${node.y}px)`,
               }}
               title={node.condition.description || node.condition.name}
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={() => handleSelectLinkByIds(node.childId, node.parentId)}
+              onPointerDown={(event) => handleConditionPointerDown(event, node)}
+              onClick={() => {
+                if (suppressClickRef.current) {
+                  suppressClickRef.current = false;
+                  return;
+                }
+                handleSelectLinkByIds(node.childId, node.parentId);
+              }}
               onDoubleClick={() => handleSelectLinkByIds(node.childId, node.parentId)}
             >
               <span className="rank-condition-node__label">{node.condition.name}</span>

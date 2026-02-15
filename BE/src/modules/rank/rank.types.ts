@@ -20,6 +20,7 @@ export type RankBoardLinkBend = {
 export type RankBoardLayout = {
   positions: Record<string, RankBoardPosition>;
   linkBends?: Record<string, RankBoardLinkBend>;
+  conditionNodePositions?: Record<string, RankBoardPosition>;
   updatedAt: string;
 };
 
