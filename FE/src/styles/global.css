@@ -470,7 +470,7 @@ h3 {
 .topbar__search-icon {
   position: absolute;
   top: 50%;
-  left: 12px;
+  right: 12px;
   width: 22px;
   height: 22px;
   transform: translateY(-50%);
@@ -488,7 +488,16 @@ h3 {
   border: none;
   background: var(--surface-muted);
   box-shadow: none;
-  padding: 7px 10px 7px 40px;
+  padding: 7px 40px 7px 10px;
+}
+
+.topbar__suggestions .command-item--active {
+  background: #111827;
+  color: #f9fafb;
+}
+
+.topbar__suggestions .command-item--active .command-item__label {
+  color: #d1d5db;
 }
 
 .topbar__suggestions {
