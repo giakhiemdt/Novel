@@ -105,7 +105,9 @@ Tài liệu này mô tả chi tiết từng node đang dùng trong dự án hi�
 - `GET/POST/PUT/DELETE /ranks`
 - `POST /ranks/link`, `POST /ranks/unlink`, `POST /ranks/link/conditions`.
 - Lưu ý nghiệp vụ:
-- FE hiện đã chặn link rank khác `systemId`.
+- FE hiện cho phép link rank khác `systemId`.
+- Rank board hỗ trợ quan hệ nhiều nhánh (`1 -> N`, `N -> 1`), kéo bẻ đường nối, kéo condition node.
+- Layout board rank được lưu DB theo project để giữ vị trí sau khi reload/đổi bộ lọc.
 - `tier` hiện là string, dùng để đặt cột trong matrix sức mạnh.
 
 ### 3.7 `SpecialAbility`
@@ -133,6 +135,10 @@ Tài liệu này mô tả chi tiết từng node đang dùng trong dự án hi�
 - API chính:
 - `GET/POST/DELETE /timelines`
 - `POST /timelines/link`, `POST /timelines/unlink`, `POST /timelines/relink`.
+- Ghi chú FE:
+- Danh sách timeline và board timeline tách riêng.
+- Board timeline mặc định đóng, mở bằng toggle Board.
+- Board có pan/zoom/fit/reset + minimap.
 
 ### 3.10 `Location`
 - Vai trò: Không gian địa lý nhiều cấp.
@@ -218,8 +224,15 @@ Tài liệu này mô tả chi tiết từng node đang dùng trong dự án hi�
 - Tự sinh/chuẩn hoá: `id`, `createdAt`, `updatedAt`; `code` lưu lower-case.
 - API chính: `GET /relationship-types`, `POST`, `PUT /relationship-types/:id`, `DELETE /relationship-types/:id`.
 - Lưu ý:
-- Có seed mặc định: `family`, `ally`, `enemy`, `romance`, `mentor`, `rival`, `other`.
-- Sau khi khởi tạo, tất cả type đều có thể sửa/xoá như custom type.
+- Không còn khái niệm system type bất biến trong runtime FE.
+- Người dùng có thể tạo/sửa/xoá type tự do.
+- Khi xoá type đang được dùng, API hỗ trợ force xoá toàn bộ relation phụ thuộc rồi xoá type.
+
+## 3.19 `ConflictReport` (virtual view)
+- Vai trò: Báo cáo kiểm tra mâu thuẫn dữ liệu/lore.
+- Không phải node graph độc lập.
+- API chính: `GET /conflicts`.
+- FE route: `/conflicts` (T-code `CF01`).
 
 ## 4) Dữ liệu quan hệ quan trọng (không phải node độc lập)
 

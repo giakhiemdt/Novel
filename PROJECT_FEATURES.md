@@ -134,11 +134,26 @@
 - Relationship — list, create, edit, delete
 - Relationship Type — trang riêng để list, create, edit, delete
   - route FE: `/relationship-types` (T-code `RT01`)
-  - Mặc định có seed type gợi ý cho DB mới; sau đó người dùng có thể sửa/xoá/tạo tự do.
+  - Không còn phân biệt system/custom type trong runtime; người dùng có thể sửa/xoá/tạo tự do.
 - WorldRule — list, create, edit, delete
 - Conflict — xem report (read-only)
 - Project — chọn project + tạo project (modal)
 - HealthCheck đã gắn vào Dashboard
+
+### Cập nhật board UI gần đây
+- Rank board:
+  - Nhiều nhánh thăng cấp: 1 rank có thể nối nhiều rank khác và ngược lại.
+  - Cho phép nối rank khác hệ thống ở FE.
+  - Có minimap, zoom %, fit/reset, kéo-thả node/link bend/condition node.
+  - Layout board lưu DB theo project (không dùng localStorage).
+- Relationship graph:
+  - Có toolbar zoom/fit/reset + minimap.
+  - Kéo-thả node và hiển thị nhãn quan hệ trên cạnh.
+  - Có nút đóng/mở board, mặc định đóng.
+- Timeline board:
+  - Danh sách timeline và board tách riêng.
+  - Board có toolbar zoom/fit/reset + minimap.
+  - Có nút đóng/mở board, mặc định đóng.
 
 ### API FE đang dùng
 - `/health`, `/projects`, `/overview`, `/characters`, `/timelines`, `/locations`, `/factions`, `/events`

@@ -179,6 +179,9 @@ export const nodeDocs: NodeDoc[] = [
     notes: [
       "RANK_NEXT có metadata điều kiện thăng cấp",
       "tier hiện là string để map vào cột sức mạnh",
+      "Board rank hỗ trợ nhiều nhánh thăng cấp (1 -> N và N -> 1)",
+      "FE hiện cho phép nối rank khác hệ thống",
+      "Layout board rank được lưu DB theo project",
     ],
   },
   {
@@ -285,7 +288,11 @@ export const nodeDocs: NodeDoc[] = [
       "POST /timelines/unlink",
       "POST /timelines/relink",
     ],
-    notes: ["Dùng board timeline để canh event theo năm"],
+    notes: [
+      "Timeline có danh sách riêng và board riêng",
+      "Board timeline mặc định đóng, mở bằng nút Board",
+      "Board hỗ trợ pan/zoom/fit/reset + minimap",
+    ],
   },
   {
     id: "location",
@@ -543,7 +550,12 @@ export const nodeDocs: NodeDoc[] = [
       "PUT /character-relations",
       "DELETE /character-relations",
     ],
-    notes: ["Graph view hỗ trợ pan/zoom/drag node và gom cạnh trùng cặp nhân vật"],
+    notes: [
+      "Graph view hỗ trợ pan/zoom/fit/reset + minimap",
+      "Hỗ trợ kéo-thả node và gom cạnh trùng cặp nhân vật",
+      "Danh sách relationship tách riêng với board graph",
+      "Board graph mặc định đóng, mở bằng nút Board",
+    ],
   },
   {
     id: "relationship-type",
@@ -565,6 +577,27 @@ export const nodeDocs: NodeDoc[] = [
     notes: [
       "Delete hỗ trợ force khi type đang được dùng bởi character-relations",
       "Code được chuẩn hóa lower-case",
+      "Không còn system type cố định, người dùng toàn quyền tạo/sửa/xóa type",
+    ],
+  },
+  {
+    id: "conflict-report",
+    name: "Conflict Report",
+    nodeLabel: "ConflictReport",
+    module: "conflict",
+    tCode: "CF01",
+    route: "/conflicts",
+    purpose: "Báo cáo kiểm tra mâu thuẫn dữ liệu/lore toàn project (read-only).",
+    requiredFields: ["Không có input bắt buộc"],
+    optionalFields: ["scope filter (tuỳ phiên bản)", "rule sets (tuỳ mở rộng)"],
+    relations: [
+      "Không phải node graph độc lập",
+      "Tổng hợp từ Character/Timeline/Event/Scene/Location/Rule",
+    ],
+    apis: ["GET /conflicts"],
+    notes: [
+      "UI hiện tại dùng để tra cứu và debug consistency",
+      "Kết quả phụ thuộc dữ liệu hiện có trong project database",
     ],
   },
   {
