@@ -85,9 +85,19 @@ h3 {
   border-radius: 0;
   box-shadow: none;
   background: transparent;
+  --btn-border: transparent;
+  --btn-bg: transparent;
+  --btn-shadow: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.button.sidebar__toggle {
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
 }
 
 .sidebar__toggle-icon {
