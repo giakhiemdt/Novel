@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/common/Button";
+import { CrudPageShell } from "../../components/crud/CrudPageShell";
 import { FilterPanel } from "../../components/common/FilterPanel";
 import { Pagination } from "../../components/common/Pagination";
 import { ListPanel } from "../../components/common/ListPanel";
@@ -308,80 +309,80 @@ export const RelationshipCreate = () => {
 
   return (
     <div>
-      <div className="card">
-        <div className="card__header">
-          <div>
-            <h3 className="section-title">{t("Relationship nodes")}</h3>
-            <p className="header__subtitle">
-              {t("Click a row to inspect details.")}
-            </p>
-          </div>
-          <Button onClick={() => setShowForm((prev) => !prev)} variant="primary">
-            {showForm ? t("Close form") : t("Create new relationship")}
-          </Button>
-        </div>
-        <FilterPanel>
-          <Select
-            label="Character"
-            value={filters.characterId}
-            onChange={(value) => handleFilterChange("characterId", value)}
-            options={characterOptions}
-            placeholder="All"
-          />
-          <Select
-            label="Type"
-            value={filters.type}
-            onChange={(value) => handleFilterChange("type", value)}
-            options={typeOptions}
-            placeholder="All"
-          />
-          <div className="form-field filter-actions">
-            <Button type="button" variant="ghost" onClick={handleClearFilters}>
-              Clear filters
-            </Button>
-          </div>
-        </FilterPanel>
-        <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
-        <div className="filter-block">
-          <button
-            type="button"
-            className="filter-toggle"
-            onClick={() => setShowBoard((prev) => !prev)}
-            aria-expanded={showBoard}
-          >
-            <img className="filter-toggle__icon" src={boardIcon} alt={t("Board")} />
-            <span className="filter-toggle__label">
-              {showBoard ? t("Hide board") : t("Show board")}
-            </span>
-          </button>
-          {showBoard && <p className="header__subtitle">{t("Board")}</p>}
-        </div>
-        {showList && (
+      <CrudPageShell
+        title="Relationship nodes"
+        subtitle="Click a row to inspect details."
+        showForm={showForm}
+        createLabel="Create new relationship"
+        onToggleForm={() => setShowForm((prev) => !prev)}
+        controls={
           <>
-        <RelationshipList
-          items={pagedItems}
-          charactersById={charactersById}
-          relationshipTypesByCode={relationshipTypesByCode}
-          onEdit={handleEditOpen}
-          onDelete={handleDelete}
-        />
-        {(items.length > 0 || page > 1 || hasNext) && (
-          <Pagination
-            page={page}
-            pageSize={pageSize}
-            itemCount={pagedItems.length}
-            hasNext={hasNext}
-            totalCount={items.length}
-            onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
-            onPageSizeChange={(nextSize) => {
-              setPageSize(nextSize);
-              setPage(1);
-            }}
-          />
-        )}
+            <FilterPanel>
+              <Select
+                label="Character"
+                value={filters.characterId}
+                onChange={(value) => handleFilterChange("characterId", value)}
+                options={characterOptions}
+                placeholder="All"
+              />
+              <Select
+                label="Type"
+                value={filters.type}
+                onChange={(value) => handleFilterChange("type", value)}
+                options={typeOptions}
+                placeholder="All"
+              />
+              <div className="form-field filter-actions">
+                <Button type="button" variant="ghost" onClick={handleClearFilters}>
+                  Clear filters
+                </Button>
+              </div>
+            </FilterPanel>
+            <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
+            <div className="filter-block">
+              <button
+                type="button"
+                className="filter-toggle"
+                onClick={() => setShowBoard((prev) => !prev)}
+                aria-expanded={showBoard}
+              >
+                <img className="filter-toggle__icon" src={boardIcon} alt={t("Board")} />
+                <span className="filter-toggle__label">
+                  {showBoard ? t("Hide board") : t("Show board")}
+                </span>
+              </button>
+              {showBoard && <p className="header__subtitle">{t("Board")}</p>}
+            </div>
           </>
-        )}
-      </div>
+        }
+        list={
+          showList ? (
+            <>
+              <RelationshipList
+                items={pagedItems}
+                charactersById={charactersById}
+                relationshipTypesByCode={relationshipTypesByCode}
+                onEdit={handleEditOpen}
+                onDelete={handleDelete}
+              />
+              {items.length > 0 || page > 1 || hasNext ? (
+                <Pagination
+                  page={page}
+                  pageSize={pageSize}
+                  itemCount={pagedItems.length}
+                  hasNext={hasNext}
+                  totalCount={items.length}
+                  onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+                  onPageSizeChange={(nextSize) => {
+                    setPageSize(nextSize);
+                    setPage(1);
+                  }}
+                />
+              ) : null}
+            </>
+          ) : null
+        }
+      />
 
       {showBoard && (
         <div className="card">

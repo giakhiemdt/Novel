@@ -3,6 +3,7 @@ import { Button } from "../../components/common/Button";
 import { FilterPanel } from "../../components/common/FilterPanel";
 import { ListPanel } from "../../components/common/ListPanel";
 import { useToast } from "../../components/common/Toast";
+import { CrudPageShell } from "../../components/crud/CrudPageShell";
 import { FormSection } from "../../components/form/FormSection";
 import { Select } from "../../components/form/Select";
 import { TextArea } from "../../components/form/TextArea";
@@ -223,126 +224,119 @@ export const RelationshipTypeCreate = () => {
 
   return (
     <div>
-      <div className="card">
-        <div className="card__header">
-          <div>
-            <h3 className="section-title">{t("Relationship type definitions")}</h3>
-            <p className="header__subtitle">
-              {t("Manage available relationship types used by character relations.")}
-            </p>
-          </div>
-          <div className="table__actions">
-            <Button
-              variant="primary"
-              onClick={() => {
-                if (showForm) {
-                  handleTypeCancel();
-                  return;
-                }
-                setShowForm(true);
-              }}
-            >
-              {showForm ? t("Close form") : t("Create new relationship type")}
-            </Button>
-            {editingTypeId && (
-              <Button variant="ghost" onClick={handleTypeCancel}>
-                {t("Cancel")}
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <FilterPanel>
-          <TextInput
-            label="Search"
-            value={filters.q}
-            onChange={(value) => setFilters((prev) => ({ ...prev, q: value }))}
-            placeholder="Search..."
-          />
-          <TextInput
-            label="Name"
-            value={filters.name}
-            onChange={(value) => setFilters((prev) => ({ ...prev, name: value }))}
-          />
-          <TextInput
-            label="Code"
-            value={filters.code}
-            onChange={(value) => setFilters((prev) => ({ ...prev, code: value }))}
-          />
-          <Select
-            label="Active"
-            value={filters.isActive}
-            onChange={(value) => setFilters((prev) => ({ ...prev, isActive: value }))}
-            options={[
-              { value: "true", label: t("Yes") },
-              { value: "false", label: t("No") },
-            ]}
-            placeholder={t("All")}
-          />
-          <div className="form-field filter-actions">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setFilters({ q: "", name: "", code: "", isActive: "" })}
-            >
-              {t("Clear filters")}
-            </Button>
-          </div>
-        </FilterPanel>
-
-        <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
-        {showList &&
-          (filteredRelationshipTypes.length === 0 ? (
-            <p className="header__subtitle">{t("No relationship types yet.")}</p>
-          ) : (
-            <table className="table table--clean">
-              <thead>
-                <tr>
-                  <th>{t("Code")}</th>
-                  <th>{t("Name")}</th>
-                  <th>{t("Directional")}</th>
-                  <th>{t("Active")}</th>
-                  <th>{t("Actions")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRelationshipTypes.map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.code}</td>
-                    <td>{item.name}</td>
-                    <td>{item.isDirectional ? t("Yes") : t("No")}</td>
-                    <td>{item.isActive ? t("Yes") : t("No")}</td>
-                    <td className="table__actions">
-                      <button
-                        type="button"
-                        className="table__action table__action--ghost"
-                        onClick={() => handleTypeEdit(item)}
-                      >
-                        {t("Edit")}
-                      </button>
-                      <button
-                        type="button"
-                        className="table__action"
-                        onClick={() => handleTypeToggleActive(item)}
-                      >
-                        {item.isActive ? t("Deactivate") : t("Activate")}
-                      </button>
-                      <button
-                        type="button"
-                        className="table__action table__action--danger"
-                        onClick={() => handleTypeDelete(item)}
-                      >
-                        {pendingForceDeleteId === item.id
-                          ? t("Delete (confirm)")
-                          : t("Delete")}
-                      </button>
-                    </td>
+      <CrudPageShell
+        title="Relationship type definitions"
+        subtitle="Manage available relationship types used by character relations."
+        showForm={showForm}
+        createLabel="Create new relationship type"
+        onToggleForm={() => {
+          if (showForm) {
+            handleTypeCancel();
+            return;
+          }
+          setShowForm(true);
+        }}
+        isEditing={Boolean(editingTypeId)}
+        onCancelEdit={handleTypeCancel}
+        controls={
+          <>
+            <FilterPanel>
+              <TextInput
+                label="Search"
+                value={filters.q}
+                onChange={(value) => setFilters((prev) => ({ ...prev, q: value }))}
+                placeholder="Search..."
+              />
+              <TextInput
+                label="Name"
+                value={filters.name}
+                onChange={(value) => setFilters((prev) => ({ ...prev, name: value }))}
+              />
+              <TextInput
+                label="Code"
+                value={filters.code}
+                onChange={(value) => setFilters((prev) => ({ ...prev, code: value }))}
+              />
+              <Select
+                label="Active"
+                value={filters.isActive}
+                onChange={(value) => setFilters((prev) => ({ ...prev, isActive: value }))}
+                options={[
+                  { value: "true", label: t("Yes") },
+                  { value: "false", label: t("No") },
+                ]}
+                placeholder={t("All")}
+              />
+              <div className="form-field filter-actions">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() =>
+                    setFilters({ q: "", name: "", code: "", isActive: "" })
+                  }
+                >
+                  {t("Clear filters")}
+                </Button>
+              </div>
+            </FilterPanel>
+            <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
+          </>
+        }
+        list={
+          showList ? (
+            filteredRelationshipTypes.length === 0 ? (
+              <p className="header__subtitle">{t("No relationship types yet.")}</p>
+            ) : (
+              <table className="table table--clean">
+                <thead>
+                  <tr>
+                    <th>{t("Code")}</th>
+                    <th>{t("Name")}</th>
+                    <th>{t("Directional")}</th>
+                    <th>{t("Active")}</th>
+                    <th>{t("Actions")}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          ))}
-      </div>
+                </thead>
+                <tbody>
+                  {filteredRelationshipTypes.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.code}</td>
+                      <td>{item.name}</td>
+                      <td>{item.isDirectional ? t("Yes") : t("No")}</td>
+                      <td>{item.isActive ? t("Yes") : t("No")}</td>
+                      <td className="table__actions">
+                        <button
+                          type="button"
+                          className="table__action table__action--ghost"
+                          onClick={() => handleTypeEdit(item)}
+                        >
+                          {t("Edit")}
+                        </button>
+                        <button
+                          type="button"
+                          className="table__action"
+                          onClick={() => handleTypeToggleActive(item)}
+                        >
+                          {item.isActive ? t("Deactivate") : t("Activate")}
+                        </button>
+                        <button
+                          type="button"
+                          className="table__action table__action--danger"
+                          onClick={() => handleTypeDelete(item)}
+                        >
+                          {pendingForceDeleteId === item.id
+                            ? t("Delete (confirm)")
+                            : t("Delete")}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
+          ) : null
+        }
+      />
 
       {showForm && (
       <FormSection
