@@ -2755,7 +2755,7 @@ h3 {
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-2);
-  margin: var(--space-3) 0 var(--space-4);
+  margin: 0;
 }
 
 .energy-type-board-toggles .filter-toggle {

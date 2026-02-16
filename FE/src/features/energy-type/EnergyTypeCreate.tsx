@@ -628,32 +628,34 @@ export const EnergyTypeCreate = () => {
         }
       />
 
-      <div className="energy-type-board-toggles">
-        <button
-          type="button"
-          className="filter-toggle"
-          onClick={() => setShowBoard((prev) => !prev)}
-          aria-expanded={showBoard}
-        >
-          <img src={boardIcon} alt={t("Board")} className="filter-toggle__icon" />
-          <span className="filter-toggle__label">
-            {showBoard ? t("Hide level board") : t("Show level board")}
-          </span>
-        </button>
+      <div className="card">
+        <div className="energy-type-board-toggles">
+          <button
+            type="button"
+            className="filter-toggle"
+            onClick={() => setShowBoard((prev) => !prev)}
+            aria-expanded={showBoard}
+          >
+            <img src={boardIcon} alt={t("Board")} className="filter-toggle__icon" />
+            <span className="filter-toggle__label">
+              {showBoard ? t("Hide level board") : t("Show level board")}
+            </span>
+          </button>
 
-        <button
-          type="button"
-          className="filter-toggle"
-          onClick={() => setShowConversionBoard((prev) => !prev)}
-          aria-expanded={showConversionBoard}
-        >
-          <img src={boardIcon} alt={t("Board")} className="filter-toggle__icon" />
-          <span className="filter-toggle__label">
-            {showConversionBoard
-              ? t("Hide conversion board")
-              : t("Show conversion board")}
-          </span>
-        </button>
+          <button
+            type="button"
+            className="filter-toggle"
+            onClick={() => setShowConversionBoard((prev) => !prev)}
+            aria-expanded={showConversionBoard}
+          >
+            <img src={boardIcon} alt={t("Board")} className="filter-toggle__icon" />
+            <span className="filter-toggle__label">
+              {showConversionBoard
+                ? t("Hide conversion board")
+                : t("Show conversion board")}
+            </span>
+          </button>
+        </div>
       </div>
 
       {showBoard && (
