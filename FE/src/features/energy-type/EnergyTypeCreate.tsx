@@ -83,7 +83,7 @@ export const EnergyTypeCreate = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingConversion, setIsSavingConversion] = useState(false);
   const [showList, setShowList] = useState(false);
-  const [showBoard, setShowBoard] = useState(true);
+  const [showBoard, setShowBoard] = useState(false);
   const [showConversionBoard, setShowConversionBoard] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [selectedConversion, setSelectedConversion] = useState<{
@@ -570,6 +570,77 @@ export const EnergyTypeCreate = () => {
               </div>
             </FilterPanel>
             <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
+            <div className="filter-block">
+              <button
+                type="button"
+                className="filter-toggle"
+                onClick={() => setShowBoard((prev) => !prev)}
+                aria-expanded={showBoard}
+              >
+                <img src={boardIcon} alt={t("Board")} className="filter-toggle__icon" />
+                <span className="filter-toggle__label">
+                  {showBoard ? t("Hide level board") : t("Show level board")}
+                </span>
+              </button>
+              {showBoard && (
+                <div className="energy-type-inline-board">
+                  <h3 className="section-title">{t("Energy level board")}</h3>
+                  <p className="header__subtitle">
+                    {t("Matrix overview of level and ratio per energy type.")}
+                  </p>
+                  <EnergyTypeLevelBoard items={items} />
+                </div>
+              )}
+            </div>
+            <div className="filter-block">
+              <button
+                type="button"
+                className="filter-toggle"
+                onClick={() => setShowConversionBoard((prev) => !prev)}
+                aria-expanded={showConversionBoard}
+              >
+                <img src={boardIcon} alt={t("Board")} className="filter-toggle__icon" />
+                <span className="filter-toggle__label">
+                  {showConversionBoard
+                    ? t("Hide conversion board")
+                    : t("Show conversion board")}
+                </span>
+              </button>
+              {showConversionBoard && (
+                <div className="energy-type-inline-board">
+                  <h3 className="section-title">{t("Energy conversion board")}</h3>
+                  <p className="header__subtitle">
+                    {linkDraftFromId
+                      ? t("Source selected. Click another node to create conversion.")
+                      : t("Drag nodes to arrange. Click one node then another to connect.")}
+                  </p>
+                  <div className="table__actions">
+                    {(selectedConversion || linkDraftFromId) && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={handleClearConversionSelection}
+                      >
+                        {t("Clear selection")}
+                      </Button>
+                    )}
+                  </div>
+                  <EnergyConversionBoard
+                    items={items}
+                    conversions={conversions}
+                    positions={conversionBoardPositions}
+                    selectedLink={selectedConversion}
+                    linkDraftFromId={linkDraftFromId}
+                    onPositionsChange={setConversionBoardPositions}
+                    onNodeClick={(id) => {
+                      void handleNodeClick(id);
+                    }}
+                    onEdgeClick={handleSelectConversion}
+                    onClearSelection={handleClearConversionSelection}
+                  />
+                </div>
+              )}
+            </div>
           </>
         }
         list={
@@ -627,81 +698,6 @@ export const EnergyTypeCreate = () => {
           ) : null
         }
       />
-
-      <div className="card">
-        <div className="energy-type-board-toggles">
-          <button
-            type="button"
-            className="filter-toggle"
-            onClick={() => setShowBoard((prev) => !prev)}
-            aria-expanded={showBoard}
-          >
-            <img src={boardIcon} alt={t("Board")} className="filter-toggle__icon" />
-            <span className="filter-toggle__label">
-              {showBoard ? t("Hide level board") : t("Show level board")}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            className="filter-toggle"
-            onClick={() => setShowConversionBoard((prev) => !prev)}
-            aria-expanded={showConversionBoard}
-          >
-            <img src={boardIcon} alt={t("Board")} className="filter-toggle__icon" />
-            <span className="filter-toggle__label">
-              {showConversionBoard
-                ? t("Hide conversion board")
-                : t("Show conversion board")}
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {showBoard && (
-        <div className="card rank-system-landscape-card">
-          <h3 className="section-title">{t("Energy level board")}</h3>
-          <p className="header__subtitle">
-            {t("Matrix overview of level and ratio per energy type.")}
-          </p>
-          <EnergyTypeLevelBoard items={items} />
-        </div>
-      )}
-
-      {showConversionBoard && (
-        <div className="card">
-          <h3 className="section-title">{t("Energy conversion board")}</h3>
-          <p className="header__subtitle">
-            {linkDraftFromId
-              ? t("Source selected. Click another node to create conversion.")
-              : t("Drag nodes to arrange. Click one node then another to connect.")}
-          </p>
-          <div className="table__actions">
-            {(selectedConversion || linkDraftFromId) && (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleClearConversionSelection}
-              >
-                {t("Clear selection")}
-              </Button>
-            )}
-          </div>
-          <EnergyConversionBoard
-            items={items}
-            conversions={conversions}
-            positions={conversionBoardPositions}
-            selectedLink={selectedConversion}
-            linkDraftFromId={linkDraftFromId}
-            onPositionsChange={setConversionBoardPositions}
-            onNodeClick={(id) => {
-              void handleNodeClick(id);
-            }}
-            onEdgeClick={handleSelectConversion}
-            onClearSelection={handleClearConversionSelection}
-          />
-        </div>
-      )}
 
       {showForm && (
       <FormSection
