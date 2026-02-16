@@ -13,12 +13,15 @@ import type { EnergyType } from "../energy-type/energy-type.types";
 import {
   createEnergyTier,
   deleteEnergyTier,
+  getEnergyTierLinks,
   getEnergyTiers,
   linkEnergyTier,
   unlinkEnergyTier,
   updateEnergyTier,
 } from "./energy-tier.api";
-import type { EnergyTier, EnergyTierPayload } from "./energy-tier.types";
+import type { EnergyTier, EnergyTierLink, EnergyTierPayload } from "./energy-tier.types";
+import { EnergyTierBoard } from "./EnergyTierBoard";
+import boardIcon from "../../assets/icons/board.svg";
 
 const initialState = {
   energyTypeId: "",
@@ -46,6 +49,11 @@ export const EnergyTierCreate = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showList, setShowList] = useState(false);
+  const [showBoard, setShowBoard] = useState(true);
+  const [links, setLinks] = useState<EnergyTierLink[]>([]);
+  const [boardPositions, setBoardPositions] = useState<
+    Record<string, { x: number; y: number }>
+  >({});
 
   const loadEnergyTypes = useCallback(async () => {
     try {
@@ -71,6 +79,15 @@ export const EnergyTierCreate = () => {
     }
   }, [notify]);
 
+  const loadLinks = useCallback(async () => {
+    try {
+      const data = await getEnergyTierLinks();
+      setLinks(data ?? []);
+    } catch (err) {
+      notify((err as Error).message, "error");
+    }
+  }, [notify]);
+
   useEffect(() => {
     void loadEnergyTypes();
   }, [loadEnergyTypes]);
@@ -87,7 +104,19 @@ export const EnergyTierCreate = () => {
     if (showList) {
       void loadItems();
     }
+    if (showBoard) {
+      void loadItems();
+      void loadLinks();
+    }
   });
+
+  useEffect(() => {
+    if (!showBoard) {
+      return;
+    }
+    void loadItems();
+    void loadLinks();
+  }, [loadItems, loadLinks, showBoard]);
 
   const mapToForm = (item: EnergyTier): EnergyTierFormState => ({
     energyTypeId: item.energyTypeId,
@@ -186,6 +215,10 @@ export const EnergyTierCreate = () => {
       if (showList) {
         await loadItems();
       }
+      if (showBoard) {
+        await loadItems();
+        await loadLinks();
+      }
     } catch (err) {
       notify((err as Error).message, "error");
     } finally {
@@ -211,6 +244,9 @@ export const EnergyTierCreate = () => {
       await deleteEnergyTier(item.id);
       notify(t("Energy tier deleted."), "success");
       await loadItems();
+      if (showBoard) {
+        await loadLinks();
+      }
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -224,6 +260,9 @@ export const EnergyTierCreate = () => {
     try {
       await unlinkEnergyTier({ previousId: form.previousTierId, currentId: item.id });
       notify(t("Energy tier link removed."), "success");
+      if (showBoard) {
+        await loadLinks();
+      }
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -299,6 +338,34 @@ export const EnergyTierCreate = () => {
             </table>
           ))}
       </div>
+
+      <div className="card">
+        <button
+          type="button"
+          className="filter-toggle"
+          onClick={() => setShowBoard((prev) => !prev)}
+          aria-expanded={showBoard}
+        >
+          <img src={boardIcon} alt="" className="filter-toggle__icon" />
+          <span className="filter-toggle__label">
+            {showBoard ? t("Hide board") : t("Show board")}
+          </span>
+        </button>
+      </div>
+      {showBoard && (
+        <div className="card">
+          <h3 className="section-title">{t("Energy tier board")}</h3>
+          <p className="header__subtitle">
+            {t("Drag nodes to rearrange. Use mouse wheel to zoom and minimap to navigate.")}
+          </p>
+          <EnergyTierBoard
+            items={items}
+            links={links}
+            positions={boardPositions}
+            onPositionsChange={setBoardPositions}
+          />
+        </div>
+      )}
 
       <FormSection
         title={editingId ? "Edit energy tier" : "Create energy tier"}

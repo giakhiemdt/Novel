@@ -110,6 +110,19 @@ RETURN {
 LIMIT 1
 `;
 
+const GET_ENERGY_TIER_LINKS = `
+MATCH (prev:${nodeLabels.energyTier})-[rel:${relationTypes.energyNext}]->(current:${nodeLabels.energyTier})
+RETURN {
+  previousId: prev.id,
+  currentId: current.id,
+  requiredAmount: rel.requiredAmount,
+  efficiency: rel.efficiency,
+  condition: rel.condition,
+  updatedAt: rel.updatedAt
+} AS link
+ORDER BY prev.name ASC, current.name ASC
+`;
+
 const ENERGY_TIER_PARAMS = [
   "id",
   "energyTypeId",
@@ -274,6 +287,20 @@ export const unlinkEnergyTiers = async (
       currentId,
     });
     return result.records.length > 0;
+  } finally {
+    await session.close();
+  }
+};
+
+export const getEnergyTierLinks = async (
+  database: string
+): Promise<EnergyTierLinkNode[]> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const result = await session.run(GET_ENERGY_TIER_LINKS);
+    return result.records.map((record) =>
+      mapNode(record.get("link") ?? {})
+    ) as EnergyTierLinkNode[];
   } finally {
     await session.close();
   }

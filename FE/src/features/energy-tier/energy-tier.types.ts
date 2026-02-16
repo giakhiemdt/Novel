@@ -23,3 +23,7 @@ export type EnergyTierLinkPayload = {
   efficiency?: number;
   condition?: string;
 };
+
+export type EnergyTierLink = EnergyTierLinkPayload & {
+  updatedAt?: string;
+};

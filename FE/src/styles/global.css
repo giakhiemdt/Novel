@@ -2577,6 +2577,25 @@ h3 {
   display: inline-block;
 }
 
+.energy-tier-board__node {
+  stroke-width: 1.8;
+}
+
+.energy-tier-board__label {
+  fill: var(--color-ink);
+  font-size: 11px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.energy-tier-board__node-handle {
+  cursor: grab;
+}
+
+.energy-tier-board__node-handle:active {
+  cursor: grabbing;
+}
+
 @media (max-width: 900px) {
   .relationship-graph__board {
     height: 460px;

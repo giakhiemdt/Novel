@@ -30,6 +30,26 @@ export const energyTierRoutes: RouteConfig[] = [
     },
   },
   {
+    method: "GET",
+    path: "/energy-tiers/links",
+    handler: energyTierController.getEnergyTierLinks,
+    schema: {
+      tags: ["EnergyTier"],
+      summary: "Get energy tier progression links",
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            data: {
+              type: "array",
+              items: { type: "object", additionalProperties: true },
+            },
+          },
+        },
+      },
+    },
+  },
+  {
     method: "POST",
     path: "/energy-tiers",
     handler: energyTierController.createEnergyTier,

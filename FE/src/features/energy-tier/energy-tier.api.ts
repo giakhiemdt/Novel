@@ -3,6 +3,7 @@ import { withDatabaseHeader } from "../../services/db";
 import { endpoints } from "../../services/endpoints";
 import type {
   EnergyTier,
+  EnergyTierLink,
   EnergyTierLinkPayload,
   EnergyTierPayload,
 } from "./energy-tier.types";
@@ -30,3 +31,6 @@ export const linkEnergyTier = (payload: EnergyTierLinkPayload) =>
 
 export const unlinkEnergyTier = (payload: Pick<EnergyTierLinkPayload, "previousId" | "currentId">) =>
   api.post<{ message?: string }>(`${endpoints.energyTiers}/unlink`, payload, withDatabaseHeader());
+
+export const getEnergyTierLinks = () =>
+  api.get<EnergyTierLink[]>(`${endpoints.energyTiers}/links`, withDatabaseHeader());

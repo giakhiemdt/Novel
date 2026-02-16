@@ -5,6 +5,7 @@ import {
   createEnergyTier,
   deleteEnergyTier,
   getEnergyTierByCode,
+  getEnergyTierLinks,
   getEnergyTierById,
   getEnergyTiers,
   linkEnergyTiers,
@@ -14,6 +15,7 @@ import {
 import {
   EnergyTierInput,
   EnergyTierLinkInput,
+  EnergyTierLinkNode,
   EnergyTierListQuery,
   EnergyTierNode,
 } from "./energy-tier.types";
@@ -307,6 +309,12 @@ export const energyTierService = {
     const database = assertDatabaseName(dbName);
     const parsed = parseListQuery(query);
     return getEnergyTiers(database, parsed.activeOnly ?? true, parsed.energyTypeId);
+  },
+
+  getLinks: async (dbName: unknown): Promise<{ data: EnergyTierLinkNode[] }> => {
+    const database = assertDatabaseName(dbName);
+    const links = await getEnergyTierLinks(database);
+    return { data: links };
   },
 
   delete: async (id: string, dbName: unknown): Promise<void> => {

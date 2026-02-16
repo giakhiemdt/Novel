@@ -70,6 +70,19 @@ const deleteEnergyTier = async (
 
 export const energyTierController = {
   getEnergyTiers,
+  getEnergyTierLinks: async (
+    req: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> => {
+    try {
+      const dbName = getDatabaseHeader(req);
+      const result = await energyTierService.getLinks(dbName);
+      reply.status(200).send(result);
+    } catch (error) {
+      const handled = handleError(error);
+      reply.status(handled.statusCode).send({ message: handled.message });
+    }
+  },
   createEnergyTier,
   updateEnergyTier,
   deleteEnergyTier,
