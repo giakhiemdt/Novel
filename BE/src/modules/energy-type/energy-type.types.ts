@@ -2,6 +2,8 @@ export type EnergyTypeInput = {
   id?: string;
   code: string;
   name: string;
+  levelCount?: number;
+  levelRatios?: number[];
   description?: string;
   color?: string;
   isActive?: boolean;
@@ -11,6 +13,8 @@ export type EnergyTypeNode = {
   id: string;
   code: string;
   name: string;
+  levelCount?: number;
+  levelRatios?: number[];
   description?: string;
   color?: string;
   isActive: boolean;

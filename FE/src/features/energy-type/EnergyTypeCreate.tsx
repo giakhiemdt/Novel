@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/common/Button";
 import { ListPanel } from "../../components/common/ListPanel";
 import { useToast } from "../../components/common/Toast";
@@ -9,6 +8,7 @@ import { TextArea } from "../../components/form/TextArea";
 import { TextInput } from "../../components/form/TextInput";
 import { useProjectChange } from "../../hooks/useProjectChange";
 import { useI18n } from "../../i18n/I18nProvider";
+import boardIcon from "../../assets/icons/board.svg";
 import {
   createEnergyType,
   deleteEnergyConversion,
@@ -18,6 +18,7 @@ import {
   updateEnergyType,
   upsertEnergyConversion,
 } from "./energy-type.api";
+import { EnergyTypeLevelBoard } from "./EnergyTypeLevelBoard";
 import type {
   EnergyConversion,
   EnergyConversionPayload,
@@ -28,6 +29,8 @@ import type {
 const initialTypeState = {
   code: "",
   name: "",
+  levelCount: "1",
+  levelRatiosText: "1",
   description: "",
   color: "#4B5563",
   isActive: true,
@@ -45,10 +48,27 @@ const initialConversionState = {
 type TypeFormState = typeof initialTypeState;
 type ConversionFormState = typeof initialConversionState;
 
+const parseRatios = (text: string): number[] | undefined => {
+  const normalized = text.trim();
+  if (!normalized) {
+    return undefined;
+  }
+  return normalized
+    .split(",")
+    .map((item) => Number(item.trim()))
+    .filter((value) => Number.isFinite(value));
+};
+
+const formatRatios = (ratios: number[] | undefined): string => {
+  if (!ratios || ratios.length === 0) {
+    return "";
+  }
+  return ratios.join(", ");
+};
+
 export const EnergyTypeCreate = () => {
   const { t } = useI18n();
   const { notify } = useToast();
-  const navigate = useNavigate();
 
   const [items, setItems] = useState<EnergyType[]>([]);
   const [conversions, setConversions] = useState<EnergyConversion[]>([]);
@@ -59,6 +79,7 @@ export const EnergyTypeCreate = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingConversion, setIsSavingConversion] = useState(false);
   const [showList, setShowList] = useState(false);
+  const [showBoard, setShowBoard] = useState(true);
 
   const loadItems = useCallback(async () => {
     try {
@@ -66,8 +87,7 @@ export const EnergyTypeCreate = () => {
       const next = data ?? [];
       setItems(next);
       setConversionForm((prev) => {
-        const fallbackFrom =
-          prev.fromId || (next.length > 0 ? next[0].id : "");
+        const fallbackFrom = prev.fromId || (next.length > 0 ? next[0].id : "");
         const fallbackTo =
           prev.toId ||
           (next.length > 1 ? next[1].id : next.length > 0 ? next[0].id : "");
@@ -92,36 +112,53 @@ export const EnergyTypeCreate = () => {
   }, [notify]);
 
   useEffect(() => {
-    if (!showList) {
-      return;
+    if (showList || showBoard) {
+      void loadItems();
     }
-    void loadItems();
-    void loadConversions();
-  }, [loadItems, loadConversions, showList]);
+    if (showList) {
+      void loadConversions();
+    }
+  }, [loadConversions, loadItems, showBoard, showList]);
 
   useProjectChange(() => {
-    if (!showList) {
-      return;
+    if (showList || showBoard) {
+      void loadItems();
     }
-    void loadItems();
-    void loadConversions();
+    if (showList) {
+      void loadConversions();
+    }
   });
 
   const mapToForm = (item: EnergyType): TypeFormState => ({
     code: item.code,
     name: item.name,
+    levelCount:
+      typeof item.levelCount === "number" && Number.isFinite(item.levelCount)
+        ? String(Math.max(1, Math.floor(item.levelCount)))
+        : "1",
+    levelRatiosText: formatRatios(item.levelRatios),
     description: item.description ?? "",
     color: item.color ?? "#4B5563",
     isActive: item.isActive,
   });
 
-  const buildPayload = (state: TypeFormState): EnergyTypePayload => ({
-    code: state.code.trim().toLowerCase(),
-    name: state.name.trim(),
-    description: state.description.trim() || undefined,
-    color: state.color.trim() || undefined,
-    isActive: state.isActive,
-  });
+  const buildPayload = (state: TypeFormState): EnergyTypePayload => {
+    const parsedLevelCount = Number(state.levelCount);
+    const levelCount =
+      Number.isFinite(parsedLevelCount) && parsedLevelCount >= 1
+        ? Math.floor(parsedLevelCount)
+        : 1;
+    const ratios = parseRatios(state.levelRatiosText) ?? [];
+    return {
+      code: state.code.trim().toLowerCase(),
+      name: state.name.trim(),
+      levelCount,
+      levelRatios: ratios.length > 0 ? ratios : undefined,
+      description: state.description.trim() || undefined,
+      color: state.color.trim() || undefined,
+      isActive: state.isActive,
+    };
+  };
 
   const buildConversionPayload = (
     state: ConversionFormState
@@ -129,8 +166,7 @@ export const EnergyTypeCreate = () => {
     fromId: state.fromId,
     toId: state.toId,
     ratio: state.ratio.trim() === "" ? undefined : Number(state.ratio),
-    lossRate:
-      state.lossRate.trim() === "" ? undefined : Number(state.lossRate),
+    lossRate: state.lossRate.trim() === "" ? undefined : Number(state.lossRate),
     condition: state.condition.trim() || undefined,
     isActive: state.isActive,
   });
@@ -138,6 +174,18 @@ export const EnergyTypeCreate = () => {
   const validatePayload = (payload: EnergyTypePayload): boolean => {
     if (!payload.code || !payload.name) {
       notify(t("Missing required fields: code, name"), "error");
+      return false;
+    }
+    if (
+      payload.levelCount === undefined ||
+      !Number.isInteger(payload.levelCount) ||
+      payload.levelCount < 1
+    ) {
+      notify(t("Level count must be an integer >= 1."), "error");
+      return false;
+    }
+    if (payload.levelRatios && payload.levelRatios.length !== payload.levelCount) {
+      notify(t("Level ratios must have same length as level count."), "error");
       return false;
     }
     return true;
@@ -189,7 +237,7 @@ export const EnergyTypeCreate = () => {
       }
       setForm(initialTypeState);
       setEditingId(null);
-      if (showList) {
+      if (showList || showBoard) {
         await loadItems();
       }
     } catch (err) {
@@ -239,6 +287,8 @@ export const EnergyTypeCreate = () => {
       await updateEnergyType(item.id, {
         code: item.code,
         name: item.name,
+        levelCount: item.levelCount,
+        levelRatios: item.levelRatios,
         description: item.description,
         color: item.color,
         isActive: !item.isActive,
@@ -281,16 +331,11 @@ export const EnergyTypeCreate = () => {
               {t("Manage available energy types used by rank systems.")}
             </p>
           </div>
-          <div className="table__actions">
-            <Button variant="ghost" onClick={() => navigate("/energy-tiers")}>
-              {t("Open energy tiers")}
+          {editingId && (
+            <Button variant="ghost" onClick={handleCancel}>
+              {t("Cancel")}
             </Button>
-            {editingId && (
-              <Button variant="ghost" onClick={handleCancel}>
-                {t("Cancel")}
-              </Button>
-            )}
-          </div>
+          )}
         </div>
 
         <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
@@ -303,6 +348,8 @@ export const EnergyTypeCreate = () => {
                 <tr>
                   <th>{t("Code")}</th>
                   <th>{t("Name")}</th>
+                  <th>{t("Levels")}</th>
+                  <th>{t("Ratios")}</th>
                   <th>{t("Active")}</th>
                   <th>{t("Actions")}</th>
                 </tr>
@@ -312,6 +359,8 @@ export const EnergyTypeCreate = () => {
                   <tr key={item.id}>
                     <td>{item.code}</td>
                     <td>{item.name}</td>
+                    <td>{item.levelCount ?? "-"}</td>
+                    <td>{item.levelRatios?.join(", ") ?? "-"}</td>
                     <td>{item.isActive ? t("Yes") : t("No")}</td>
                     <td className="table__actions">
                       <button
@@ -343,9 +392,33 @@ export const EnergyTypeCreate = () => {
           ))}
       </div>
 
+      <div className="card">
+        <button
+          type="button"
+          className="filter-toggle"
+          onClick={() => setShowBoard((prev) => !prev)}
+          aria-expanded={showBoard}
+        >
+          <img src={boardIcon} alt="" className="filter-toggle__icon" />
+          <span className="filter-toggle__label">
+            {showBoard ? t("Hide board") : t("Show board")}
+          </span>
+        </button>
+      </div>
+
+      {showBoard && (
+        <div className="card rank-system-landscape-card">
+          <h3 className="section-title">{t("Energy level board")}</h3>
+          <p className="header__subtitle">
+            {t("Matrix overview of level and ratio per energy type.")}
+          </p>
+          <EnergyTypeLevelBoard items={items} />
+        </div>
+      )}
+
       <FormSection
         title={editingId ? "Edit energy type" : "Create energy type"}
-        description="Define reusable energy metadata."
+        description="Define reusable energy metadata and level ratios."
       >
         <div className="form-field--narrow">
           <TextInput
@@ -361,6 +434,23 @@ export const EnergyTypeCreate = () => {
             value={form.name}
             onChange={(value) => setForm((prev) => ({ ...prev, name: value }))}
             required
+          />
+        </div>
+        <div className="form-field--narrow">
+          <TextInput
+            label="Level count"
+            type="number"
+            value={form.levelCount}
+            onChange={(value) => setForm((prev) => ({ ...prev, levelCount: value }))}
+            required
+          />
+        </div>
+        <div className="form-field--wide">
+          <TextInput
+            label="Level ratios"
+            value={form.levelRatiosText}
+            onChange={(value) => setForm((prev) => ({ ...prev, levelRatiosText: value }))}
+            placeholder="1, 2, 4, 8"
           />
         </div>
         <div className="form-field--wide">
@@ -394,11 +484,7 @@ export const EnergyTypeCreate = () => {
 
       <div className="card">
         <Button onClick={handleSubmit} disabled={isSaving}>
-          {isSaving
-            ? t("Saving...")
-            : editingId
-              ? t("Save type")
-              : t("Create type")}
+          {isSaving ? t("Saving...") : editingId ? t("Save type") : t("Create type")}
         </Button>
       </div>
 
@@ -410,9 +496,7 @@ export const EnergyTypeCreate = () => {
           <Select
             label="From"
             value={conversionForm.fromId}
-            onChange={(value) =>
-              setConversionForm((prev) => ({ ...prev, fromId: value }))
-            }
+            onChange={(value) => setConversionForm((prev) => ({ ...prev, fromId: value }))}
             options={typeOptions}
             required
           />
@@ -421,9 +505,7 @@ export const EnergyTypeCreate = () => {
           <Select
             label="To"
             value={conversionForm.toId}
-            onChange={(value) =>
-              setConversionForm((prev) => ({ ...prev, toId: value }))
-            }
+            onChange={(value) => setConversionForm((prev) => ({ ...prev, toId: value }))}
             options={typeOptions}
             required
           />
@@ -433,9 +515,7 @@ export const EnergyTypeCreate = () => {
             label="Ratio"
             type="number"
             value={conversionForm.ratio}
-            onChange={(value) =>
-              setConversionForm((prev) => ({ ...prev, ratio: value }))
-            }
+            onChange={(value) => setConversionForm((prev) => ({ ...prev, ratio: value }))}
           />
         </div>
         <div className="form-field--narrow">
@@ -443,9 +523,7 @@ export const EnergyTypeCreate = () => {
             label="Loss rate"
             type="number"
             value={conversionForm.lossRate}
-            onChange={(value) =>
-              setConversionForm((prev) => ({ ...prev, lossRate: value }))
-            }
+            onChange={(value) => setConversionForm((prev) => ({ ...prev, lossRate: value }))}
           />
         </div>
         <div className="form-field--wide">
@@ -463,10 +541,7 @@ export const EnergyTypeCreate = () => {
               type="checkbox"
               checked={conversionForm.isActive}
               onChange={(event) =>
-                setConversionForm((prev) => ({
-                  ...prev,
-                  isActive: event.target.checked,
-                }))
+                setConversionForm((prev) => ({ ...prev, isActive: event.target.checked }))
               }
             />{" "}
             {t("Active")}

@@ -66,6 +66,25 @@ const assertOptionalNumber = (
   return value;
 };
 
+const assertOptionalNumberArray = (
+  value: unknown,
+  field: string
+): number[] | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!Array.isArray(value)) {
+    throw new AppError(`${field} must be an array of numbers`, 400);
+  }
+  const parsed = value.map((item, index) => {
+    if (typeof item !== "number" || !Number.isFinite(item)) {
+      throw new AppError(`${field}[${index}] must be a number`, 400);
+    }
+    return item;
+  });
+  return parsed;
+};
+
 const parseOptionalQueryBoolean = (
   value: unknown,
   field: string
@@ -133,6 +152,16 @@ const validatePayload = (payload: unknown): EnergyTypeInput => {
   addIfDefined(result, "id", assertOptionalString(data.id, "id"));
   addIfDefined(
     result,
+    "levelCount",
+    assertOptionalNumber(data.levelCount, "levelCount")
+  );
+  addIfDefined(
+    result,
+    "levelRatios",
+    assertOptionalNumberArray(data.levelRatios, "levelRatios")
+  );
+  addIfDefined(
+    result,
     "description",
     assertOptionalString(data.description, "description")
   );
@@ -142,6 +171,19 @@ const validatePayload = (payload: unknown): EnergyTypeInput => {
     "isActive",
     assertOptionalBoolean(data.isActive, "isActive")
   );
+
+  const levelCount = result.levelCount as number | undefined;
+  const levelRatios = result.levelRatios as number[] | undefined;
+  if (levelCount !== undefined) {
+    if (!Number.isInteger(levelCount) || levelCount < 1) {
+      throw new AppError("levelCount must be an integer >= 1", 400);
+    }
+  }
+  if (levelRatios !== undefined && levelCount !== undefined) {
+    if (levelRatios.length !== levelCount) {
+      throw new AppError("levelRatios length must equal levelCount", 400);
+    }
+  }
 
   return result as EnergyTypeInput;
 };
@@ -207,6 +249,12 @@ const buildNode = (payload: EnergyTypeInput): EnergyTypeNode => {
   }
   if (payload.color !== undefined) {
     node.color = payload.color;
+  }
+  if (payload.levelCount !== undefined) {
+    node.levelCount = payload.levelCount;
+  }
+  if (payload.levelRatios !== undefined) {
+    node.levelRatios = payload.levelRatios;
   }
   return node;
 };
