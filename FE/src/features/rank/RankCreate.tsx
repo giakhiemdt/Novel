@@ -5,6 +5,7 @@ import { FilterPanel } from "../../components/common/FilterPanel";
 import { Pagination } from "../../components/common/Pagination";
 import { ListPanel } from "../../components/common/ListPanel";
 import { useToast } from "../../components/common/Toast";
+import { CrudPageShell } from "../../components/crud/CrudPageShell";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
 import { Select } from "../../components/form/Select";
@@ -734,220 +735,218 @@ export const RankCreate = () => {
 
   return (
     <div>
-      <div className="card">
-        <div className="card__header">
-          <div>
-            <h3 className="section-title">{t("Rank nodes")}</h3>
-            <p className="header__subtitle">
-              {t("Click a row to inspect details.")}
-            </p>
-          </div>
-          <Button onClick={() => setShowForm((prev) => !prev)} variant="primary">
-            {showForm ? t("Close form") : t("Create new rank")}
-          </Button>
-        </div>
-        <FilterPanel>
-          <TextInput
-            label="Search"
-            value={filters.q}
-            onChange={(value) => handleFilterChange("q", value)}
-            placeholder="Search..."
-          />
-          <TextInput
-            label="Name"
-            value={filters.name}
-            onChange={(value) => handleFilterChange("name", value)}
-          />
-          <TextInput
-            label="Tag"
-            value={filters.tag}
-            onChange={(value) => handleFilterChange("tag", value)}
-          />
-          <TextInput
-            label="Tier"
-            value={filters.tier}
-            onChange={(value) => handleFilterChange("tier", value)}
-          />
-          <Select
-            label="Rank System"
-            value={filters.systemId}
-            onChange={(value) => {
-              if (value === "__create__") {
-                navigate("/rank-systems");
-                return;
-              }
-              handleFilterChange("systemId", value);
-            }}
-            options={rankSystemOptions}
-            placeholder={rankSystems.length > 0 ? "All" : "No rank systems yet."}
-          />
-          <TextInput
-            label="System"
-            value={filters.system}
-            onChange={(value) => handleFilterChange("system", value)}
-          />
-          <div className="form-field filter-actions">
-            <Button type="button" variant="ghost" onClick={handleClearFilters}>
-              Clear filters
+      <CrudPageShell
+        title="Rank nodes"
+        subtitle="Click a row to inspect details."
+        showForm={showForm}
+        createLabel="Create new rank"
+        onToggleForm={() => setShowForm((prev) => !prev)}
+        controls={
+          <>
+            <FilterPanel>
+              <TextInput
+                label="Search"
+                value={filters.q}
+                onChange={(value) => handleFilterChange("q", value)}
+                placeholder="Search..."
+              />
+              <TextInput
+                label="Name"
+                value={filters.name}
+                onChange={(value) => handleFilterChange("name", value)}
+              />
+              <TextInput
+                label="Tag"
+                value={filters.tag}
+                onChange={(value) => handleFilterChange("tag", value)}
+              />
+              <TextInput
+                label="Tier"
+                value={filters.tier}
+                onChange={(value) => handleFilterChange("tier", value)}
+              />
+              <Select
+                label="Rank System"
+                value={filters.systemId}
+                onChange={(value) => {
+                  if (value === "__create__") {
+                    navigate("/rank-systems");
+                    return;
+                  }
+                  handleFilterChange("systemId", value);
+                }}
+                options={rankSystemOptions}
+                placeholder={rankSystems.length > 0 ? "All" : "No rank systems yet."}
+              />
+              <TextInput
+                label="System"
+                value={filters.system}
+                onChange={(value) => handleFilterChange("system", value)}
+              />
+              <div className="form-field filter-actions">
+                <Button type="button" variant="ghost" onClick={handleClearFilters}>
+                  Clear filters
+                </Button>
+              </div>
+            </FilterPanel>
+            <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
+          </>
+        }
+        list={
+          showList ? (
+            <>
+              <RankList
+                items={items}
+                rankSystemNameById={rankSystemNameById}
+                onEdit={handleEditOpen}
+                onDelete={handleDelete}
+              />
+              {items.length > 0 || page > 1 || hasNext ? (
+                <Pagination
+                  page={page}
+                  pageSize={pageSize}
+                  itemCount={items.length}
+                  hasNext={hasNext}
+                  totalCount={totalCount}
+                  onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+                  onPageSizeChange={(nextSize) => {
+                    setPageSize(nextSize);
+                    setPage(1);
+                  }}
+                />
+              ) : null}
+            </>
+          ) : null
+        }
+      />
+      <div className="filter-block">
+        <button
+          type="button"
+          className="filter-toggle"
+          onClick={() => setShowBoard((prev) => !prev)}
+          aria-expanded={showBoard}
+        >
+          <img className="filter-toggle__icon" src={boardIcon} alt={t("Board")} />
+          <span className="filter-toggle__label">
+            {showBoard ? t("Hide board") : t("Show board")}
+          </span>
+        </button>
+        {showBoard && <p className="header__subtitle">{t("Board")}</p>}
+      </div>
+      {showBoard && (
+        <RankBoard
+          items={visibleBoardItems}
+          links={links}
+          initialPositions={boardPositions}
+          initialLinkBends={boardLinkBends}
+          initialConditionNodePositions={boardConditionNodePositions}
+          selectedId={editItem?.id}
+          selectedLink={selectedLink}
+          onSelect={(item) => {
+            if (!item) {
+              handleEditCancel();
+              return;
+            }
+            handleEditOpen(item);
+          }}
+          onSelectLink={handleSelectLink}
+          onLink={handleBoardLink}
+          onUnlink={handleBoardUnlink}
+          onPositionsChange={handleBoardPositionsChange}
+          onLinkBendsChange={handleBoardLinkBendsChange}
+          onConditionNodePositionsChange={handleBoardConditionNodePositionsChange}
+          onColorChange={handleBoardColorChange}
+          isSavingColor={isSavingColor}
+          key={`rank-board-${layoutRevision}`}
+        />
+      )}
+      {showBoard && selectedLink && (
+        <div className="card rank-link-editor">
+          <div className="card__header">
+            <div>
+              <h3 className="section-title">{t("Promotion Link")}</h3>
+              <p className="header__subtitle">
+                {selectedLinkInfo
+                  ? `${selectedLinkInfo.previousName} → ${selectedLinkInfo.currentName}`
+                  : `${selectedLink.previousId} → ${selectedLink.currentId}`}
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setSelectedLink(null);
+                setLinkConditionsDraft([createEmptyCondition()]);
+              }}
+            >
+              {t("Cancel")}
             </Button>
           </div>
-        </FilterPanel>
-        <div className="filter-block">
-          <button
-            type="button"
-            className="filter-toggle"
-            onClick={() => setShowBoard((prev) => !prev)}
-            aria-expanded={showBoard}
-          >
-            <img className="filter-toggle__icon" src={boardIcon} alt={t("Board")} />
-            <span className="filter-toggle__label">
-              {showBoard ? t("Hide board") : t("Show board")}
-            </span>
-          </button>
-          {showBoard && <p className="header__subtitle">{t("Board")}</p>}
-        </div>
-        {showBoard && (
-          <>
-            <RankBoard
-              items={visibleBoardItems}
-              links={links}
-              initialPositions={boardPositions}
-              initialLinkBends={boardLinkBends}
-              initialConditionNodePositions={boardConditionNodePositions}
-              selectedId={editItem?.id}
-              selectedLink={selectedLink}
-              onSelect={(item) => {
-                if (!item) {
-                  handleEditCancel();
-                  return;
-                }
-                handleEditOpen(item);
-              }}
-              onSelectLink={handleSelectLink}
-              onLink={handleBoardLink}
-              onUnlink={handleBoardUnlink}
-              onPositionsChange={handleBoardPositionsChange}
-              onLinkBendsChange={handleBoardLinkBendsChange}
-              onConditionNodePositionsChange={handleBoardConditionNodePositionsChange}
-              onColorChange={handleBoardColorChange}
-              isSavingColor={isSavingColor}
-              key={`rank-board-${layoutRevision}`}
-            />
-          </>
-        )}
-        {showBoard && selectedLink && (
-          <div className="card rank-link-editor">
-            <div className="card__header">
-              <div>
-                <h3 className="section-title">{t("Promotion Link")}</h3>
-                <p className="header__subtitle">
-                  {selectedLinkInfo
-                    ? `${selectedLinkInfo.previousName} → ${selectedLinkInfo.currentName}`
-                    : `${selectedLink.previousId} → ${selectedLink.currentId}`}
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setSelectedLink(null);
-                  setLinkConditionsDraft([createEmptyCondition()]);
-                }}
-              >
-                {t("Cancel")}
-              </Button>
-            </div>
-            <div className="form-field rank-condition-builder">
-              <label>{t("Promotion Conditions")}</label>
-              <div className="rank-condition-list">
-                {linkConditionsDraft.map((condition, index) => (
-                  <div className="rank-condition-item" key={`condition-${index + 1}`}>
-                    <div className="rank-condition-fields">
-                      <input
-                        className="input rank-condition-input"
-                        value={condition.name}
-                        onChange={(event) =>
-                          handleConditionChange(index, "name", event.target.value)
-                        }
-                        placeholder={`${t("Condition name")} ${index + 1}`}
-                      />
-                      <input
-                        className="input rank-condition-input"
-                        value={condition.description ?? ""}
-                        onChange={(event) =>
-                          handleConditionChange(index, "description", event.target.value)
-                        }
-                        placeholder={`${t("Condition description")} ${index + 1}`}
-                      />
-                    </div>
-                    {linkConditionsDraft.length > 1 && (
-                      <button
-                        type="button"
-                        className="rank-condition-icon rank-condition-icon--remove"
-                        onClick={() => handleRemoveConditionField(index)}
-                        aria-label={t("Remove condition")}
-                        title={t("Remove condition")}
-                      >
-                        −
-                      </button>
-                    )}
+          <div className="form-field rank-condition-builder">
+            <label>{t("Promotion Conditions")}</label>
+            <div className="rank-condition-list">
+              {linkConditionsDraft.map((condition, index) => (
+                <div className="rank-condition-item" key={`condition-${index + 1}`}>
+                  <div className="rank-condition-fields">
+                    <input
+                      className="input rank-condition-input"
+                      value={condition.name}
+                      onChange={(event) =>
+                        handleConditionChange(index, "name", event.target.value)
+                      }
+                      placeholder={`${t("Condition name")} ${index + 1}`}
+                    />
+                    <input
+                      className="input rank-condition-input"
+                      value={condition.description ?? ""}
+                      onChange={(event) =>
+                        handleConditionChange(index, "description", event.target.value)
+                      }
+                      placeholder={`${t("Condition description")} ${index + 1}`}
+                    />
                   </div>
-                ))}
-                <button
-                  type="button"
-                  className="rank-condition-icon rank-condition-icon--add"
-                  onClick={handleAddConditionField}
-                  aria-label={t("Add condition")}
-                  title={t("Add condition")}
-                >
-                  +
-                </button>
-              </div>
-            </div>
-            <div className="page-toolbar">
-              <Button
-                onClick={handleSaveLinkConditions}
-                disabled={isSavingLinkConditions}
+                  {linkConditionsDraft.length > 1 && (
+                    <button
+                      type="button"
+                      className="rank-condition-icon rank-condition-icon--remove"
+                      onClick={() => handleRemoveConditionField(index)}
+                      aria-label={t("Remove condition")}
+                      title={t("Remove condition")}
+                    >
+                      −
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                className="rank-condition-icon rank-condition-icon--add"
+                onClick={handleAddConditionField}
+                aria-label={t("Add condition")}
+                title={t("Add condition")}
               >
-                {isSavingLinkConditions ? t("Saving...") : t("Save conditions")}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => setLinkConditionsDraft([createEmptyCondition()])}
-              >
-                {t("Clear conditions")}
-              </Button>
-              <Button variant="ghost" onClick={() => void handleUnlinkSelectedLink()}>
-                {t("Unlink")}
-              </Button>
+                +
+              </button>
             </div>
           </div>
-        )}
-        <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
-        {showList && (
-          <>
-            <RankList
-              items={items}
-              rankSystemNameById={rankSystemNameById}
-              onEdit={handleEditOpen}
-              onDelete={handleDelete}
-            />
-            {(items.length > 0 || page > 1 || hasNext) && (
-              <Pagination
-                page={page}
-                pageSize={pageSize}
-                itemCount={items.length}
-                hasNext={hasNext}
-                totalCount={totalCount}
-                onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
-                onPageSizeChange={(nextSize) => {
-                  setPageSize(nextSize);
-                  setPage(1);
-                }}
-              />
-            )}
-          </>
-        )}
-      </div>
+          <div className="page-toolbar">
+            <Button
+              onClick={handleSaveLinkConditions}
+              disabled={isSavingLinkConditions}
+            >
+              {isSavingLinkConditions ? t("Saving...") : t("Save conditions")}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setLinkConditionsDraft([createEmptyCondition()])}
+            >
+              {t("Clear conditions")}
+            </Button>
+            <Button variant="ghost" onClick={() => void handleUnlinkSelectedLink()}>
+              {t("Unlink")}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {editItem && editValues && (
         <>
