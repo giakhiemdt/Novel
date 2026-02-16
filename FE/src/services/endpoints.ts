@@ -23,6 +23,8 @@ export const endpoints = {
   items: "/items",
   relationshipTypes: "/relationship-types",
   energyTypes: "/energy-types",
+  energyTiers: "/energy-tiers",
+  energyTypeConversions: "/energy-types/conversions",
   characterRelations: "/character-relations",
   conflicts: "/conflicts",
   worldRules: "/world-rules",

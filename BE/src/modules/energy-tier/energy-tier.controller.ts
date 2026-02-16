@@ -1,6 +1,6 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import { handleError } from "../../shared/errors/error-handler";
-import { energyTypeService } from "./energy-type.service";
+import { energyTierService } from "./energy-tier.service";
 
 const getDatabaseHeader = (req: FastifyRequest): string | undefined => {
   const header = req.headers["x-neo4j-database"];
@@ -10,13 +10,13 @@ const getDatabaseHeader = (req: FastifyRequest): string | undefined => {
   return header;
 };
 
-const getEnergyTypes = async (
+const getEnergyTiers = async (
   req: FastifyRequest,
   reply: FastifyReply
 ): Promise<void> => {
   try {
     const dbName = getDatabaseHeader(req);
-    const items = await energyTypeService.getAll(dbName, req.query);
+    const items = await energyTierService.getAll(dbName, req.query);
     reply.status(200).send({ data: items });
   } catch (error) {
     const handled = handleError(error);
@@ -24,13 +24,13 @@ const getEnergyTypes = async (
   }
 };
 
-const createEnergyType = async (
+const createEnergyTier = async (
   req: FastifyRequest,
   reply: FastifyReply
 ): Promise<void> => {
   try {
     const dbName = getDatabaseHeader(req);
-    const item = await energyTypeService.create(req.body, dbName);
+    const item = await energyTierService.create(req.body, dbName);
     reply.status(201).send({ data: item });
   } catch (error) {
     const handled = handleError(error);
@@ -38,14 +38,14 @@ const createEnergyType = async (
   }
 };
 
-const updateEnergyType = async (
+const updateEnergyTier = async (
   req: FastifyRequest,
   reply: FastifyReply
 ): Promise<void> => {
   try {
     const dbName = getDatabaseHeader(req);
     const { id } = req.params as { id: string };
-    const item = await energyTypeService.update(id, req.body, dbName);
+    const item = await energyTierService.update(id, req.body, dbName);
     reply.status(200).send({ data: item });
   } catch (error) {
     const handled = handleError(error);
@@ -53,14 +53,14 @@ const updateEnergyType = async (
   }
 };
 
-const deleteEnergyType = async (
+const deleteEnergyTier = async (
   req: FastifyRequest,
   reply: FastifyReply
 ): Promise<void> => {
   try {
     const dbName = getDatabaseHeader(req);
     const { id } = req.params as { id: string };
-    await energyTypeService.delete(id, dbName);
+    await energyTierService.delete(id, dbName);
     reply.status(204).send();
   } catch (error) {
     const handled = handleError(error);
@@ -68,40 +68,29 @@ const deleteEnergyType = async (
   }
 };
 
-export const energyTypeController = {
-  getEnergyTypes,
-  createEnergyType,
-  updateEnergyType,
-  deleteEnergyType,
-  getConversions: async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
+export const energyTierController = {
+  getEnergyTiers,
+  createEnergyTier,
+  updateEnergyTier,
+  deleteEnergyTier,
+  linkEnergyTier: async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
     try {
       const dbName = getDatabaseHeader(req);
-      const items = await energyTypeService.getConversions(dbName);
-      reply.status(200).send({ data: items });
+      const result = await energyTierService.link(req.body, dbName);
+      reply.status(200).send(result);
     } catch (error) {
       const handled = handleError(error);
       reply.status(handled.statusCode).send({ message: handled.message });
     }
   },
-  createOrUpdateConversion: async (
+  unlinkEnergyTier: async (
     req: FastifyRequest,
     reply: FastifyReply
   ): Promise<void> => {
     try {
       const dbName = getDatabaseHeader(req);
-      const item = await energyTypeService.upsertConversion(req.body, dbName);
-      reply.status(200).send({ data: item });
-    } catch (error) {
-      const handled = handleError(error);
-      reply.status(handled.statusCode).send({ message: handled.message });
-    }
-  },
-  deleteConversion: async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
-    try {
-      const dbName = getDatabaseHeader(req);
-      const { fromId, toId } = req.params as { fromId: string; toId: string };
-      await energyTypeService.deleteConversion(fromId, toId, dbName);
-      reply.status(204).send();
+      const result = await energyTierService.unlink(req.body, dbName);
+      reply.status(200).send(result);
     } catch (error) {
       const handled = handleError(error);
       reply.status(handled.statusCode).send({ message: handled.message });

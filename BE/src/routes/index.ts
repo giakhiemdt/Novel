@@ -14,6 +14,7 @@ import { itemRoutes } from "../modules/item/item.routes";
 import { relationshipRoutes } from "../modules/relationship/relationship.routes";
 import { relationshipTypeRoutes } from "../modules/relationship-type/relationship-type.routes";
 import { energyTypeRoutes } from "../modules/energy-type/energy-type.routes";
+import { energyTierRoutes } from "../modules/energy-tier/energy-tier.routes";
 import { worldRuleRoutes } from "../modules/worldrule/worldrule.routes";
 import { raceRoutes } from "../modules/race/race.routes";
 import { rankRoutes } from "../modules/rank/rank.routes";
@@ -59,6 +60,7 @@ export const routes: RouteConfig[] = [
   ...itemRoutes,
   ...relationshipTypeRoutes,
   ...energyTypeRoutes,
+  ...energyTierRoutes,
   ...relationshipRoutes,
   ...worldRuleRoutes,
 ];

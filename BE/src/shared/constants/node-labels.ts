@@ -20,4 +20,5 @@ export const nodeLabels = {
   worldRule: "WorldRule",
   relationshipType: "RelationshipType",
   energyType: "EnergyType",
+  energyTier: "EnergyTier",
 };

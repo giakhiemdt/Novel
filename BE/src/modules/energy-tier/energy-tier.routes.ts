@@ -1,18 +1,19 @@
 import { RouteConfig } from "../../routes";
-import { energyTypeController } from "./energy-type.controller";
+import { energyTierController } from "./energy-tier.controller";
 
-export const energyTypeRoutes: RouteConfig[] = [
+export const energyTierRoutes: RouteConfig[] = [
   {
     method: "GET",
-    path: "/energy-types",
-    handler: energyTypeController.getEnergyTypes,
+    path: "/energy-tiers",
+    handler: energyTierController.getEnergyTiers,
     schema: {
-      tags: ["EnergyType"],
-      summary: "Get energy types",
+      tags: ["EnergyTier"],
+      summary: "Get energy tiers",
       querystring: {
         type: "object",
         properties: {
           activeOnly: { type: "boolean" },
+          energyTypeId: { type: "string" },
         },
       },
       response: {
@@ -30,18 +31,20 @@ export const energyTypeRoutes: RouteConfig[] = [
   },
   {
     method: "POST",
-    path: "/energy-types",
-    handler: energyTypeController.createEnergyType,
+    path: "/energy-tiers",
+    handler: energyTierController.createEnergyTier,
     schema: {
-      tags: ["EnergyType"],
-      summary: "Create energy type",
+      tags: ["EnergyTier"],
+      summary: "Create energy tier",
       body: {
         type: "object",
-        required: ["code", "name"],
+        required: ["energyTypeId", "code", "name"],
         properties: {
           id: { type: "string" },
+          energyTypeId: { type: "string" },
           code: { type: "string" },
           name: { type: "string" },
+          level: { type: "number" },
           description: { type: "string" },
           color: { type: "string" },
           isActive: { type: "boolean" },
@@ -50,23 +53,26 @@ export const energyTypeRoutes: RouteConfig[] = [
       response: {
         201: { type: "object", properties: { data: { type: "object" } } },
         400: { type: "object", properties: { message: { type: "string" } } },
+        404: { type: "object", properties: { message: { type: "string" } } },
         409: { type: "object", properties: { message: { type: "string" } } },
       },
     },
   },
   {
     method: "PUT",
-    path: "/energy-types/:id",
-    handler: energyTypeController.updateEnergyType,
+    path: "/energy-tiers/:id",
+    handler: energyTierController.updateEnergyTier,
     schema: {
-      tags: ["EnergyType"],
-      summary: "Update energy type",
+      tags: ["EnergyTier"],
+      summary: "Update energy tier",
       body: {
         type: "object",
-        required: ["code", "name"],
+        required: ["energyTypeId", "code", "name"],
         properties: {
+          energyTypeId: { type: "string" },
           code: { type: "string" },
           name: { type: "string" },
+          level: { type: "number" },
           description: { type: "string" },
           color: { type: "string" },
           isActive: { type: "boolean" },
@@ -82,73 +88,57 @@ export const energyTypeRoutes: RouteConfig[] = [
   },
   {
     method: "DELETE",
-    path: "/energy-types/:id",
-    handler: energyTypeController.deleteEnergyType,
+    path: "/energy-tiers/:id",
+    handler: energyTierController.deleteEnergyTier,
     schema: {
-      tags: ["EnergyType"],
-      summary: "Delete energy type",
+      tags: ["EnergyTier"],
+      summary: "Delete energy tier",
       response: {
         204: { type: "null" },
         404: { type: "object", properties: { message: { type: "string" } } },
-      },
-    },
-  },
-  {
-    method: "GET",
-    path: "/energy-types/conversions",
-    handler: energyTypeController.getConversions,
-    schema: {
-      tags: ["EnergyType"],
-      summary: "Get energy type conversions",
-      response: {
-        200: {
-          type: "object",
-          properties: {
-            data: {
-              type: "array",
-              items: { type: "object", additionalProperties: true },
-            },
-          },
-        },
       },
     },
   },
   {
     method: "POST",
-    path: "/energy-types/conversions",
-    handler: energyTypeController.createOrUpdateConversion,
+    path: "/energy-tiers/link",
+    handler: energyTierController.linkEnergyTier,
     schema: {
-      tags: ["EnergyType"],
-      summary: "Create or update energy type conversion",
+      tags: ["EnergyTier"],
+      summary: "Link energy tier progression",
       body: {
         type: "object",
-        required: ["fromId", "toId"],
+        required: ["currentId", "previousId"],
         properties: {
-          fromId: { type: "string" },
-          toId: { type: "string" },
-          ratio: { type: "number" },
-          lossRate: { type: "number" },
+          currentId: { type: "string" },
+          previousId: { type: "string" },
+          requiredAmount: { type: "number" },
+          efficiency: { type: "number" },
           condition: { type: "string" },
-          isActive: { type: "boolean" },
         },
       },
       response: {
         200: { type: "object", properties: { data: { type: "object" } } },
-        400: { type: "object", properties: { message: { type: "string" } } },
-        404: { type: "object", properties: { message: { type: "string" } } },
       },
     },
   },
   {
-    method: "DELETE",
-    path: "/energy-types/conversions/:fromId/:toId",
-    handler: energyTypeController.deleteConversion,
+    method: "POST",
+    path: "/energy-tiers/unlink",
+    handler: energyTierController.unlinkEnergyTier,
     schema: {
-      tags: ["EnergyType"],
-      summary: "Delete energy type conversion",
+      tags: ["EnergyTier"],
+      summary: "Unlink energy tier progression",
+      body: {
+        type: "object",
+        required: ["currentId", "previousId"],
+        properties: {
+          currentId: { type: "string" },
+          previousId: { type: "string" },
+        },
+      },
       response: {
-        204: { type: "null" },
-        404: { type: "object", properties: { message: { type: "string" } } },
+        200: { type: "object", properties: { message: { type: "string" } } },
       },
     },
   },

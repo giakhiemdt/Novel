@@ -21,3 +21,27 @@ export type EnergyTypeNode = {
 export type EnergyTypeListQuery = {
   activeOnly?: boolean;
 };
+
+export type EnergyConversionInput = {
+  fromId: string;
+  toId: string;
+  ratio?: number;
+  lossRate?: number;
+  condition?: string;
+  isActive?: boolean;
+};
+
+export type EnergyConversionNode = {
+  fromId: string;
+  fromCode?: string;
+  fromName?: string;
+  toId: string;
+  toCode?: string;
+  toName?: string;
+  ratio?: number;
+  lossRate?: number;
+  condition?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};

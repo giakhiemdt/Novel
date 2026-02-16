@@ -1,9 +1,10 @@
 import neo4j from "neo4j-driver";
 import { getSessionForDatabase } from "../../database";
 import { nodeLabels } from "../../shared/constants/node-labels";
+import { relationTypes } from "../../shared/constants/relation-types";
 import { buildParams } from "../../shared/utils/build-params";
 import { mapNode } from "../../shared/utils/map-node";
-import { EnergyTypeNode } from "./energy-type.types";
+import { EnergyConversionNode, EnergyTypeNode } from "./energy-type.types";
 
 const CREATE_ENERGY_TYPE = `
 CREATE (et:${nodeLabels.energyType} {
@@ -54,6 +55,58 @@ const DELETE_ENERGY_TYPE = `
 MATCH (et:${nodeLabels.energyType} {id: $id})
 WITH et
 DETACH DELETE et
+RETURN 1 AS deleted
+`;
+
+const UPSERT_CONVERSION = `
+MATCH (from:${nodeLabels.energyType} {id: $fromId})
+MATCH (to:${nodeLabels.energyType} {id: $toId})
+MERGE (from)-[rel:${relationTypes.energyConvertsTo}]->(to)
+ON CREATE SET rel.createdAt = $createdAt
+SET
+  rel.ratio = $ratio,
+  rel.lossRate = $lossRate,
+  rel.condition = $condition,
+  rel.isActive = $isActive,
+  rel.updatedAt = $updatedAt
+RETURN {
+  fromId: from.id,
+  fromCode: from.code,
+  fromName: from.name,
+  toId: to.id,
+  toCode: to.code,
+  toName: to.name,
+  ratio: rel.ratio,
+  lossRate: rel.lossRate,
+  condition: rel.condition,
+  isActive: rel.isActive,
+  createdAt: rel.createdAt,
+  updatedAt: rel.updatedAt
+} AS conversion
+`;
+
+const GET_CONVERSIONS = `
+MATCH (from:${nodeLabels.energyType})-[rel:${relationTypes.energyConvertsTo}]->(to:${nodeLabels.energyType})
+RETURN {
+  fromId: from.id,
+  fromCode: from.code,
+  fromName: from.name,
+  toId: to.id,
+  toCode: to.code,
+  toName: to.name,
+  ratio: rel.ratio,
+  lossRate: rel.lossRate,
+  condition: rel.condition,
+  isActive: rel.isActive,
+  createdAt: rel.createdAt,
+  updatedAt: rel.updatedAt
+} AS conversion
+ORDER BY from.name ASC, to.name ASC
+`;
+
+const DELETE_CONVERSION = `
+MATCH (from:${nodeLabels.energyType} {id: $fromId})-[rel:${relationTypes.energyConvertsTo}]->(to:${nodeLabels.energyType} {id: $toId})
+DELETE rel
 RETURN 1 AS deleted
 `;
 
@@ -172,3 +225,65 @@ export const deleteEnergyType = async (
   }
 };
 
+export const upsertEnergyConversion = async (
+  database: string,
+  input: {
+    fromId: string;
+    toId: string;
+    ratio?: number;
+    lossRate?: number;
+    condition?: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+  }
+): Promise<EnergyConversionNode | null> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    const result = await session.run(UPSERT_CONVERSION, {
+      fromId: input.fromId,
+      toId: input.toId,
+      ratio: input.ratio ?? null,
+      lossRate: input.lossRate ?? null,
+      condition: input.condition ?? null,
+      isActive: input.isActive,
+      createdAt: input.createdAt,
+      updatedAt: input.updatedAt,
+    });
+    const record = result.records[0];
+    if (!record) {
+      return null;
+    }
+    return mapNode(record.get("conversion") ?? {}) as EnergyConversionNode;
+  } finally {
+    await session.close();
+  }
+};
+
+export const getEnergyConversions = async (
+  database: string
+): Promise<EnergyConversionNode[]> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const result = await session.run(GET_CONVERSIONS);
+    return result.records.map((record) =>
+      mapNode(record.get("conversion") ?? {})
+    ) as EnergyConversionNode[];
+  } finally {
+    await session.close();
+  }
+};
+
+export const deleteEnergyConversion = async (
+  database: string,
+  fromId: string,
+  toId: string
+): Promise<boolean> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    const result = await session.run(DELETE_CONVERSION, { fromId, toId });
+    return result.records.length > 0;
+  } finally {
+    await session.close();
+  }
+};

@@ -1,23 +1,22 @@
 import { AppError } from "../../shared/errors/app-error";
 import { generateId } from "../../shared/utils/generate-id";
+import { getEnergyTypeById } from "../energy-type/energy-type.repo";
 import {
-  createEnergyType,
-  deleteEnergyConversion,
-  deleteEnergyType,
-  getEnergyConversions,
-  getEnergyTypeByCode,
-  getEnergyTypeById,
-  getEnergyTypes,
-  upsertEnergyConversion,
-  updateEnergyType,
-} from "./energy-type.repo";
+  createEnergyTier,
+  deleteEnergyTier,
+  getEnergyTierByCode,
+  getEnergyTierById,
+  getEnergyTiers,
+  linkEnergyTiers,
+  unlinkEnergyTiers,
+  updateEnergyTier,
+} from "./energy-tier.repo";
 import {
-  EnergyConversionInput,
-  EnergyConversionNode,
-  EnergyTypeInput,
-  EnergyTypeListQuery,
-  EnergyTypeNode,
-} from "./energy-type.types";
+  EnergyTierInput,
+  EnergyTierLinkInput,
+  EnergyTierListQuery,
+  EnergyTierNode,
+} from "./energy-tier.types";
 
 const assertRequiredString = (value: unknown, field: string): string => {
   if (typeof value !== "string" || value.trim().length === 0) {
@@ -89,6 +88,20 @@ const parseOptionalQueryBoolean = (
   throw new AppError(`${field} must be a boolean`, 400);
 };
 
+const parseOptionalQueryString = (
+  value: unknown,
+  field: string
+): string | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "string") {
+    throw new AppError(`${field} must be a string`, 400);
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
 const assertDatabaseName = (value: unknown): string => {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new AppError("dbName is required", 400);
@@ -116,21 +129,20 @@ const addIfDefined = (
   }
 };
 
-const validatePayload = (payload: unknown): EnergyTypeInput => {
+const validatePayload = (payload: unknown): EnergyTierInput => {
   if (!payload || typeof payload !== "object") {
     throw new AppError("payload must be an object", 400);
   }
 
   const data = payload as Record<string, unknown>;
-  const code = normalizeCode(assertRequiredString(data.code, "code"));
-  const name = assertRequiredString(data.name, "name");
-
   const result: Record<string, unknown> = {
-    code,
-    name,
+    energyTypeId: assertRequiredString(data.energyTypeId, "energyTypeId"),
+    code: normalizeCode(assertRequiredString(data.code, "code")),
+    name: assertRequiredString(data.name, "name"),
   };
 
   addIfDefined(result, "id", assertOptionalString(data.id, "id"));
+  addIfDefined(result, "level", assertOptionalNumber(data.level, "level"));
   addIfDefined(
     result,
     "description",
@@ -143,65 +155,77 @@ const validatePayload = (payload: unknown): EnergyTypeInput => {
     assertOptionalBoolean(data.isActive, "isActive")
   );
 
-  return result as EnergyTypeInput;
+  return result as EnergyTierInput;
 };
 
-const parseListQuery = (query: unknown): EnergyTypeListQuery => {
+const parseListQuery = (query: unknown): EnergyTierListQuery => {
   if (!query || typeof query !== "object") {
     return { activeOnly: true };
   }
 
   const data = query as Record<string, unknown>;
-  return {
+  const result: EnergyTierListQuery = {
     activeOnly: parseOptionalQueryBoolean(data.activeOnly, "activeOnly") ?? true,
   };
-};
-
-const validateConversionPayload = (payload: unknown): EnergyConversionInput => {
-  if (!payload || typeof payload !== "object") {
-    throw new AppError("payload must be an object", 400);
-  }
-
-  const data = payload as Record<string, unknown>;
-  const fromId = assertRequiredString(data.fromId, "fromId");
-  const toId = assertRequiredString(data.toId, "toId");
-  if (fromId === toId) {
-    throw new AppError("fromId and toId must be different", 400);
-  }
-
-  const result: EnergyConversionInput = {
-    fromId,
-    toId,
-  };
-  addIfDefined(result, "ratio", assertOptionalNumber(data.ratio, "ratio"));
   addIfDefined(
-    result,
-    "lossRate",
-    assertOptionalNumber(data.lossRate, "lossRate")
-  );
-  addIfDefined(
-    result,
-    "condition",
-    assertOptionalString(data.condition, "condition")
-  );
-  addIfDefined(
-    result,
-    "isActive",
-    assertOptionalBoolean(data.isActive, "isActive")
+    result as unknown as Record<string, unknown>,
+    "energyTypeId",
+    parseOptionalQueryString(data.energyTypeId, "energyTypeId")
   );
   return result;
 };
 
-const buildNode = (payload: EnergyTypeInput): EnergyTypeNode => {
+const assertRequiredId = (value: unknown, field: string): string => {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new AppError(`${field} is required`, 400);
+  }
+  return value.trim();
+};
+
+const validateLinkPayload = (payload: unknown): EnergyTierLinkInput => {
+  if (!payload || typeof payload !== "object") {
+    throw new AppError("payload must be an object", 400);
+  }
+  const data = payload as Record<string, unknown>;
+  if (data.currentId === data.previousId) {
+    throw new AppError("currentId and previousId must be different", 400);
+  }
+  const result: EnergyTierLinkInput = {
+    currentId: assertRequiredId(data.currentId, "currentId"),
+    previousId: assertRequiredId(data.previousId, "previousId"),
+  };
+  addIfDefined(
+    result as unknown as Record<string, unknown>,
+    "requiredAmount",
+    assertOptionalNumber(data.requiredAmount, "requiredAmount")
+  );
+  addIfDefined(
+    result as unknown as Record<string, unknown>,
+    "efficiency",
+    assertOptionalNumber(data.efficiency, "efficiency")
+  );
+  addIfDefined(
+    result as unknown as Record<string, unknown>,
+    "condition",
+    assertOptionalString(data.condition, "condition")
+  );
+  return result;
+};
+
+const buildNode = (payload: EnergyTierInput): EnergyTierNode => {
   const now = new Date().toISOString();
-  const node: EnergyTypeNode = {
+  const node: EnergyTierNode = {
     id: payload.id ?? generateId(),
+    energyTypeId: payload.energyTypeId,
     code: normalizeCode(payload.code),
     name: payload.name,
     isActive: payload.isActive ?? true,
     createdAt: now,
     updatedAt: now,
   };
+  if (payload.level !== undefined) {
+    node.level = payload.level;
+  }
   if (payload.description !== undefined) {
     node.description = payload.description;
   }
@@ -211,54 +235,67 @@ const buildNode = (payload: EnergyTypeInput): EnergyTypeNode => {
   return node;
 };
 
+const assertEnergyTypeExists = async (
+  database: string,
+  energyTypeId: string
+): Promise<void> => {
+  const type = await getEnergyTypeById(database, energyTypeId);
+  if (!type) {
+    throw new AppError("energy type not found", 404);
+  }
+};
+
 const assertCodeAvailable = async (
   database: string,
   code: string,
   excludedId?: string
 ): Promise<void> => {
-  const existing = await getEnergyTypeByCode(database, code);
+  const existing = await getEnergyTierByCode(database, code);
   if (existing && existing.id !== excludedId) {
-    throw new AppError("energy type code already exists", 409);
+    throw new AppError("energy tier code already exists", 409);
   }
 };
 
-export const energyTypeService = {
-  create: async (payload: unknown, dbName: unknown): Promise<EnergyTypeNode> => {
+export const energyTierService = {
+  create: async (payload: unknown, dbName: unknown): Promise<EnergyTierNode> => {
     const database = assertDatabaseName(dbName);
     const validated = validatePayload(payload);
+    await assertEnergyTypeExists(database, validated.energyTypeId);
+    await assertCodeAvailable(database, validated.code);
     const node = buildNode(validated);
-    await assertCodeAvailable(database, node.code);
-    return createEnergyType(database, node);
+    const created = await createEnergyTier(database, node);
+    if (!created) {
+      throw new AppError("energy type not found", 404);
+    }
+    return created;
   },
 
   update: async (
     id: string,
     payload: unknown,
     dbName: unknown
-  ): Promise<EnergyTypeNode> => {
+  ): Promise<EnergyTierNode> => {
     const database = assertDatabaseName(dbName);
-
-    const existing = await getEnergyTypeById(database, id);
+    const existing = await getEnergyTierById(database, id);
     if (!existing) {
-      throw new AppError("energy type not found", 404);
+      throw new AppError("energy tier not found", 404);
     }
 
     const validated = validatePayload(payload);
+    await assertEnergyTypeExists(database, validated.energyTypeId);
     await assertCodeAvailable(database, validated.code, id);
 
     const updatedAt = new Date().toISOString();
-    const node: EnergyTypeNode = {
+    const node: EnergyTierNode = {
       ...existing,
       ...validated,
       id,
-      code: normalizeCode(validated.code),
-      isActive: validated.isActive ?? existing.isActive,
       updatedAt,
     };
 
-    const updated = await updateEnergyType(database, node);
+    const updated = await updateEnergyTier(database, node);
     if (!updated) {
-      throw new AppError("energy type not found", 404);
+      throw new AppError("energy tier not found", 404);
     }
     return updated;
   },
@@ -266,90 +303,49 @@ export const energyTypeService = {
   getAll: async (
     dbName: unknown,
     query: unknown
-  ): Promise<EnergyTypeNode[]> => {
+  ): Promise<EnergyTierNode[]> => {
     const database = assertDatabaseName(dbName);
     const parsed = parseListQuery(query);
-    return getEnergyTypes(database, parsed.activeOnly ?? true);
+    return getEnergyTiers(database, parsed.activeOnly ?? true, parsed.energyTypeId);
   },
 
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);
-    const existing = await getEnergyTypeById(database, id);
+    const existing = await getEnergyTierById(database, id);
     if (!existing) {
-      throw new AppError("energy type not found", 404);
+      throw new AppError("energy tier not found", 404);
     }
-    const deleted = await deleteEnergyType(database, id);
+    const deleted = await deleteEnergyTier(database, id);
     if (!deleted) {
-      throw new AppError("energy type not found", 404);
+      throw new AppError("energy tier not found", 404);
     }
   },
 
-  getConversions: async (dbName: unknown): Promise<EnergyConversionNode[]> => {
+  link: async (payload: unknown, dbName: unknown) => {
     const database = assertDatabaseName(dbName);
-    return getEnergyConversions(database);
-  },
+    const input = validateLinkPayload(payload);
 
-  upsertConversion: async (
-    payload: unknown,
-    dbName: unknown
-  ): Promise<EnergyConversionNode> => {
-    const database = assertDatabaseName(dbName);
-    const input = validateConversionPayload(payload);
-    const [from, to] = await Promise.all([
-      getEnergyTypeById(database, input.fromId),
-      getEnergyTypeById(database, input.toId),
+    const [previous, current] = await Promise.all([
+      getEnergyTierById(database, input.previousId),
+      getEnergyTierById(database, input.currentId),
     ]);
-    if (!from || !to) {
-      throw new AppError("energy type not found", 404);
+
+    if (!previous || !current) {
+      throw new AppError("energy tier not found", 404);
     }
-    const now = new Date().toISOString();
-    const conversionPayload: {
-      fromId: string;
-      toId: string;
-      ratio?: number;
-      lossRate?: number;
-      condition?: string;
-      isActive: boolean;
-      createdAt: string;
-      updatedAt: string;
-    } = {
-      fromId: input.fromId,
-      toId: input.toId,
-      isActive: input.isActive ?? true,
-      createdAt: now,
-      updatedAt: now,
-    };
-    if (input.ratio !== undefined) {
-      conversionPayload.ratio = input.ratio;
-    }
-    if (input.lossRate !== undefined) {
-      conversionPayload.lossRate = input.lossRate;
-    }
-    if (input.condition !== undefined) {
-      conversionPayload.condition = input.condition;
-    }
-    const conversion = await upsertEnergyConversion(database, conversionPayload);
-    if (!conversion) {
-      throw new AppError("failed to save conversion", 500);
-    }
-    return conversion;
+
+    const updatedAt = new Date().toISOString();
+    const link = await linkEnergyTiers(database, { ...input, updatedAt });
+    return { data: link };
   },
 
-  deleteConversion: async (
-    fromId: string,
-    toId: string,
-    dbName: unknown
-  ): Promise<void> => {
+  unlink: async (payload: unknown, dbName: unknown) => {
     const database = assertDatabaseName(dbName);
-    if (!fromId || !toId) {
-      throw new AppError("fromId and toId are required", 400);
-    }
-    if (fromId === toId) {
-      throw new AppError("fromId and toId must be different", 400);
-    }
-    const deleted = await deleteEnergyConversion(database, fromId, toId);
+    const input = validateLinkPayload(payload);
+    const deleted = await unlinkEnergyTiers(database, input.previousId, input.currentId);
     if (!deleted) {
-      throw new AppError("energy conversion not found", 404);
+      throw new AppError("energy tier link not found", 404);
     }
+    return { message: "Energy tier link removed" };
   },
 };

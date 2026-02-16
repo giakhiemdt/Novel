@@ -20,4 +20,7 @@ export const relationTypes = {
   characterHasRank: "CHARACTER_HAS_RANK",
   characterHasSpecialAbility: "CHARACTER_HAS_SPECIAL_ABILITY",
   usesEnergy: "USES_ENERGY",
+  hasEnergyTier: "HAS_ENERGY_TIER",
+  energyNext: "ENERGY_NEXT",
+  energyConvertsTo: "ENERGY_CONVERTS_TO",
 };

@@ -1,7 +1,12 @@
 import { api } from "../../services/api";
 import { endpoints } from "../../services/endpoints";
 import { withDatabaseHeader } from "../../services/db";
-import type { EnergyType, EnergyTypePayload } from "./energy-type.types";
+import type {
+  EnergyConversion,
+  EnergyConversionPayload,
+  EnergyType,
+  EnergyTypePayload,
+} from "./energy-type.types";
 
 export const getEnergyTypes = (activeOnly = true) =>
   api.get<EnergyType[]>(
@@ -18,3 +23,14 @@ export const updateEnergyType = (id: string, payload: EnergyTypePayload) =>
 export const deleteEnergyType = (id: string) =>
   api.delete<void>(`${endpoints.energyTypes}/${id}`, withDatabaseHeader());
 
+export const getEnergyConversions = () =>
+  api.get<EnergyConversion[]>(endpoints.energyTypeConversions, withDatabaseHeader());
+
+export const upsertEnergyConversion = (payload: EnergyConversionPayload) =>
+  api.post<EnergyConversion>(endpoints.energyTypeConversions, payload, withDatabaseHeader());
+
+export const deleteEnergyConversion = (fromId: string, toId: string) =>
+  api.delete<void>(
+    `${endpoints.energyTypeConversions}/${fromId}/${toId}`,
+    withDatabaseHeader()
+  );
