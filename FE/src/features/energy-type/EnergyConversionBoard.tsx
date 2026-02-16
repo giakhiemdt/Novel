@@ -48,11 +48,8 @@ const MINIMAP_HEADER_HEIGHT = 20;
 
 const getEdgeLabel = (item: EnergyConversion): string => {
   const parts: string[] = [];
-  if (item.ratio !== undefined) {
+  if (typeof item.ratio === "number" && Number.isFinite(item.ratio)) {
     parts.push(`ratio ${item.ratio}`);
-  }
-  if (item.lossRate !== undefined) {
-    parts.push(`loss ${item.lossRate}`);
   }
   if (item.condition) {
     parts.push(item.condition);

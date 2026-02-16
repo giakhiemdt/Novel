@@ -43,7 +43,6 @@ const initialConversionState = {
   fromId: "",
   toId: "",
   ratio: "",
-  lossRate: "",
   condition: "",
   color: "#5FAAB8",
   isActive: true,
@@ -216,7 +215,6 @@ export const EnergyTypeCreate = () => {
     fromId: state.fromId,
     toId: state.toId,
     ratio: state.ratio.trim() === "" ? undefined : Number(state.ratio),
-    lossRate: state.lossRate.trim() === "" ? undefined : Number(state.lossRate),
     condition: state.condition.trim() || undefined,
     color: state.color.trim() || undefined,
     isActive: state.isActive,
@@ -255,10 +253,6 @@ export const EnergyTypeCreate = () => {
       notify(t("Ratio must be a number."), "error");
       return false;
     }
-    if (payload.lossRate !== undefined && !Number.isFinite(payload.lossRate)) {
-      notify(t("Loss rate must be a number."), "error");
-      return false;
-    }
     return true;
   };
 
@@ -267,10 +261,6 @@ export const EnergyTypeCreate = () => {
     toId: item.toId,
     ratio:
       item.ratio === undefined || item.ratio === null ? "" : String(item.ratio),
-    lossRate:
-      item.lossRate === undefined || item.lossRate === null
-        ? ""
-        : String(item.lossRate),
     condition: item.condition ?? "",
     color: item.color ?? "#5FAAB8",
     isActive: item.isActive ?? true,
@@ -813,14 +803,6 @@ export const EnergyTypeCreate = () => {
             onChange={(value) => setConversionForm((prev) => ({ ...prev, ratio: value }))}
           />
         </div>
-        <div className="form-field--narrow">
-          <TextInput
-            label="Loss rate"
-            type="number"
-            value={conversionForm.lossRate}
-            onChange={(value) => setConversionForm((prev) => ({ ...prev, lossRate: value }))}
-          />
-        </div>
         <div className="form-field--wide">
           <TextInput
             label="Condition"
@@ -887,7 +869,6 @@ export const EnergyTypeCreate = () => {
                   <th>{t("From")}</th>
                   <th>{t("To")}</th>
                   <th>{t("Ratio")}</th>
-                  <th>{t("Loss")}</th>
                   <th>{t("Condition")}</th>
                   <th>{t("Active")}</th>
                   <th>{t("Actions")}</th>
@@ -899,7 +880,6 @@ export const EnergyTypeCreate = () => {
                     <td>{item.fromName ?? item.fromCode ?? item.fromId}</td>
                     <td>{item.toName ?? item.toCode ?? item.toId}</td>
                     <td>{item.ratio ?? "-"}</td>
-                    <td>{item.lossRate ?? "-"}</td>
                     <td>{item.condition ?? "-"}</td>
                     <td>{item.isActive ? t("Yes") : t("No")}</td>
                     <td className="table__actions">
