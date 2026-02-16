@@ -518,6 +518,21 @@ export const EnergyTypeCreate = () => {
     }
   };
 
+  const handleDeleteConversionFromForm = async () => {
+    const fromId = conversionForm.fromId;
+    const toId = conversionForm.toId;
+    if (!fromId || !toId) {
+      notify(t("Missing required fields: fromId, toId"), "error");
+      return;
+    }
+    const target = findConversion(fromId, toId);
+    if (!target) {
+      notify(t("No conversion rules yet."), "error");
+      return;
+    }
+    await handleDeleteConversion(target);
+  };
+
   return (
     <div>
       <CrudPageShell
@@ -838,9 +853,26 @@ export const EnergyTypeCreate = () => {
       </FormSection>
 
       <div className="card">
-        <Button onClick={handleSubmitConversion} disabled={isSavingConversion}>
-          {isSavingConversion ? t("Saving...") : t("Save conversion")}
-        </Button>
+        <div className="table__actions">
+          <button
+            type="button"
+            className="table__action table__action--danger"
+            onClick={() => {
+              void handleDeleteConversionFromForm();
+            }}
+            disabled={
+              isSavingConversion ||
+              !conversionForm.fromId ||
+              !conversionForm.toId ||
+              !findConversion(conversionForm.fromId, conversionForm.toId)
+            }
+          >
+            {t("Delete link")}
+          </button>
+          <Button onClick={handleSubmitConversion} disabled={isSavingConversion}>
+            {isSavingConversion ? t("Saving...") : t("Save conversion")}
+          </Button>
+        </div>
       </div>
 
       {showList && (

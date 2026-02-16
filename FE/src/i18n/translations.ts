@@ -316,6 +316,7 @@ const vi: Dictionary = {
   "Drag nodes to arrange. Click one node then another to connect.": "Kéo-thả node để sắp xếp. Chọn một node rồi chọn node khác để ghép nối.",
   "Source selected. Click another node to create conversion.": "Đã chọn nguồn. Chọn node khác để tạo chuyển hoá.",
   "Clear selection": "Xoá chọn",
+  "Delete link": "Xoá liên kết",
   "No energy types to render as conversion board.": "Không có loại năng lượng để hiển thị bảng chuyển hoá.",
   "Level count must be an integer >= 1.": "Số cấp phải là số nguyên >= 1.",
   "Level ratios must have same length as level count.": "Số tỉ lệ phải bằng số cấp.",
