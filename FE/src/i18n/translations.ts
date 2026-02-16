@@ -20,6 +20,8 @@ const vi: Dictionary = {
   "Create timeline": "Tạo dòng thời gian",
   "Create new character": "Tạo nhân vật mới",
   "Create new timeline": "Tạo dòng thời gian mới",
+  "Create new energy type": "Tạo loại năng lượng mới",
+  "Create new relationship type": "Tạo loại quan hệ mới",
   "Create new location": "Tạo địa điểm mới",
   "Create new faction": "Tạo phe phái mới",
   "Create new event": "Tạo sự kiện mới",

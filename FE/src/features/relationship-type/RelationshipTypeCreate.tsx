@@ -39,6 +39,7 @@ export const RelationshipTypeCreate = () => {
   const [isSavingType, setIsSavingType] = useState(false);
   const [pendingForceDeleteId, setPendingForceDeleteId] = useState<string | null>(null);
   const [showList, setShowList] = useState(false);
+  const [showForm, setShowForm] = useState(false);
 
   const loadRelationshipTypeItems = useCallback(async () => {
     try {
@@ -119,11 +120,13 @@ export const RelationshipTypeCreate = () => {
   const handleTypeEdit = (item: RelationshipType) => {
     setEditingTypeId(item.id);
     setTypeForm(mapTypeToForm(item));
+    setShowForm(true);
   };
 
   const handleTypeCancel = () => {
     setEditingTypeId(null);
     setTypeForm(initialTypeState);
+    setShowForm(false);
   };
 
   const handleTypeToggleActive = async (item: RelationshipType) => {
@@ -186,11 +189,25 @@ export const RelationshipTypeCreate = () => {
               {t("Manage available relationship types used by character relations.")}
             </p>
           </div>
-          {editingTypeId && (
-            <Button variant="ghost" onClick={handleTypeCancel}>
-              {t("Cancel")}
+          <div className="table__actions">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                if (showForm) {
+                  handleTypeCancel();
+                  return;
+                }
+                setShowForm(true);
+              }}
+            >
+              {showForm ? t("Close form") : t("Create new relationship type")}
             </Button>
-          )}
+            {editingTypeId && (
+              <Button variant="ghost" onClick={handleTypeCancel}>
+                {t("Cancel")}
+              </Button>
+            )}
+          </div>
         </div>
 
         <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
@@ -247,6 +264,7 @@ export const RelationshipTypeCreate = () => {
           ))}
       </div>
 
+      {showForm && (
       <FormSection
         title={editingTypeId ? "Edit relationship type" : "Create relationship type"}
         description="Define reusable relationship type metadata."
@@ -316,7 +334,9 @@ export const RelationshipTypeCreate = () => {
           </label>
         </div>
       </FormSection>
+      )}
 
+      {showForm && (
       <div className="card">
         <Button onClick={handleTypeSubmit} disabled={isSavingType}>
           {isSavingType
@@ -326,6 +346,7 @@ export const RelationshipTypeCreate = () => {
               : t("Create type")}
         </Button>
       </div>
+      )}
     </div>
   );
 };

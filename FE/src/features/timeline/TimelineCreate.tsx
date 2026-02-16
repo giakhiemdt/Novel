@@ -346,6 +346,15 @@ export const TimelineCreate = () => {
         </>
       )}
       <div className="filter-block">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => setIsFormOpen((prev) => !prev)}
+        >
+          {isFormOpen ? t("Close form") : t("Create new timeline")}
+        </Button>
+      </div>
+      <div className="filter-block">
         <button
           type="button"
           className="filter-toggle"
@@ -377,14 +386,6 @@ export const TimelineCreate = () => {
           )}
         </>
       )}
-
-      <button
-        type="button"
-        className="timeline-fab"
-        onClick={() => setIsFormOpen(true)}
-      >
-        +
-      </button>
 
       {isFormOpen && (
         <div className="timeline-modal__backdrop" onClick={() => setIsFormOpen(false)}>

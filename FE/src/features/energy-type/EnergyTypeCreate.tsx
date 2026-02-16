@@ -80,6 +80,7 @@ export const EnergyTypeCreate = () => {
   const [isSavingConversion, setIsSavingConversion] = useState(false);
   const [showList, setShowList] = useState(false);
   const [showBoard, setShowBoard] = useState(true);
+  const [showForm, setShowForm] = useState(false);
 
   const loadItems = useCallback(async () => {
     try {
@@ -275,11 +276,13 @@ export const EnergyTypeCreate = () => {
   const handleEdit = (item: EnergyType) => {
     setEditingId(item.id);
     setForm(mapToForm(item));
+    setShowForm(true);
   };
 
   const handleCancel = () => {
     setEditingId(null);
     setForm(initialTypeState);
+    setShowForm(false);
   };
 
   const handleToggleActive = async (item: EnergyType) => {
@@ -331,11 +334,25 @@ export const EnergyTypeCreate = () => {
               {t("Manage available energy types used by rank systems.")}
             </p>
           </div>
-          {editingId && (
-            <Button variant="ghost" onClick={handleCancel}>
-              {t("Cancel")}
+          <div className="table__actions">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                if (showForm) {
+                  handleCancel();
+                  return;
+                }
+                setShowForm(true);
+              }}
+            >
+              {showForm ? t("Close form") : t("Create new energy type")}
             </Button>
-          )}
+            {editingId && (
+              <Button variant="ghost" onClick={handleCancel}>
+                {t("Cancel")}
+              </Button>
+            )}
+          </div>
         </div>
 
         <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
@@ -416,6 +433,7 @@ export const EnergyTypeCreate = () => {
         </div>
       )}
 
+      {showForm && (
       <FormSection
         title={editingId ? "Edit energy type" : "Create energy type"}
         description="Define reusable energy metadata and level ratios."
@@ -481,12 +499,15 @@ export const EnergyTypeCreate = () => {
           </label>
         </div>
       </FormSection>
+      )}
 
+      {showForm && (
       <div className="card">
         <Button onClick={handleSubmit} disabled={isSaving}>
           {isSaving ? t("Saving...") : editingId ? t("Save type") : t("Create type")}
         </Button>
       </div>
+      )}
 
       <FormSection
         title="Energy conversion rules"
