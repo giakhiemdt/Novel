@@ -2692,6 +2692,10 @@ h3 {
   fill: currentColor;
 }
 
+.energy-conversion-board__svg {
+  overflow: visible;
+}
+
 .energy-conversion-board__edge-hit {
   stroke: transparent;
   stroke-width: 20;

@@ -37,7 +37,6 @@ const NODE_WIDTH = 184;
 const NODE_HEIGHT = 56;
 const VIEWBOX_WIDTH = 2400;
 const VIEWBOX_HEIGHT = 1600;
-const BOARD_PADDING = 24;
 const MIN_SCALE = 0.4;
 const MAX_SCALE = 2.4;
 const DEFAULT_PAN = { x: 20, y: 20 };
@@ -84,14 +83,6 @@ const buildLayout = (items: EnergyType[]): Record<string, GraphNode> => {
   return next;
 };
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.max(min, Math.min(max, value));
-
-const clampNodePosition = (x: number, y: number) => ({
-  x: clamp(x, BOARD_PADDING, VIEWBOX_WIDTH - NODE_WIDTH - BOARD_PADDING),
-  y: clamp(y, BOARD_PADDING, VIEWBOX_HEIGHT - NODE_HEIGHT - BOARD_PADDING),
-});
-
 const sanitizeManualPositions = (
   value: Record<string, { x: number; y: number }> | undefined
 ) => {
@@ -106,7 +97,7 @@ const sanitizeManualPositions = (
       Number.isFinite(pos.x) &&
       Number.isFinite(pos.y)
     ) {
-      next[id] = clampNodePosition(pos.x, pos.y);
+      next[id] = { x: pos.x, y: pos.y };
     }
   });
   return next;
@@ -296,11 +287,10 @@ export const EnergyConversionBoard = ({
       const nextY = worldY - dragOffset.y;
 
       suppressClickRef.current = true;
-      const clamped = clampNodePosition(nextX, nextY);
       setManualPositions((prev) => {
         const next = {
           ...prev,
-          [draggingNodeId]: clamped,
+          [draggingNodeId]: { x: nextX, y: nextY },
         };
         onPositionsChange?.(next);
         return next;
@@ -442,7 +432,11 @@ export const EnergyConversionBoard = ({
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
           }}
         >
-          <svg className="relationship-graph__svg" width={VIEWBOX_WIDTH} height={VIEWBOX_HEIGHT}>
+          <svg
+            className="relationship-graph__svg energy-conversion-board__svg"
+            width={VIEWBOX_WIDTH}
+            height={VIEWBOX_HEIGHT}
+          >
             <defs>
               <marker
                 id="energy-conversion-arrow"
