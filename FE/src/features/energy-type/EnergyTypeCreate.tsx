@@ -338,6 +338,12 @@ export const EnergyTypeCreate = () => {
   };
 
   const handleDelete = async (item: EnergyType) => {
+    const confirmed = window.confirm(
+      t("Delete this energy type? This action cannot be undone.")
+    );
+    if (!confirmed) {
+      return;
+    }
     try {
       await deleteEnergyType(item.id);
       notify(t("Energy type deleted."), "success");
@@ -349,6 +355,12 @@ export const EnergyTypeCreate = () => {
   };
 
   const handleDeleteConversion = async (item: EnergyConversion) => {
+    const confirmed = window.confirm(
+      t("Delete this energy conversion? This action cannot be undone.")
+    );
+    if (!confirmed) {
+      return;
+    }
     try {
       await deleteEnergyConversion(item.fromId, item.toId);
       notify(t("Energy conversion deleted."), "success");

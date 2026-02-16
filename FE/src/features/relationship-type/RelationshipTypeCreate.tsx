@@ -155,6 +155,15 @@ export const RelationshipTypeCreate = () => {
   };
 
   const handleTypeDelete = async (item: RelationshipType) => {
+    const confirmed = window.confirm(
+      pendingForceDeleteId === item.id
+        ? t("Delete this relationship type and all linked relations?")
+        : t("Delete this relationship type? This action cannot be undone.")
+    );
+    if (!confirmed) {
+      return;
+    }
+
     if (pendingForceDeleteId === item.id) {
       try {
         await deleteRelationshipType(item.id, true);
