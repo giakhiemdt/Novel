@@ -570,6 +570,58 @@ export const EnergyTypeCreate = () => {
               </div>
             </FilterPanel>
             <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
+            {showList ? (
+              filteredItems.length === 0 ? (
+                <p className="header__subtitle">{t("No energy types yet.")}</p>
+              ) : (
+                <table className="table table--clean">
+                  <thead>
+                    <tr>
+                      <th>{t("Code")}</th>
+                      <th>{t("Name")}</th>
+                      <th>{t("Levels")}</th>
+                      <th>{t("Ratios")}</th>
+                      <th>{t("Active")}</th>
+                      <th>{t("Actions")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredItems.map((item) => (
+                      <tr key={item.id}>
+                        <td>{item.code}</td>
+                        <td>{item.name}</td>
+                        <td>{item.levelCount ?? "-"}</td>
+                        <td>{item.levelRatios?.join(", ") ?? "-"}</td>
+                        <td>{item.isActive ? t("Yes") : t("No")}</td>
+                        <td className="table__actions">
+                          <button
+                            type="button"
+                            className="table__action table__action--ghost"
+                            onClick={() => handleEdit(item)}
+                          >
+                            {t("Edit")}
+                          </button>
+                          <button
+                            type="button"
+                            className="table__action"
+                            onClick={() => handleToggleActive(item)}
+                          >
+                            {item.isActive ? t("Deactivate") : t("Activate")}
+                          </button>
+                          <button
+                            type="button"
+                            className="table__action table__action--danger"
+                            onClick={() => handleDelete(item)}
+                          >
+                            {t("Delete")}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )
+            ) : null}
             <div className="filter-block">
               <button
                 type="button"
@@ -642,60 +694,6 @@ export const EnergyTypeCreate = () => {
               )}
             </div>
           </>
-        }
-        list={
-          showList ? (
-            filteredItems.length === 0 ? (
-              <p className="header__subtitle">{t("No energy types yet.")}</p>
-            ) : (
-              <table className="table table--clean">
-                <thead>
-                  <tr>
-                    <th>{t("Code")}</th>
-                    <th>{t("Name")}</th>
-                    <th>{t("Levels")}</th>
-                    <th>{t("Ratios")}</th>
-                    <th>{t("Active")}</th>
-                    <th>{t("Actions")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredItems.map((item) => (
-                    <tr key={item.id}>
-                      <td>{item.code}</td>
-                      <td>{item.name}</td>
-                      <td>{item.levelCount ?? "-"}</td>
-                      <td>{item.levelRatios?.join(", ") ?? "-"}</td>
-                      <td>{item.isActive ? t("Yes") : t("No")}</td>
-                      <td className="table__actions">
-                        <button
-                          type="button"
-                          className="table__action table__action--ghost"
-                          onClick={() => handleEdit(item)}
-                        >
-                          {t("Edit")}
-                        </button>
-                        <button
-                          type="button"
-                          className="table__action"
-                          onClick={() => handleToggleActive(item)}
-                        >
-                          {item.isActive ? t("Deactivate") : t("Activate")}
-                        </button>
-                        <button
-                          type="button"
-                          className="table__action table__action--danger"
-                          onClick={() => handleDelete(item)}
-                        >
-                          {t("Delete")}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )
-          ) : null
         }
       />
 
