@@ -20,6 +20,7 @@ import {
   updateEnergyType,
   upsertEnergyConversion,
 } from "./energy-type.api";
+import { EnergyConversionBoard } from "./EnergyConversionBoard";
 import { EnergyTypeLevelBoard } from "./EnergyTypeLevelBoard";
 import type {
   EnergyConversion,
@@ -49,6 +50,7 @@ const initialConversionState = {
 
 type TypeFormState = typeof initialTypeState;
 type ConversionFormState = typeof initialConversionState;
+const CONVERSION_LAYOUT_STORAGE_KEY = "novel.energy-conversion-layout.v1";
 
 const parseRatios = (text: string): number[] | undefined => {
   const normalized = text.trim();
@@ -82,7 +84,16 @@ export const EnergyTypeCreate = () => {
   const [isSavingConversion, setIsSavingConversion] = useState(false);
   const [showList, setShowList] = useState(false);
   const [showBoard, setShowBoard] = useState(true);
+  const [showConversionBoard, setShowConversionBoard] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [selectedConversion, setSelectedConversion] = useState<{
+    fromId: string;
+    toId: string;
+  } | null>(null);
+  const [linkDraftFromId, setLinkDraftFromId] = useState<string | null>(null);
+  const [conversionBoardPositions, setConversionBoardPositions] = useState<
+    Record<string, { x: number; y: number }>
+  >({});
   const [filters, setFilters] = useState({
     q: "",
     name: "",
@@ -121,19 +132,48 @@ export const EnergyTypeCreate = () => {
   }, [notify]);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(CONVERSION_LAYOUT_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+      const parsed = JSON.parse(raw) as Record<string, { x: number; y: number }>;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return;
+      }
+      setConversionBoardPositions(parsed);
+    } catch {
+      setConversionBoardPositions({});
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem(
+      CONVERSION_LAYOUT_STORAGE_KEY,
+      JSON.stringify(conversionBoardPositions)
+    );
+  }, [conversionBoardPositions]);
+
+  useEffect(() => {
     if (showList || showBoard) {
       void loadItems();
     }
-    if (showList) {
+    if (showList || showConversionBoard) {
       void loadConversions();
     }
-  }, [loadConversions, loadItems, showBoard, showList]);
+  }, [loadConversions, loadItems, showBoard, showConversionBoard, showList]);
 
   useProjectChange(() => {
     if (showList || showBoard) {
       void loadItems();
     }
-    if (showList) {
+    if (showList || showConversionBoard) {
       void loadConversions();
     }
   });
@@ -220,6 +260,19 @@ export const EnergyTypeCreate = () => {
     return true;
   };
 
+  const mapConversionToForm = (item: EnergyConversion): ConversionFormState => ({
+    fromId: item.fromId,
+    toId: item.toId,
+    ratio:
+      item.ratio === undefined || item.ratio === null ? "" : String(item.ratio),
+    lossRate:
+      item.lossRate === undefined || item.lossRate === null
+        ? ""
+        : String(item.lossRate),
+    condition: item.condition ?? "",
+    isActive: item.isActive ?? true,
+  });
+
   const typeOptions = useMemo(
     () =>
       items.map((item) => ({
@@ -255,6 +308,21 @@ export const EnergyTypeCreate = () => {
       return true;
     });
   }, [filters.code, filters.isActive, filters.name, filters.q, items]);
+
+  const findConversion = useCallback(
+    (fromId: string, toId: string) =>
+      conversions.find((item) => item.fromId === fromId && item.toId === toId),
+    [conversions]
+  );
+
+  useEffect(() => {
+    if (!selectedConversion) {
+      return;
+    }
+    if (!findConversion(selectedConversion.fromId, selectedConversion.toId)) {
+      setSelectedConversion(null);
+    }
+  }, [findConversion, selectedConversion]);
 
   const handleSubmit = async () => {
     const payload = buildPayload(form);
@@ -293,12 +361,14 @@ export const EnergyTypeCreate = () => {
     try {
       await upsertEnergyConversion(payload);
       notify(t("Energy conversion saved."), "success");
+      setSelectedConversion({ fromId: payload.fromId, toId: payload.toId });
+      setLinkDraftFromId(null);
       setConversionForm((prev) => ({
         ...initialConversionState,
         fromId: prev.fromId,
         toId: prev.toId,
       }));
-      if (showList) {
+      if (showList || showConversionBoard) {
         await loadConversions();
       }
     } catch (err) {
@@ -306,6 +376,71 @@ export const EnergyTypeCreate = () => {
     } finally {
       setIsSavingConversion(false);
     }
+  };
+
+  const handleNodeClick = async (nodeId: string) => {
+    if (!linkDraftFromId) {
+      setLinkDraftFromId(nodeId);
+      setSelectedConversion(null);
+      setConversionForm((prev) => ({ ...prev, fromId: nodeId }));
+      return;
+    }
+
+    if (linkDraftFromId === nodeId) {
+      setLinkDraftFromId(null);
+      return;
+    }
+
+    const existing = findConversion(linkDraftFromId, nodeId);
+    if (existing) {
+      setSelectedConversion({ fromId: existing.fromId, toId: existing.toId });
+      setConversionForm(mapConversionToForm(existing));
+      setLinkDraftFromId(null);
+      return;
+    }
+
+    const payload: EnergyConversionPayload = {
+      fromId: linkDraftFromId,
+      toId: nodeId,
+      isActive: true,
+    };
+    if (!validateConversionPayload(payload)) {
+      return;
+    }
+
+    setIsSavingConversion(true);
+    try {
+      await upsertEnergyConversion(payload);
+      notify(t("Energy conversion saved."), "success");
+      await loadConversions();
+      setSelectedConversion({ fromId: payload.fromId, toId: payload.toId });
+      setConversionForm((prev) => ({
+        ...prev,
+        fromId: payload.fromId,
+        toId: payload.toId,
+        isActive: true,
+      }));
+    } catch (err) {
+      notify((err as Error).message, "error");
+    } finally {
+      setIsSavingConversion(false);
+      setLinkDraftFromId(null);
+    }
+  };
+
+  const handleSelectConversion = (fromId: string, toId: string) => {
+    const target = findConversion(fromId, toId);
+    if (!target) {
+      return;
+    }
+    setSelectedConversion({ fromId, toId });
+    setLinkDraftFromId(null);
+    setConversionForm(mapConversionToForm(target));
+  };
+
+  const handleClearConversionSelection = () => {
+    setSelectedConversion(null);
+    setLinkDraftFromId(null);
   };
 
   const handleEdit = (item: EnergyType) => {
@@ -365,6 +500,12 @@ export const EnergyTypeCreate = () => {
     try {
       await deleteEnergyConversion(item.fromId, item.toId);
       notify(t("Energy conversion deleted."), "success");
+      if (
+        selectedConversion?.fromId === item.fromId &&
+        selectedConversion?.toId === item.toId
+      ) {
+        setSelectedConversion(null);
+      }
       await loadConversions();
     } catch (err) {
       notify((err as Error).message, "error");
@@ -429,6 +570,21 @@ export const EnergyTypeCreate = () => {
               </div>
             </FilterPanel>
             <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
+            <div className="filter-block">
+              <button
+                type="button"
+                className="filter-toggle"
+                onClick={() => setShowConversionBoard((prev) => !prev)}
+                aria-expanded={showConversionBoard}
+              >
+                <img src={boardIcon} alt={t("Board")} className="filter-toggle__icon" />
+                <span className="filter-toggle__label">
+                  {showConversionBoard
+                    ? t("Hide conversion board")
+                    : t("Show conversion board")}
+                </span>
+              </button>
+            </div>
           </>
         }
         list={
@@ -494,9 +650,9 @@ export const EnergyTypeCreate = () => {
           onClick={() => setShowBoard((prev) => !prev)}
           aria-expanded={showBoard}
         >
-          <img src={boardIcon} alt="" className="filter-toggle__icon" />
+          <img src={boardIcon} alt={t("Board")} className="filter-toggle__icon" />
           <span className="filter-toggle__label">
-            {showBoard ? t("Hide board") : t("Show board")}
+            {showBoard ? t("Hide level board") : t("Show level board")}
           </span>
         </button>
       </div>
@@ -654,6 +810,41 @@ export const EnergyTypeCreate = () => {
         </Button>
       </div>
 
+      {showConversionBoard && (
+        <div className="card">
+          <h3 className="section-title">{t("Energy conversion board")}</h3>
+          <p className="header__subtitle">
+            {linkDraftFromId
+              ? t("Source selected. Click another node to create conversion.")
+              : t("Drag nodes to arrange. Click one node then another to connect.")}
+          </p>
+          <div className="table__actions">
+            {(selectedConversion || linkDraftFromId) && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleClearConversionSelection}
+              >
+                {t("Clear selection")}
+              </Button>
+            )}
+          </div>
+          <EnergyConversionBoard
+            items={items}
+            conversions={conversions}
+            positions={conversionBoardPositions}
+            selectedLink={selectedConversion}
+            linkDraftFromId={linkDraftFromId}
+            onPositionsChange={setConversionBoardPositions}
+            onNodeClick={(id) => {
+              void handleNodeClick(id);
+            }}
+            onEdgeClick={handleSelectConversion}
+            onClearSelection={handleClearConversionSelection}
+          />
+        </div>
+      )}
+
       {showList && (
         <div className="card">
           <h3 className="section-title">{t("Energy conversions")}</h3>
@@ -682,6 +873,20 @@ export const EnergyTypeCreate = () => {
                     <td>{item.condition ?? "-"}</td>
                     <td>{item.isActive ? t("Yes") : t("No")}</td>
                     <td className="table__actions">
+                      <button
+                        type="button"
+                        className="table__action table__action--ghost"
+                        onClick={() => {
+                          setSelectedConversion({
+                            fromId: item.fromId,
+                            toId: item.toId,
+                          });
+                          setLinkDraftFromId(null);
+                          setConversionForm(mapConversionToForm(item));
+                        }}
+                      >
+                        {t("Edit")}
+                      </button>
                       <button
                         type="button"
                         className="table__action table__action--danger"

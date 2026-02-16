@@ -2688,6 +2688,68 @@ h3 {
   cursor: grabbing;
 }
 
+.energy-conversion-board__arrow {
+  fill: currentColor;
+}
+
+.energy-conversion-board__edge-hit {
+  stroke: transparent;
+  stroke-width: 20;
+  cursor: pointer;
+}
+
+.energy-conversion-board__edge-hit--selected {
+  stroke: color-mix(in srgb, var(--info-bg) 70%, transparent);
+}
+
+.energy-conversion-board__edge {
+  stroke: var(--border-strong);
+  stroke-width: 1.8;
+  opacity: 0.76;
+}
+
+.energy-conversion-board__edge--inactive {
+  stroke-dasharray: 7 5;
+  opacity: 0.44;
+}
+
+.energy-conversion-board__edge--selected {
+  stroke: var(--info-text);
+  stroke-width: 2.4;
+  opacity: 1;
+}
+
+.energy-conversion-board__node {
+  stroke-width: 1.8;
+}
+
+.energy-conversion-board__node--draft {
+  stroke-width: 2.6;
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--info-bg) 55%, transparent));
+}
+
+.energy-conversion-board__label {
+  fill: var(--color-ink);
+  font-size: 12px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.energy-conversion-board__sub-label {
+  fill: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.energy-conversion-board__node-handle {
+  cursor: grab;
+}
+
+.energy-conversion-board__node-handle:active {
+  cursor: grabbing;
+}
+
 @media (max-width: 900px) {
   .relationship-graph__board {
     height: 460px;
