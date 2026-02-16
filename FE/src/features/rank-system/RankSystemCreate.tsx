@@ -4,6 +4,7 @@ import { Button } from "../../components/common/Button";
 import { FilterPanel } from "../../components/common/FilterPanel";
 import { Pagination } from "../../components/common/Pagination";
 import { ListPanel } from "../../components/common/ListPanel";
+import { CrudPageShell } from "../../components/crud/CrudPageShell";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
@@ -340,97 +341,99 @@ export const RankSystemCreate = () => {
 
   return (
     <div>
-      <div className="card">
-        <div className="card__header">
-          <div>
-            <h3 className="section-title">{t("Rank system nodes")}</h3>
-            <p className="header__subtitle">{t("Click a row to inspect details.")}</p>
-          </div>
-          <Button onClick={() => setShowForm((prev) => !prev)} variant="primary">
-            {showForm ? t("Close form") : t("Create new rank system")}
-          </Button>
-        </div>
-        <FilterPanel>
-          <TextInput
-            label="Search"
-            value={filters.q}
-            onChange={(value) => handleFilterChange("q", value)}
-            placeholder="Search..."
-          />
-          <TextInput
-            label="Name"
-            value={filters.name}
-            onChange={(value) => handleFilterChange("name", value)}
-          />
-          <TextInput
-            label="Domain"
-            value={filters.domain}
-            onChange={(value) => handleFilterChange("domain", value)}
-          />
-          <Select
-            label="Energy Type"
-            value={filters.energyTypeId}
-            onChange={(value) => handleFilterChange("energyTypeId", value)}
-            options={energyTypeOptions}
-            placeholder={energyTypes.length > 0 ? "All" : "No energy types yet."}
-          />
-          <div className="form-field filter-actions">
-            <Button type="button" variant="ghost" onClick={handleClearFilters}>
-              Clear filters
-            </Button>
-          </div>
-        </FilterPanel>
-        <div className="filter-block">
-          <button
-            type="button"
-            className="filter-toggle"
-            onClick={() => setShowLandscape((prev) => !prev)}
-            aria-expanded={showLandscape}
-          >
-            <img className="filter-toggle__icon" src={boardIcon} alt={t("Board")} />
-            <span className="filter-toggle__label">
-              {showLandscape ? t("Hide board") : t("Show board")}
-            </span>
-          </button>
-        </div>
-        {showLandscape && (
-          <div className="card rank-system-landscape-card">
-            <div className="card__header">
-              <div>
-                <h3 className="section-title">{t("Rank system landscape")}</h3>
-                <p className="header__subtitle">
-                  {t("Compare systems side by side, grouped by tier.")}
-                </p>
-              </div>
-            </div>
-            <RankSystemLandscapeBoard rankSystems={allRankSystems} ranks={allRanks} />
-          </div>
-        )}
-        <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
-        {showList && (
+      <CrudPageShell
+        title="Rank system nodes"
+        subtitle="Click a row to inspect details."
+        showForm={showForm}
+        createLabel="Create new rank system"
+        onToggleForm={() => setShowForm((prev) => !prev)}
+        controls={
           <>
-            <RankSystemList
-              items={items}
-              onEdit={handleEditOpen}
-              onDelete={handleDelete}
-            />
-            {(items.length > 0 || page > 1 || hasNext) && (
-              <Pagination
-                page={page}
-                pageSize={pageSize}
-                itemCount={items.length}
-                hasNext={hasNext}
-                totalCount={totalCount}
-                onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
-                onPageSizeChange={(nextSize) => {
-                  setPageSize(nextSize);
-                  setPage(1);
-                }}
+            <FilterPanel>
+              <TextInput
+                label="Search"
+                value={filters.q}
+                onChange={(value) => handleFilterChange("q", value)}
+                placeholder="Search..."
               />
-            )}
+              <TextInput
+                label="Name"
+                value={filters.name}
+                onChange={(value) => handleFilterChange("name", value)}
+              />
+              <TextInput
+                label="Domain"
+                value={filters.domain}
+                onChange={(value) => handleFilterChange("domain", value)}
+              />
+              <Select
+                label="Energy Type"
+                value={filters.energyTypeId}
+                onChange={(value) => handleFilterChange("energyTypeId", value)}
+                options={energyTypeOptions}
+                placeholder={energyTypes.length > 0 ? "All" : "No energy types yet."}
+              />
+              <div className="form-field filter-actions">
+                <Button type="button" variant="ghost" onClick={handleClearFilters}>
+                  Clear filters
+                </Button>
+              </div>
+            </FilterPanel>
+            <div className="filter-block">
+              <button
+                type="button"
+                className="filter-toggle"
+                onClick={() => setShowLandscape((prev) => !prev)}
+                aria-expanded={showLandscape}
+              >
+                <img className="filter-toggle__icon" src={boardIcon} alt={t("Board")} />
+                <span className="filter-toggle__label">
+                  {showLandscape ? t("Hide board") : t("Show board")}
+                </span>
+              </button>
+            </div>
+            <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
           </>
-        )}
-      </div>
+        }
+        list={
+          showList ? (
+            <>
+              <RankSystemList
+                items={items}
+                onEdit={handleEditOpen}
+                onDelete={handleDelete}
+              />
+              {items.length > 0 || page > 1 || hasNext ? (
+                <Pagination
+                  page={page}
+                  pageSize={pageSize}
+                  itemCount={items.length}
+                  hasNext={hasNext}
+                  totalCount={totalCount}
+                  onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+                  onPageSizeChange={(nextSize) => {
+                    setPageSize(nextSize);
+                    setPage(1);
+                  }}
+                />
+              ) : null}
+            </>
+          ) : null
+        }
+      />
+      {showLandscape && (
+        <div className="card rank-system-landscape-card">
+          <div className="card__header">
+            <div>
+              <h3 className="section-title">{t("Rank system landscape")}</h3>
+              <p className="header__subtitle">
+                {t("Compare systems side by side, grouped by tier.")}
+              </p>
+            </div>
+          </div>
+          <RankSystemLandscapeBoard rankSystems={allRankSystems} ranks={allRanks} />
+        </div>
+      )}
 
       {editItem && editValues && (
         <>
