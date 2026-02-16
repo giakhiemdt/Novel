@@ -2703,7 +2703,7 @@ h3 {
 }
 
 .energy-conversion-board__edge-hit--selected {
-  stroke: color-mix(in srgb, var(--info-bg) 70%, transparent);
+  stroke: color-mix(in srgb, var(--color-accent) 45%, transparent);
 }
 
 .energy-conversion-board__edge {
@@ -2718,7 +2718,7 @@ h3 {
 }
 
 .energy-conversion-board__edge--selected {
-  stroke: var(--info-text);
+  stroke: var(--color-accent);
   stroke-width: 2.4;
   opacity: 1;
 }
@@ -2729,7 +2729,7 @@ h3 {
 
 .energy-conversion-board__node--draft {
   stroke-width: 2.6;
-  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--info-bg) 55%, transparent));
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-accent) 55%, transparent));
 }
 
 .energy-conversion-board__label {
