@@ -4,6 +4,7 @@ import { FilterPanel } from "../../components/common/FilterPanel";
 import { Pagination } from "../../components/common/Pagination";
 import { ListPanel } from "../../components/common/ListPanel";
 import { useToast } from "../../components/common/Toast";
+import { CrudPageShell } from "../../components/crud/CrudPageShell";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
 import { Select } from "../../components/form/Select";
@@ -233,82 +234,82 @@ export const WorldRuleCreate = () => {
 
   return (
     <div>
-      <div className="card">
-        <div className="card__header">
-          <div>
-            <h3 className="section-title">{t("World rule nodes")}</h3>
-            <p className="header__subtitle">
-              {t("Click a row to inspect details.")}
-            </p>
-          </div>
-          <Button onClick={() => setShowForm((prev) => !prev)} variant="primary">
-            {showForm ? t("Close form") : t("Create new world rule")}
-          </Button>
-        </div>
-        <FilterPanel>
-          <TextInput
-            label="Search"
-            value={filters.q}
-            onChange={(value) => handleFilterChange("q", value)}
-            placeholder="Search..."
-          />
-          <TextInput
-            label="Title"
-            value={filters.title}
-            onChange={(value) => handleFilterChange("title", value)}
-          />
-          <TextInput
-            label="Category"
-            value={filters.category}
-            onChange={(value) => handleFilterChange("category", value)}
-          />
-          <Select
-            label="Status"
-            value={filters.status}
-            onChange={(value) => handleFilterChange("status", value)}
-            options={STATUS_OPTIONS.map((status) => ({
-              value: status,
-              label: status,
-            }))}
-            placeholder="All"
-          />
-          <TextInput
-            label="Scope"
-            value={filters.scope}
-            onChange={(value) => handleFilterChange("scope", value)}
-          />
-          <TextInput
-            label="Tag"
-            value={filters.tag}
-            onChange={(value) => handleFilterChange("tag", value)}
-          />
-          <div className="form-field filter-actions">
-            <Button type="button" variant="ghost" onClick={handleClearFilters}>
-              Clear filters
-            </Button>
-          </div>
-        </FilterPanel>
-        <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
-        {showList && (
+      <CrudPageShell
+        title="World rule nodes"
+        subtitle="Click a row to inspect details."
+        showForm={showForm}
+        createLabel="Create new world rule"
+        onToggleForm={() => setShowForm((prev) => !prev)}
+        controls={
           <>
-        <WorldRuleList items={items} onEdit={handleEditOpen} onDelete={handleDelete} />
-        {(items.length > 0 || page > 1 || hasNext) && (
-          <Pagination
-            page={page}
-            pageSize={pageSize}
-            itemCount={items.length}
-            hasNext={hasNext}
-            totalCount={totalCount}
-            onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
-            onPageSizeChange={(nextSize) => {
-              setPageSize(nextSize);
-              setPage(1);
-            }}
-          />
-        )}
+            <FilterPanel>
+              <TextInput
+                label="Search"
+                value={filters.q}
+                onChange={(value) => handleFilterChange("q", value)}
+                placeholder="Search..."
+              />
+              <TextInput
+                label="Title"
+                value={filters.title}
+                onChange={(value) => handleFilterChange("title", value)}
+              />
+              <TextInput
+                label="Category"
+                value={filters.category}
+                onChange={(value) => handleFilterChange("category", value)}
+              />
+              <Select
+                label="Status"
+                value={filters.status}
+                onChange={(value) => handleFilterChange("status", value)}
+                options={STATUS_OPTIONS.map((status) => ({
+                  value: status,
+                  label: status,
+                }))}
+                placeholder="All"
+              />
+              <TextInput
+                label="Scope"
+                value={filters.scope}
+                onChange={(value) => handleFilterChange("scope", value)}
+              />
+              <TextInput
+                label="Tag"
+                value={filters.tag}
+                onChange={(value) => handleFilterChange("tag", value)}
+              />
+              <div className="form-field filter-actions">
+                <Button type="button" variant="ghost" onClick={handleClearFilters}>
+                  Clear filters
+                </Button>
+              </div>
+            </FilterPanel>
+            <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
           </>
-        )}
-      </div>
+        }
+        list={
+          showList ? (
+            <>
+              <WorldRuleList items={items} onEdit={handleEditOpen} onDelete={handleDelete} />
+              {items.length > 0 || page > 1 || hasNext ? (
+                <Pagination
+                  page={page}
+                  pageSize={pageSize}
+                  itemCount={items.length}
+                  hasNext={hasNext}
+                  totalCount={totalCount}
+                  onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+                  onPageSizeChange={(nextSize) => {
+                    setPageSize(nextSize);
+                    setPage(1);
+                  }}
+                />
+              ) : null}
+            </>
+          ) : null
+        }
+      />
 
       {editItem && editValues && (
         <>

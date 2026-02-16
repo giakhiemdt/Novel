@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/common/Button";
 import { ListPanel } from "../../components/common/ListPanel";
 import { useToast } from "../../components/common/Toast";
+import { CrudPageShell } from "../../components/crud/CrudPageShell";
 import { FormSection } from "../../components/form/FormSection";
 import { Select } from "../../components/form/Select";
 import { TextArea } from "../../components/form/TextArea";
@@ -48,6 +49,7 @@ export const EnergyTierCreate = () => {
   const [form, setForm] = useState<EnergyTierFormState>(initialState);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [showList, setShowList] = useState(false);
   const [showBoard, setShowBoard] = useState(true);
   const [links, setLinks] = useState<EnergyTierLink[]>([]);
@@ -229,6 +231,7 @@ export const EnergyTierCreate = () => {
   const handleEdit = (item: EnergyTier) => {
     setEditingId(item.id);
     setForm(mapToForm(item));
+    setShowForm(true);
   };
 
   const handleCancel = () => {
@@ -237,6 +240,7 @@ export const EnergyTierCreate = () => {
       ...initialState,
       energyTypeId: prev.energyTypeId,
     }));
+    setShowForm(false);
   };
 
   const handleDelete = async (item: EnergyTier) => {
@@ -270,74 +274,76 @@ export const EnergyTierCreate = () => {
 
   return (
     <div>
-      <div className="card">
-        <div className="card__header">
-          <div>
-            <h3 className="section-title">{t("Energy tier definitions")}</h3>
-            <p className="header__subtitle">
-              {t("Manage tiered levels for each energy type.")}
-            </p>
-          </div>
-          {editingId && (
-            <Button variant="ghost" onClick={handleCancel}>
-              {t("Cancel")}
-            </Button>
-          )}
-        </div>
-
-        <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
-        {showList &&
-          (items.length === 0 ? (
-            <p className="header__subtitle">{t("No energy tiers yet.")}</p>
-          ) : (
-            <table className="table table--clean">
-              <thead>
-                <tr>
-                  <th>{t("Code")}</th>
-                  <th>{t("Name")}</th>
-                  <th>{t("Energy Type")}</th>
-                  <th>{t("Level")}</th>
-                  <th>{t("Active")}</th>
-                  <th>{t("Actions")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.code}</td>
-                    <td>{item.name}</td>
-                    <td>{item.energyTypeName ?? item.energyTypeId}</td>
-                    <td>{item.level ?? "-"}</td>
-                    <td>{item.isActive ? t("Yes") : t("No")}</td>
-                    <td className="table__actions">
-                      <button
-                        type="button"
-                        className="table__action table__action--ghost"
-                        onClick={() => handleEdit(item)}
-                      >
-                        {t("Edit")}
-                      </button>
-                      <button
-                        type="button"
-                        className="table__action"
-                        onClick={() => handleUnlink(item)}
-                      >
-                        {t("Unlink")}
-                      </button>
-                      <button
-                        type="button"
-                        className="table__action table__action--danger"
-                        onClick={() => handleDelete(item)}
-                      >
-                        {t("Delete")}
-                      </button>
-                    </td>
+      <CrudPageShell
+        title="Energy tier definitions"
+        subtitle="Manage tiered levels for each energy type."
+        showForm={showForm}
+        createLabel="Create energy tier"
+        onToggleForm={() => {
+          if (showForm && editingId) {
+            handleCancel();
+            return;
+          }
+          setShowForm((prev) => !prev);
+        }}
+        controls={
+          <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
+        }
+        list={
+          showList ? (
+            items.length === 0 ? (
+              <p className="header__subtitle">{t("No energy tiers yet.")}</p>
+            ) : (
+              <table className="table table--clean">
+                <thead>
+                  <tr>
+                    <th>{t("Code")}</th>
+                    <th>{t("Name")}</th>
+                    <th>{t("Energy Type")}</th>
+                    <th>{t("Level")}</th>
+                    <th>{t("Active")}</th>
+                    <th>{t("Actions")}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          ))}
-      </div>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.code}</td>
+                      <td>{item.name}</td>
+                      <td>{item.energyTypeName ?? item.energyTypeId}</td>
+                      <td>{item.level ?? "-"}</td>
+                      <td>{item.isActive ? t("Yes") : t("No")}</td>
+                      <td className="table__actions">
+                        <button
+                          type="button"
+                          className="table__action table__action--ghost"
+                          onClick={() => handleEdit(item)}
+                        >
+                          {t("Edit")}
+                        </button>
+                        <button
+                          type="button"
+                          className="table__action"
+                          onClick={() => handleUnlink(item)}
+                        >
+                          {t("Unlink")}
+                        </button>
+                        <button
+                          type="button"
+                          className="table__action table__action--danger"
+                          onClick={() => handleDelete(item)}
+                        >
+                          {t("Delete")}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
+          ) : null
+        }
+      />
 
       <div className="card">
         <button
@@ -367,10 +373,12 @@ export const EnergyTierCreate = () => {
         </div>
       )}
 
-      <FormSection
-        title={editingId ? "Edit energy tier" : "Create energy tier"}
-        description="Define progression levels inside an energy type."
-      >
+      {showForm && (
+        <>
+          <FormSection
+            title={editingId ? "Edit energy tier" : "Create energy tier"}
+            description="Define progression levels inside an energy type."
+          >
         <div className="form-field--wide">
           <Select
             label="Energy Type"
@@ -466,17 +474,24 @@ export const EnergyTierCreate = () => {
             onChange={(value) => setForm((prev) => ({ ...prev, condition: value }))}
           />
         </div>
-      </FormSection>
+          </FormSection>
 
-      <div className="card">
-        <Button onClick={handleSubmit} disabled={isSaving}>
-          {isSaving
-            ? t("Saving...")
-            : editingId
-              ? t("Save tier")
-              : t("Create tier")}
-        </Button>
-      </div>
+          <div className="card">
+            <div className="form-actions">
+              <Button onClick={handleSubmit} disabled={isSaving}>
+                {isSaving
+                  ? t("Saving...")
+                  : editingId
+                    ? t("Save tier")
+                    : t("Create tier")}
+              </Button>
+              <Button type="button" variant="ghost" onClick={handleCancel}>
+                {t("Cancel")}
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
