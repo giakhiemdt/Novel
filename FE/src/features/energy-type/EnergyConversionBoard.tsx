@@ -37,6 +37,7 @@ const NODE_WIDTH = 184;
 const NODE_HEIGHT = 56;
 const VIEWBOX_WIDTH = 2400;
 const VIEWBOX_HEIGHT = 1600;
+const BOARD_PADDING = 24;
 const MIN_SCALE = 0.4;
 const MAX_SCALE = 2.4;
 const DEFAULT_PAN = { x: 20, y: 20 };
@@ -83,6 +84,91 @@ const buildLayout = (items: EnergyType[]): Record<string, GraphNode> => {
   return next;
 };
 
+const clamp = (value: number, min: number, max: number) =>
+  Math.max(min, Math.min(max, value));
+
+const clampNodePosition = (x: number, y: number) => ({
+  x: clamp(x, BOARD_PADDING, VIEWBOX_WIDTH - NODE_WIDTH - BOARD_PADDING),
+  y: clamp(y, BOARD_PADDING, VIEWBOX_HEIGHT - NODE_HEIGHT - BOARD_PADDING),
+});
+
+const sanitizeManualPositions = (
+  value: Record<string, { x: number; y: number }> | undefined
+) => {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+  const next: Record<string, { x: number; y: number }> = {};
+  Object.entries(value).forEach(([id, pos]) => {
+    if (
+      pos &&
+      typeof pos === "object" &&
+      Number.isFinite(pos.x) &&
+      Number.isFinite(pos.y)
+    ) {
+      next[id] = clampNodePosition(pos.x, pos.y);
+    }
+  });
+  return next;
+};
+
+type EdgeGeometry = {
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+  labelX: number;
+  labelY: number;
+};
+
+const getEdgeGeometry = (from: GraphNode, to: GraphNode): EdgeGeometry => {
+  const fromCenterX = from.x + NODE_WIDTH / 2;
+  const fromCenterY = from.y + NODE_HEIGHT / 2;
+  const toCenterX = to.x + NODE_WIDTH / 2;
+  const toCenterY = to.y + NODE_HEIGHT / 2;
+  const dx = toCenterX - fromCenterX;
+  const dy = toCenterY - fromCenterY;
+
+  if (dx === 0 && dy === 0) {
+    return {
+      startX: fromCenterX,
+      startY: fromCenterY,
+      endX: toCenterX,
+      endY: toCenterY,
+      labelX: fromCenterX,
+      labelY: fromCenterY,
+    };
+  }
+
+  const fromHalfWidth = NODE_WIDTH / 2;
+  const fromHalfHeight = NODE_HEIGHT / 2;
+  const toHalfWidth = NODE_WIDTH / 2;
+  const toHalfHeight = NODE_HEIGHT / 2;
+
+  const fromScale =
+    Math.abs(dx) * fromHalfHeight > Math.abs(dy) * fromHalfWidth
+      ? fromHalfWidth / Math.abs(dx || 1)
+      : fromHalfHeight / Math.abs(dy || 1);
+  const toScale =
+    Math.abs(dx) * toHalfHeight > Math.abs(dy) * toHalfWidth
+      ? toHalfWidth / Math.abs(dx || 1)
+      : toHalfHeight / Math.abs(dy || 1);
+
+  const startX = fromCenterX + dx * fromScale;
+  const startY = fromCenterY + dy * fromScale;
+  const endX = toCenterX - dx * toScale;
+  const endY = toCenterY - dy * toScale;
+
+  return {
+    startX,
+    startY,
+    endX,
+    endY,
+    labelX: startX + (endX - startX) / 2,
+    labelY: startY + (endY - startY) / 2,
+  };
+};
+
 export const EnergyConversionBoard = ({
   items,
   conversions,
@@ -126,7 +212,7 @@ export const EnergyConversionBoard = ({
   });
 
   useEffect(() => {
-    setManualPositions(positions ?? {});
+    setManualPositions(sanitizeManualPositions(positions));
   }, [positions]);
 
   const autoLayout = useMemo(() => buildLayout(items), [items]);
@@ -210,10 +296,11 @@ export const EnergyConversionBoard = ({
       const nextY = worldY - dragOffset.y;
 
       suppressClickRef.current = true;
+      const clamped = clampNodePosition(nextX, nextY);
       setManualPositions((prev) => {
         const next = {
           ...prev,
-          [draggingNodeId]: { x: nextX, y: nextY },
+          [draggingNodeId]: clamped,
         };
         onPositionsChange?.(next);
         return next;
@@ -309,13 +396,14 @@ export const EnergyConversionBoard = ({
                 if (!from || !to) {
                   return null;
                 }
+                const { startX, startY, endX, endY } = getEdgeGeometry(from, to);
                 return (
                   <line
                     key={`mini-edge-${edge.id}`}
-                    x1={MINIMAP_PADDING + (from.x + NODE_WIDTH / 2) * minimapBounds.scale}
-                    y1={MINIMAP_HEADER_HEIGHT + MINIMAP_PADDING + (from.y + NODE_HEIGHT / 2) * minimapBounds.scale}
-                    x2={MINIMAP_PADDING + (to.x + NODE_WIDTH / 2) * minimapBounds.scale}
-                    y2={MINIMAP_HEADER_HEIGHT + MINIMAP_PADDING + (to.y + NODE_HEIGHT / 2) * minimapBounds.scale}
+                    x1={MINIMAP_PADDING + startX * minimapBounds.scale}
+                    y1={MINIMAP_HEADER_HEIGHT + MINIMAP_PADDING + startY * minimapBounds.scale}
+                    x2={MINIMAP_PADDING + endX * minimapBounds.scale}
+                    y2={MINIMAP_HEADER_HEIGHT + MINIMAP_PADDING + endY * minimapBounds.scale}
                     className="graph-board-minimap__edge"
                   />
                 );
@@ -376,12 +464,10 @@ export const EnergyConversionBoard = ({
                 return null;
               }
 
-              const startX = from.x + NODE_WIDTH / 2;
-              const startY = from.y + NODE_HEIGHT / 2;
-              const endX = to.x + NODE_WIDTH / 2;
-              const endY = to.y + NODE_HEIGHT / 2;
-              const midX = startX + (endX - startX) / 2;
-              const midY = startY + (endY - startY) / 2;
+              const { startX, startY, endX, endY, labelX, labelY } = getEdgeGeometry(
+                from,
+                to
+              );
               const isSelected =
                 selectedLink?.fromId === edge.fromId && selectedLink?.toId === edge.toId;
 
@@ -407,7 +493,12 @@ export const EnergyConversionBoard = ({
                     markerEnd="url(#energy-conversion-arrow)"
                   />
                   {edge.label ? (
-                    <text x={midX} y={midY - 8} textAnchor="middle" className="relationship-graph__edge-label">
+                    <text
+                      x={labelX}
+                      y={labelY - 8}
+                      textAnchor="middle"
+                      className="relationship-graph__edge-label"
+                    >
                       {edge.label}
                     </text>
                   ) : null}
