@@ -4,6 +4,7 @@ import { FilterPanel } from "../../components/common/FilterPanel";
 import { Pagination } from "../../components/common/Pagination";
 import { ListPanel } from "../../components/common/ListPanel";
 import { useToast } from "../../components/common/Toast";
+import { CrudPageShell } from "../../components/crud/CrudPageShell";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
 import { TextArea } from "../../components/form/TextArea";
@@ -213,62 +214,62 @@ export const ArcCreate = () => {
 
   return (
     <div>
-      <div className="card">
-        <div className="card__header">
-          <div>
-            <h3 className="section-title">{t("Arc nodes")}</h3>
-            <p className="header__subtitle">
-              {t("Click a row to inspect details.")}
-            </p>
-          </div>
-          <Button onClick={() => setShowForm((prev) => !prev)} variant="primary">
-            {showForm ? t("Close form") : t("Create new arc")}
-          </Button>
-        </div>
-        <FilterPanel>
-          <TextInput
-            label="Search"
-            value={filters.q}
-            onChange={(value) => handleFilterChange("q", value)}
-            placeholder="Search..."
-          />
-          <TextInput
-            label="Name"
-            value={filters.name}
-            onChange={(value) => handleFilterChange("name", value)}
-          />
-          <TextInput
-            label="Tag"
-            value={filters.tag}
-            onChange={(value) => handleFilterChange("tag", value)}
-          />
-          <div className="form-field filter-actions">
-            <Button type="button" variant="ghost" onClick={handleClearFilters}>
-              Clear filters
-            </Button>
-          </div>
-        </FilterPanel>
-        <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
-        {showList && (
+      <CrudPageShell
+        title="Arc nodes"
+        subtitle="Click a row to inspect details."
+        showForm={showForm}
+        createLabel="Create new arc"
+        onToggleForm={() => setShowForm((prev) => !prev)}
+        controls={
           <>
-        <ArcList items={items} onEdit={handleEditOpen} onDelete={handleDelete} />
-        {(items.length > 0 || page > 1 || hasNext) && (
-          <Pagination
-            page={page}
-            pageSize={pageSize}
-            itemCount={items.length}
-            hasNext={hasNext}
-            totalCount={totalCount}
-            onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
-            onPageSizeChange={(nextSize) => {
-              setPageSize(nextSize);
-              setPage(1);
-            }}
-          />
-        )}
+            <FilterPanel>
+              <TextInput
+                label="Search"
+                value={filters.q}
+                onChange={(value) => handleFilterChange("q", value)}
+                placeholder="Search..."
+              />
+              <TextInput
+                label="Name"
+                value={filters.name}
+                onChange={(value) => handleFilterChange("name", value)}
+              />
+              <TextInput
+                label="Tag"
+                value={filters.tag}
+                onChange={(value) => handleFilterChange("tag", value)}
+              />
+              <div className="form-field filter-actions">
+                <Button type="button" variant="ghost" onClick={handleClearFilters}>
+                  Clear filters
+                </Button>
+              </div>
+            </FilterPanel>
+            <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
           </>
-        )}
-      </div>
+        }
+        list={
+          showList ? (
+            <>
+              <ArcList items={items} onEdit={handleEditOpen} onDelete={handleDelete} />
+              {items.length > 0 || page > 1 || hasNext ? (
+                <Pagination
+                  page={page}
+                  pageSize={pageSize}
+                  itemCount={items.length}
+                  hasNext={hasNext}
+                  totalCount={totalCount}
+                  onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+                  onPageSizeChange={(nextSize) => {
+                    setPageSize(nextSize);
+                    setPage(1);
+                  }}
+                />
+              ) : null}
+            </>
+          ) : null
+        }
+      />
 
       <div className="card" style={{ marginTop: "20px" }}>
         <div className="card__header">
