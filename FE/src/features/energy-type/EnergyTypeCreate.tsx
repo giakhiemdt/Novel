@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/common/Button";
+import { FilterPanel } from "../../components/common/FilterPanel";
 import { ListPanel } from "../../components/common/ListPanel";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
@@ -81,6 +82,12 @@ export const EnergyTypeCreate = () => {
   const [showList, setShowList] = useState(false);
   const [showBoard, setShowBoard] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [filters, setFilters] = useState({
+    q: "",
+    name: "",
+    code: "",
+    isActive: "",
+  });
 
   const loadItems = useCallback(async () => {
     try {
@@ -221,6 +228,33 @@ export const EnergyTypeCreate = () => {
     [items]
   );
 
+  const filteredItems = useMemo(() => {
+    const q = filters.q.trim().toLowerCase();
+    const name = filters.name.trim().toLowerCase();
+    const code = filters.code.trim().toLowerCase();
+    return items.filter((item) => {
+      if (q) {
+        const text = `${item.name ?? ""} ${item.code ?? ""} ${item.description ?? ""}`.toLowerCase();
+        if (!text.includes(q)) {
+          return false;
+        }
+      }
+      if (name && !(item.name ?? "").toLowerCase().includes(name)) {
+        return false;
+      }
+      if (code && !(item.code ?? "").toLowerCase().includes(code)) {
+        return false;
+      }
+      if (filters.isActive === "true" && !item.isActive) {
+        return false;
+      }
+      if (filters.isActive === "false" && item.isActive) {
+        return false;
+      }
+      return true;
+    });
+  }, [filters.code, filters.isActive, filters.name, filters.q, items]);
+
   const handleSubmit = async () => {
     const payload = buildPayload(form);
     if (!validatePayload(payload)) {
@@ -355,9 +389,47 @@ export const EnergyTypeCreate = () => {
           </div>
         </div>
 
+        <FilterPanel>
+          <TextInput
+            label="Search"
+            value={filters.q}
+            onChange={(value) => setFilters((prev) => ({ ...prev, q: value }))}
+            placeholder="Search..."
+          />
+          <TextInput
+            label="Name"
+            value={filters.name}
+            onChange={(value) => setFilters((prev) => ({ ...prev, name: value }))}
+          />
+          <TextInput
+            label="Code"
+            value={filters.code}
+            onChange={(value) => setFilters((prev) => ({ ...prev, code: value }))}
+          />
+          <Select
+            label="Active"
+            value={filters.isActive}
+            onChange={(value) => setFilters((prev) => ({ ...prev, isActive: value }))}
+            options={[
+              { value: "true", label: t("Yes") },
+              { value: "false", label: t("No") },
+            ]}
+            placeholder={t("All")}
+          />
+          <div className="form-field filter-actions">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setFilters({ q: "", name: "", code: "", isActive: "" })}
+            >
+              {t("Clear filters")}
+            </Button>
+          </div>
+        </FilterPanel>
+
         <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
         {showList &&
-          (items.length === 0 ? (
+          (filteredItems.length === 0 ? (
             <p className="header__subtitle">{t("No energy types yet.")}</p>
           ) : (
             <table className="table table--clean">
@@ -372,7 +444,7 @@ export const EnergyTypeCreate = () => {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => (
+                {filteredItems.map((item) => (
                   <tr key={item.id}>
                     <td>{item.code}</td>
                     <td>{item.name}</td>

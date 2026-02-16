@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "../../components/common/Button";
+import { FilterPanel } from "../../components/common/FilterPanel";
 import { ListPanel } from "../../components/common/ListPanel";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
+import { Select } from "../../components/form/Select";
 import { TextArea } from "../../components/form/TextArea";
 import { TextInput } from "../../components/form/TextInput";
 import { useProjectChange } from "../../hooks/useProjectChange";
@@ -40,6 +42,12 @@ export const RelationshipTypeCreate = () => {
   const [pendingForceDeleteId, setPendingForceDeleteId] = useState<string | null>(null);
   const [showList, setShowList] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [filters, setFilters] = useState({
+    q: "",
+    name: "",
+    code: "",
+    isActive: "",
+  });
 
   const loadRelationshipTypeItems = useCallback(async () => {
     try {
@@ -179,6 +187,31 @@ export const RelationshipTypeCreate = () => {
     }
   };
 
+  const filteredRelationshipTypes = relationshipTypes.filter((item) => {
+    const q = filters.q.trim().toLowerCase();
+    const name = filters.name.trim().toLowerCase();
+    const code = filters.code.trim().toLowerCase();
+    if (q) {
+      const text = `${item.name ?? ""} ${item.code ?? ""} ${item.description ?? ""}`.toLowerCase();
+      if (!text.includes(q)) {
+        return false;
+      }
+    }
+    if (name && !(item.name ?? "").toLowerCase().includes(name)) {
+      return false;
+    }
+    if (code && !(item.code ?? "").toLowerCase().includes(code)) {
+      return false;
+    }
+    if (filters.isActive === "true" && !item.isActive) {
+      return false;
+    }
+    if (filters.isActive === "false" && item.isActive) {
+      return false;
+    }
+    return true;
+  });
+
   return (
     <div>
       <div className="card">
@@ -210,9 +243,47 @@ export const RelationshipTypeCreate = () => {
           </div>
         </div>
 
+        <FilterPanel>
+          <TextInput
+            label="Search"
+            value={filters.q}
+            onChange={(value) => setFilters((prev) => ({ ...prev, q: value }))}
+            placeholder="Search..."
+          />
+          <TextInput
+            label="Name"
+            value={filters.name}
+            onChange={(value) => setFilters((prev) => ({ ...prev, name: value }))}
+          />
+          <TextInput
+            label="Code"
+            value={filters.code}
+            onChange={(value) => setFilters((prev) => ({ ...prev, code: value }))}
+          />
+          <Select
+            label="Active"
+            value={filters.isActive}
+            onChange={(value) => setFilters((prev) => ({ ...prev, isActive: value }))}
+            options={[
+              { value: "true", label: t("Yes") },
+              { value: "false", label: t("No") },
+            ]}
+            placeholder={t("All")}
+          />
+          <div className="form-field filter-actions">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setFilters({ q: "", name: "", code: "", isActive: "" })}
+            >
+              {t("Clear filters")}
+            </Button>
+          </div>
+        </FilterPanel>
+
         <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
         {showList &&
-          (relationshipTypes.length === 0 ? (
+          (filteredRelationshipTypes.length === 0 ? (
             <p className="header__subtitle">{t("No relationship types yet.")}</p>
           ) : (
             <table className="table table--clean">
@@ -226,7 +297,7 @@ export const RelationshipTypeCreate = () => {
                 </tr>
               </thead>
               <tbody>
-                {relationshipTypes.map((item) => (
+                {filteredRelationshipTypes.map((item) => (
                   <tr key={item.id}>
                     <td>{item.code}</td>
                     <td>{item.name}</td>
