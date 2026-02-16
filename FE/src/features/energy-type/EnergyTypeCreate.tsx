@@ -382,7 +382,7 @@ export const EnergyTypeCreate = () => {
           </div>
           <div className="table__actions">
             <Button
-              variant="ghost"
+              variant="primary"
               onClick={() => {
                 if (showForm) {
                   handleCancel();
@@ -493,7 +493,7 @@ export const EnergyTypeCreate = () => {
           ))}
       </div>
 
-      <div className="card">
+      <div className="filter-block">
         <button
           type="button"
           className="filter-toggle"

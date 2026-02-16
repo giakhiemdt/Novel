@@ -233,7 +233,7 @@ export const RelationshipTypeCreate = () => {
           </div>
           <div className="table__actions">
             <Button
-              variant="ghost"
+              variant="primary"
               onClick={() => {
                 if (showForm) {
                   handleTypeCancel();
