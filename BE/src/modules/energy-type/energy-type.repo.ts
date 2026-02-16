@@ -71,6 +71,7 @@ SET
   rel.ratio = $ratio,
   rel.lossRate = $lossRate,
   rel.condition = $condition,
+  rel.color = $color,
   rel.isActive = $isActive,
   rel.updatedAt = $updatedAt
 RETURN {
@@ -83,6 +84,7 @@ RETURN {
   ratio: rel.ratio,
   lossRate: rel.lossRate,
   condition: rel.condition,
+  color: rel.color,
   isActive: rel.isActive,
   createdAt: rel.createdAt,
   updatedAt: rel.updatedAt
@@ -101,6 +103,7 @@ RETURN {
   ratio: rel.ratio,
   lossRate: rel.lossRate,
   condition: rel.condition,
+  color: rel.color,
   isActive: rel.isActive,
   createdAt: rel.createdAt,
   updatedAt: rel.updatedAt
@@ -239,6 +242,7 @@ export const upsertEnergyConversion = async (
     ratio?: number;
     lossRate?: number;
     condition?: string;
+    color?: string;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
@@ -252,6 +256,7 @@ export const upsertEnergyConversion = async (
       ratio: input.ratio ?? null,
       lossRate: input.lossRate ?? null,
       condition: input.condition ?? null,
+      color: input.color ?? null,
       isActive: input.isActive,
       createdAt: input.createdAt,
       updatedAt: input.updatedAt,

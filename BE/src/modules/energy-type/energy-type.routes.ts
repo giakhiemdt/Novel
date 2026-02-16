@@ -133,6 +133,7 @@ export const energyTypeRoutes: RouteConfig[] = [
           ratio: { type: "number" },
           lossRate: { type: "number" },
           condition: { type: "string" },
+          color: { type: "string" },
           isActive: { type: "boolean" },
         },
       },

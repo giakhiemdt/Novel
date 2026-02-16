@@ -30,6 +30,7 @@ type GraphEdge = {
   fromId: string;
   toId: string;
   label: string;
+  color: string;
   isActive: boolean;
 };
 
@@ -58,6 +59,9 @@ const getEdgeLabel = (item: EnergyConversion): string => {
   }
   return parts.join(" • ");
 };
+
+const getMarkerId = (edgeId: string) =>
+  `energy-conversion-arrow-${edgeId.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
 const buildLayout = (items: EnergyType[]): Record<string, GraphNode> => {
   const sorted = [...items]
@@ -227,6 +231,7 @@ export const EnergyConversionBoard = ({
           fromId: item.fromId,
           toId: item.toId,
           label: getEdgeLabel(item),
+          color: item.color?.trim() || nodeMap[item.fromId]?.color || "#5FAAB8",
           isActive: item.isActive,
         })),
     [conversions, nodeMap]
@@ -438,17 +443,23 @@ export const EnergyConversionBoard = ({
             height={VIEWBOX_HEIGHT}
           >
             <defs>
-              <marker
-                id="energy-conversion-arrow"
-                viewBox="0 0 10 10"
-                refX="9"
-                refY="5"
-                markerWidth="8"
-                markerHeight="8"
-                orient="auto-start-reverse"
-              >
-                <path d="M 0 0 L 10 5 L 0 10 z" className="energy-conversion-board__arrow" />
-              </marker>
+              {edgeList.map((edge) => {
+                const markerId = getMarkerId(edge.id);
+                return (
+                  <marker
+                    key={markerId}
+                    id={markerId}
+                    viewBox="0 0 10 10"
+                    refX="9"
+                    refY="5"
+                    markerWidth="8"
+                    markerHeight="8"
+                    orient="auto-start-reverse"
+                  >
+                    <path d="M 0 0 L 10 5 L 0 10 z" style={{ fill: edge.color }} />
+                  </marker>
+                );
+              })}
             </defs>
 
             {edgeList.map((edge) => {
@@ -462,8 +473,7 @@ export const EnergyConversionBoard = ({
                 from,
                 to
               );
-              const isSelected =
-                selectedLink?.fromId === edge.fromId && selectedLink?.toId === edge.toId;
+              const markerId = getMarkerId(edge.id);
 
               return (
                 <g key={edge.id}>
@@ -472,7 +482,7 @@ export const EnergyConversionBoard = ({
                     y1={startY}
                     x2={endX}
                     y2={endY}
-                    className={`energy-conversion-board__edge-hit${isSelected ? " energy-conversion-board__edge-hit--selected" : ""}`}
+                    className="energy-conversion-board__edge-hit"
                     onClick={(event) => {
                       event.stopPropagation();
                       onEdgeClick?.(edge.fromId, edge.toId);
@@ -483,8 +493,9 @@ export const EnergyConversionBoard = ({
                     y1={startY}
                     x2={endX}
                     y2={endY}
-                    className={`energy-conversion-board__edge${!edge.isActive ? " energy-conversion-board__edge--inactive" : ""}${isSelected ? " energy-conversion-board__edge--selected" : ""}`}
-                    markerEnd="url(#energy-conversion-arrow)"
+                    className={`energy-conversion-board__edge${!edge.isActive ? " energy-conversion-board__edge--inactive" : ""}`}
+                    style={{ stroke: edge.color }}
+                    markerEnd={`url(#${markerId})`}
                   />
                   {edge.label ? (
                     <text

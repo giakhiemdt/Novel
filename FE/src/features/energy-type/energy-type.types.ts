@@ -28,6 +28,7 @@ export type EnergyConversionPayload = {
   ratio?: number;
   lossRate?: number;
   condition?: string;
+  color?: string;
   isActive?: boolean;
 };
 

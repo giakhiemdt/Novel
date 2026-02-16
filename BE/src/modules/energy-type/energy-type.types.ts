@@ -32,6 +32,7 @@ export type EnergyConversionInput = {
   ratio?: number;
   lossRate?: number;
   condition?: string;
+  color?: string;
   isActive?: boolean;
 };
 
@@ -45,6 +46,7 @@ export type EnergyConversionNode = {
   ratio?: number;
   lossRate?: number;
   condition?: string;
+  color?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

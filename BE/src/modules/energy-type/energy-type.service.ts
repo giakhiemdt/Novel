@@ -226,6 +226,7 @@ const validateConversionPayload = (payload: unknown): EnergyConversionInput => {
     "condition",
     assertOptionalString(data.condition, "condition")
   );
+  addIfDefined(result, "color", assertOptionalString(data.color, "color"));
   addIfDefined(
     result,
     "isActive",
@@ -357,6 +358,7 @@ export const energyTypeService = {
       ratio?: number;
       lossRate?: number;
       condition?: string;
+      color?: string;
       isActive: boolean;
       createdAt: string;
       updatedAt: string;
@@ -375,6 +377,9 @@ export const energyTypeService = {
     }
     if (input.condition !== undefined) {
       conversionPayload.condition = input.condition;
+    }
+    if (input.color !== undefined) {
+      conversionPayload.color = input.color;
     }
     const conversion = await upsertEnergyConversion(database, conversionPayload);
     if (!conversion) {

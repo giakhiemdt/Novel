@@ -45,6 +45,7 @@ const initialConversionState = {
   ratio: "",
   lossRate: "",
   condition: "",
+  color: "#5FAAB8",
   isActive: true,
 };
 
@@ -217,6 +218,7 @@ export const EnergyTypeCreate = () => {
     ratio: state.ratio.trim() === "" ? undefined : Number(state.ratio),
     lossRate: state.lossRate.trim() === "" ? undefined : Number(state.lossRate),
     condition: state.condition.trim() || undefined,
+    color: state.color.trim() || undefined,
     isActive: state.isActive,
   });
 
@@ -270,6 +272,7 @@ export const EnergyTypeCreate = () => {
         ? ""
         : String(item.lossRate),
     condition: item.condition ?? "",
+    color: item.color ?? "#5FAAB8",
     isActive: item.isActive ?? true,
   });
 
@@ -367,6 +370,7 @@ export const EnergyTypeCreate = () => {
         ...initialConversionState,
         fromId: prev.fromId,
         toId: prev.toId,
+        color: prev.color,
       }));
       if (showList || showConversionBoard) {
         await loadConversions();
@@ -402,6 +406,7 @@ export const EnergyTypeCreate = () => {
     const payload: EnergyConversionPayload = {
       fromId: linkDraftFromId,
       toId: nodeId,
+      color: conversionForm.color.trim() || undefined,
       isActive: true,
     };
     if (!validateConversionPayload(payload)) {
@@ -418,6 +423,7 @@ export const EnergyTypeCreate = () => {
         ...prev,
         fromId: payload.fromId,
         toId: payload.toId,
+        color: prev.color,
         isActive: true,
       }));
     } catch (err) {
@@ -666,17 +672,6 @@ export const EnergyTypeCreate = () => {
                       ? t("Source selected. Click another node to create conversion.")
                       : t("Drag nodes to arrange. Click one node then another to connect.")}
                   </p>
-                  <div className="table__actions">
-                    {(selectedConversion || linkDraftFromId) && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={handleClearConversionSelection}
-                      >
-                        {t("Clear selection")}
-                      </Button>
-                    )}
-                  </div>
                   <EnergyConversionBoard
                     items={items}
                     conversions={conversions}
@@ -818,6 +813,14 @@ export const EnergyTypeCreate = () => {
             onChange={(value) =>
               setConversionForm((prev) => ({ ...prev, condition: value }))
             }
+          />
+        </div>
+        <div className="form-field--narrow">
+          <TextInput
+            label="Color"
+            type="color"
+            value={conversionForm.color}
+            onChange={(value) => setConversionForm((prev) => ({ ...prev, color: value }))}
           />
         </div>
         <div className="form-field--narrow">
