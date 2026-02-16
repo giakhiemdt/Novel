@@ -4,6 +4,7 @@ import { Button } from "../../components/common/Button";
 import { FilterPanel } from "../../components/common/FilterPanel";
 import { Pagination } from "../../components/common/Pagination";
 import { ListPanel } from "../../components/common/ListPanel";
+import { CrudPageShell } from "../../components/crud/CrudPageShell";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
 import { Select } from "../../components/form/Select";
@@ -538,112 +539,112 @@ export const CharacterCreate = () => {
 
   return (
     <div>
-      <div className="card">
-        <div className="card__header">
-          <div>
-            <h3 className="section-title">{t("Character nodes")}</h3>
-            <p className="header__subtitle">
-              {t("Click a row to inspect details.")}
-            </p>
-          </div>
-          <Button onClick={() => setShowForm((prev) => !prev)} variant="primary">
-            {showForm ? t("Close form") : t("Create new character")}
-          </Button>
-        </div>
-        <FilterPanel>
-          <TextInput
-            label="Search"
-            value={filters.q}
-            onChange={(value) => handleFilterChange("q", value)}
-            placeholder="Search..."
-          />
-          <TextInput
-            label="Name"
-            value={filters.name}
-            onChange={(value) => handleFilterChange("name", value)}
-          />
-          <TextInput
-            label="Tag"
-            value={filters.tag}
-            onChange={(value) => handleFilterChange("tag", value)}
-          />
-          <Select
-            label="Gender"
-            value={filters.gender}
-            onChange={(value) => handleFilterChange("gender", value)}
-            options={[
-              { value: "male", label: "Male" },
-              { value: "female", label: "Female" },
-              { value: "other", label: "Other" },
-            ]}
-            placeholder="All"
-          />
-          <Select
-            label="Status"
-            value={filters.status}
-            onChange={(value) => handleFilterChange("status", value)}
-            options={[
-              { value: "Alive", label: "Alive" },
-              { value: "Dead", label: "Dead" },
-            ]}
-            placeholder="All"
-          />
-          <TextInput
-            label="Level"
-            value={filters.level}
-            onChange={(value) => handleFilterChange("level", value)}
-          />
-          <Select
-            label="Race"
-            value={filters.race}
-            onChange={(value) => handleFilterChange("race", value)}
-            options={races.map((race) => ({ value: race.name, label: race.name }))}
-            placeholder="All"
-          />
-          <Select
-            label="Special Ability"
-            value={filters.specialAbility}
-            onChange={(value) => handleFilterChange("specialAbility", value)}
-            options={specialAbilities.map((ability) => ({
-              value: ability.name,
-              label: ability.name,
-            }))}
-            placeholder="All"
-          />
-          <Select
-            label="Importance"
-            value={filters.importance}
-            onChange={(value) => handleFilterChange("importance", value)}
-            options={CHARACTER_IMPORTANCE_OPTIONS}
-            placeholder="All"
-          />
-          <div className="form-field filter-actions">
-            <Button type="button" variant="ghost" onClick={handleClearFilters}>
-              Clear filters
-            </Button>
-          </div>
-        </FilterPanel>
-        <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
-        {showList && (
+      <CrudPageShell
+        title="Character nodes"
+        subtitle="Click a row to inspect details."
+        showForm={showForm}
+        createLabel="Create new character"
+        onToggleForm={() => setShowForm((prev) => !prev)}
+        controls={
           <>
-        <CharacterList items={items} onEdit={handleEditOpen} onDelete={handleDelete} />
-        {(items.length > 0 || page > 1 || hasNext) && (
-          <Pagination
-            page={page}
-            pageSize={pageSize}
-            itemCount={items.length}
-            hasNext={hasNext}
-            totalCount={totalCount}
-            onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
-            onPageSizeChange={(nextSize) => {
-              setPageSize(nextSize);
-              setPage(1);
-            }}
-          />
-        )}
+            <FilterPanel>
+              <TextInput
+                label="Search"
+                value={filters.q}
+                onChange={(value) => handleFilterChange("q", value)}
+                placeholder="Search..."
+              />
+              <TextInput
+                label="Name"
+                value={filters.name}
+                onChange={(value) => handleFilterChange("name", value)}
+              />
+              <TextInput
+                label="Tag"
+                value={filters.tag}
+                onChange={(value) => handleFilterChange("tag", value)}
+              />
+              <Select
+                label="Gender"
+                value={filters.gender}
+                onChange={(value) => handleFilterChange("gender", value)}
+                options={[
+                  { value: "male", label: "Male" },
+                  { value: "female", label: "Female" },
+                  { value: "other", label: "Other" },
+                ]}
+                placeholder="All"
+              />
+              <Select
+                label="Status"
+                value={filters.status}
+                onChange={(value) => handleFilterChange("status", value)}
+                options={[
+                  { value: "Alive", label: "Alive" },
+                  { value: "Dead", label: "Dead" },
+                ]}
+                placeholder="All"
+              />
+              <TextInput
+                label="Level"
+                value={filters.level}
+                onChange={(value) => handleFilterChange("level", value)}
+              />
+              <Select
+                label="Race"
+                value={filters.race}
+                onChange={(value) => handleFilterChange("race", value)}
+                options={races.map((race) => ({ value: race.name, label: race.name }))}
+                placeholder="All"
+              />
+              <Select
+                label="Special Ability"
+                value={filters.specialAbility}
+                onChange={(value) => handleFilterChange("specialAbility", value)}
+                options={specialAbilities.map((ability) => ({
+                  value: ability.name,
+                  label: ability.name,
+                }))}
+                placeholder="All"
+              />
+              <Select
+                label="Importance"
+                value={filters.importance}
+                onChange={(value) => handleFilterChange("importance", value)}
+                options={CHARACTER_IMPORTANCE_OPTIONS}
+                placeholder="All"
+              />
+              <div className="form-field filter-actions">
+                <Button type="button" variant="ghost" onClick={handleClearFilters}>
+                  Clear filters
+                </Button>
+              </div>
+            </FilterPanel>
+            <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
           </>
-        )}
-      </div>
+        }
+        list={
+          showList ? (
+            <>
+              <CharacterList items={items} onEdit={handleEditOpen} onDelete={handleDelete} />
+              {items.length > 0 || page > 1 || hasNext ? (
+                <Pagination
+                  page={page}
+                  pageSize={pageSize}
+                  itemCount={items.length}
+                  hasNext={hasNext}
+                  totalCount={totalCount}
+                  onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+                  onPageSizeChange={(nextSize) => {
+                    setPageSize(nextSize);
+                    setPage(1);
+                  }}
+                />
+              ) : null}
+            </>
+          ) : null
+        }
+      />
 
       {editItem && editValues && (
         <>

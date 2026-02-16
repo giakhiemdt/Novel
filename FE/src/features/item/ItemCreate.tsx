@@ -3,6 +3,7 @@ import { Button } from "../../components/common/Button";
 import { FilterPanel } from "../../components/common/FilterPanel";
 import { Pagination } from "../../components/common/Pagination";
 import { ListPanel } from "../../components/common/ListPanel";
+import { CrudPageShell } from "../../components/crud/CrudPageShell";
 import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
@@ -397,96 +398,96 @@ export const ItemCreate = () => {
 
   return (
     <div>
-      <div className="card">
-        <div className="card__header">
-          <div>
-            <h3 className="section-title">{t("Item nodes")}</h3>
-            <p className="header__subtitle">
-              {t("Click a row to inspect details.")}
-            </p>
-          </div>
-          <Button onClick={() => setShowForm((prev) => !prev)} variant="primary">
-            {showForm ? t("Close form") : t("Create new item")}
-          </Button>
-        </div>
-        <FilterPanel>
-          <TextInput
-            label="Search"
-            value={filters.q}
-            onChange={(value) => handleFilterChange("q", value)}
-            placeholder="Search..."
-          />
-          <TextInput
-            label="Name"
-            value={filters.name}
-            onChange={(value) => handleFilterChange("name", value)}
-          />
-          <TextInput
-            label="Tag"
-            value={filters.tag}
-            onChange={(value) => handleFilterChange("tag", value)}
-          />
-          <Select
-            label="Status"
-            value={filters.status}
-            onChange={(value) => handleFilterChange("status", value)}
-            options={[
-              { value: "owned", label: "owned" },
-              { value: "lost", label: "lost" },
-              { value: "destroyed", label: "destroyed" },
-            ]}
-            placeholder="All"
-          />
-          <Select
-            label="Owner Type"
-            value={filters.ownerType}
-            onChange={(value) => handleFilterChange("ownerType", value)}
-            options={[
-              { value: "character", label: "Character" },
-              { value: "faction", label: "Faction" },
-            ]}
-            placeholder="All"
-          />
-          <Select
-            label="Owner"
-            value={filters.ownerId}
-            onChange={(value) => handleFilterChange("ownerId", value)}
-            options={filterOwnerOptions}
-            placeholder="All"
-          />
-          <div className="form-field filter-actions">
-            <Button type="button" variant="ghost" onClick={handleClearFilters}>
-              Clear filters
-            </Button>
-          </div>
-        </FilterPanel>
-        <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
-        {showList && (
+      <CrudPageShell
+        title="Item nodes"
+        subtitle="Click a row to inspect details."
+        showForm={showForm}
+        createLabel="Create new item"
+        onToggleForm={() => setShowForm((prev) => !prev)}
+        controls={
           <>
-        <ItemList
-          items={items}
-          charactersById={charactersById}
-          factionsById={factionsById}
-          onEdit={handleEditOpen}
-          onDelete={handleDelete}
-        />
-        {(items.length > 0 || page > 1 || hasNext) && (
-          <Pagination
-            page={page}
-            pageSize={pageSize}
-            itemCount={items.length}
-            hasNext={hasNext}
-            totalCount={totalCount}
-            onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
-            onPageSizeChange={(nextSize) => {
-              setPageSize(nextSize);
-              setPage(1);
-            }}
-          />
-        )}
+            <FilterPanel>
+              <TextInput
+                label="Search"
+                value={filters.q}
+                onChange={(value) => handleFilterChange("q", value)}
+                placeholder="Search..."
+              />
+              <TextInput
+                label="Name"
+                value={filters.name}
+                onChange={(value) => handleFilterChange("name", value)}
+              />
+              <TextInput
+                label="Tag"
+                value={filters.tag}
+                onChange={(value) => handleFilterChange("tag", value)}
+              />
+              <Select
+                label="Status"
+                value={filters.status}
+                onChange={(value) => handleFilterChange("status", value)}
+                options={[
+                  { value: "owned", label: "owned" },
+                  { value: "lost", label: "lost" },
+                  { value: "destroyed", label: "destroyed" },
+                ]}
+                placeholder="All"
+              />
+              <Select
+                label="Owner Type"
+                value={filters.ownerType}
+                onChange={(value) => handleFilterChange("ownerType", value)}
+                options={[
+                  { value: "character", label: "Character" },
+                  { value: "faction", label: "Faction" },
+                ]}
+                placeholder="All"
+              />
+              <Select
+                label="Owner"
+                value={filters.ownerId}
+                onChange={(value) => handleFilterChange("ownerId", value)}
+                options={filterOwnerOptions}
+                placeholder="All"
+              />
+              <div className="form-field filter-actions">
+                <Button type="button" variant="ghost" onClick={handleClearFilters}>
+                  Clear filters
+                </Button>
+              </div>
+            </FilterPanel>
+            <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
           </>
-        )}
-      </div>
+        }
+        list={
+          showList ? (
+            <>
+              <ItemList
+                items={items}
+                charactersById={charactersById}
+                factionsById={factionsById}
+                onEdit={handleEditOpen}
+                onDelete={handleDelete}
+              />
+              {items.length > 0 || page > 1 || hasNext ? (
+                <Pagination
+                  page={page}
+                  pageSize={pageSize}
+                  itemCount={items.length}
+                  hasNext={hasNext}
+                  totalCount={totalCount}
+                  onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
+                  onPageSizeChange={(nextSize) => {
+                    setPageSize(nextSize);
+                    setPage(1);
+                  }}
+                />
+              ) : null}
+            </>
+          ) : null
+        }
+      />
 
       {editItem && editValues && (
         <>
