@@ -16,18 +16,19 @@ type TypeColumn = {
   id: string;
   name: string;
   code?: string;
-  left: number;
-  width: number;
+  left: string;
+  width: string;
+  center: string;
   color: string;
-  levelCount: number;
-  ratios: number[];
+  level: number;
+  ratio: number;
 };
 
 type NodeLayout = {
   id: string;
   label: string;
   ratioLabel: string;
-  x: number;
+  x: string;
   y: number;
   width: number;
   height: number;
@@ -35,10 +36,8 @@ type NodeLayout = {
 };
 
 const TYPE_LABEL_WIDTH = 150;
-const COLUMN_WIDTH = 182;
 const HEADER_HEIGHT = 72;
 const BOARD_PADDING = 12;
-const COLUMN_GAP = 10;
 const ROW_GAP = 12;
 const ROW_HEIGHT = 78;
 const NODE_WIDTH = 150;
@@ -67,25 +66,31 @@ export const EnergyTypeLevelBoard = ({ items }: EnergyTypeLevelBoardProps) => {
       .filter((item) => item.id)
       .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
 
+    const typeCount = Math.max(1, sortedTypes.length);
+    const contentWidthExpr = `100% - ${TYPE_LABEL_WIDTH + BOARD_PADDING * 2}px`;
+    const columnWidthExpr = `calc((${contentWidthExpr}) / ${typeCount})`;
+
     const types: TypeColumn[] = sortedTypes.map((item, index) => {
       const levelCount =
         typeof item.levelCount === "number" && Number.isFinite(item.levelCount)
           ? Math.max(1, Math.floor(item.levelCount))
           : 1;
       const ratios = normalizeRatios(item.levelRatios, levelCount);
+      const ratio = ratios[levelCount - 1] ?? levelCount;
       return {
         id: item.id,
         name: item.name,
         code: item.code,
-        left: TYPE_LABEL_WIDTH + BOARD_PADDING + index * (COLUMN_WIDTH + COLUMN_GAP),
-        width: COLUMN_WIDTH,
+        left: `calc(${TYPE_LABEL_WIDTH + BOARD_PADDING}px + (${index} * (${contentWidthExpr}) / ${typeCount}))`,
+        width: columnWidthExpr,
+        center: `calc(${TYPE_LABEL_WIDTH + BOARD_PADDING}px + ((${index} + 0.5) * (${contentWidthExpr}) / ${typeCount}))`,
         color: item.color?.trim() || "#6B7280",
-        levelCount,
-        ratios,
+        level: levelCount,
+        ratio,
       };
     });
 
-    const maxLevel = Math.max(1, ...types.map((type) => type.levelCount));
+    const maxLevel = Math.max(1, ...types.map((type) => type.level));
 
     let yCursor = HEADER_HEIGHT + BOARD_PADDING;
     const rows: TierRow[] = [];
@@ -101,16 +106,14 @@ export const EnergyTypeLevelBoard = ({ items }: EnergyTypeLevelBoardProps) => {
     const nodes: NodeLayout[] = [];
     rows.forEach((row) => {
       types.forEach((type) => {
-        if (row.level > type.levelCount) {
+        if (row.level !== type.level) {
           return;
         }
-        const ratio = type.ratios[row.level - 1] ?? row.level;
-        const centerX = type.left + type.width / 2;
         nodes.push({
-          id: `${type.id}-${row.level}`,
-          label: `${t("Level")} ${row.level}`,
-          ratioLabel: `${t("Ratio")}: ${ratio}`,
-          x: centerX - NODE_WIDTH / 2,
+          id: `${type.id}-${type.level}`,
+          label: `${t("Level")} ${type.level}`,
+          ratioLabel: `${t("Ratio")}: ${type.ratio}`,
+          x: `calc(${type.center} - ${NODE_WIDTH / 2}px)`,
           y: row.top + (row.height - NODE_HEIGHT) / 2,
           width: NODE_WIDTH,
           height: NODE_HEIGHT,
@@ -119,14 +122,9 @@ export const EnergyTypeLevelBoard = ({ items }: EnergyTypeLevelBoardProps) => {
       });
     });
 
-    const width =
-      TYPE_LABEL_WIDTH +
-      BOARD_PADDING * 2 +
-      Math.max(1, types.length) * COLUMN_WIDTH +
-      Math.max(0, types.length - 1) * COLUMN_GAP;
     const height = Math.max(HEADER_HEIGHT + 100, yCursor + BOARD_PADDING - ROW_GAP);
 
-    return { types, rows, nodes, width, height };
+    return { types, rows, nodes, height };
   }, [items, t]);
 
   if (items.length === 0) {
@@ -135,8 +133,8 @@ export const EnergyTypeLevelBoard = ({ items }: EnergyTypeLevelBoardProps) => {
 
   return (
     <div className="energy-type-level-board">
-      <div className="energy-type-level-matrix-wrap" style={{ minWidth: layout.width }}>
-        <div className="energy-type-level-matrix" style={{ width: layout.width, height: layout.height }}>
+      <div className="energy-type-level-matrix-wrap">
+        <div className="energy-type-level-matrix" style={{ height: layout.height }}>
           {layout.types.map((type) => (
             <div
               key={`col-${type.id}`}
