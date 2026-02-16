@@ -161,7 +161,7 @@ export const EnergyTypeCreate = () => {
   }, [conversionBoardPositions]);
 
   useEffect(() => {
-    if (showList || showBoard) {
+    if (showList || showBoard || showConversionBoard) {
       void loadItems();
     }
     if (showList || showConversionBoard) {
@@ -170,7 +170,7 @@ export const EnergyTypeCreate = () => {
   }, [loadConversions, loadItems, showBoard, showConversionBoard, showList]);
 
   useProjectChange(() => {
-    if (showList || showBoard) {
+    if (showList || showBoard || showConversionBoard) {
       void loadItems();
     }
     if (showList || showConversionBoard) {
@@ -570,21 +570,6 @@ export const EnergyTypeCreate = () => {
               </div>
             </FilterPanel>
             <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
-            <div className="filter-block">
-              <button
-                type="button"
-                className="filter-toggle"
-                onClick={() => setShowConversionBoard((prev) => !prev)}
-                aria-expanded={showConversionBoard}
-              >
-                <img src={boardIcon} alt={t("Board")} className="filter-toggle__icon" />
-                <span className="filter-toggle__label">
-                  {showConversionBoard
-                    ? t("Hide conversion board")
-                    : t("Show conversion board")}
-                </span>
-              </button>
-            </div>
           </>
         }
         list={
@@ -664,6 +649,57 @@ export const EnergyTypeCreate = () => {
             {t("Matrix overview of level and ratio per energy type.")}
           </p>
           <EnergyTypeLevelBoard items={items} />
+        </div>
+      )}
+
+      <div className="filter-block">
+        <button
+          type="button"
+          className="filter-toggle"
+          onClick={() => setShowConversionBoard((prev) => !prev)}
+          aria-expanded={showConversionBoard}
+        >
+          <img src={boardIcon} alt={t("Board")} className="filter-toggle__icon" />
+          <span className="filter-toggle__label">
+            {showConversionBoard
+              ? t("Hide conversion board")
+              : t("Show conversion board")}
+          </span>
+        </button>
+      </div>
+
+      {showConversionBoard && (
+        <div className="card">
+          <h3 className="section-title">{t("Energy conversion board")}</h3>
+          <p className="header__subtitle">
+            {linkDraftFromId
+              ? t("Source selected. Click another node to create conversion.")
+              : t("Drag nodes to arrange. Click one node then another to connect.")}
+          </p>
+          <div className="table__actions">
+            {(selectedConversion || linkDraftFromId) && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleClearConversionSelection}
+              >
+                {t("Clear selection")}
+              </Button>
+            )}
+          </div>
+          <EnergyConversionBoard
+            items={items}
+            conversions={conversions}
+            positions={conversionBoardPositions}
+            selectedLink={selectedConversion}
+            linkDraftFromId={linkDraftFromId}
+            onPositionsChange={setConversionBoardPositions}
+            onNodeClick={(id) => {
+              void handleNodeClick(id);
+            }}
+            onEdgeClick={handleSelectConversion}
+            onClearSelection={handleClearConversionSelection}
+          />
         </div>
       )}
 
@@ -809,41 +845,6 @@ export const EnergyTypeCreate = () => {
           {isSavingConversion ? t("Saving...") : t("Save conversion")}
         </Button>
       </div>
-
-      {showConversionBoard && (
-        <div className="card">
-          <h3 className="section-title">{t("Energy conversion board")}</h3>
-          <p className="header__subtitle">
-            {linkDraftFromId
-              ? t("Source selected. Click another node to create conversion.")
-              : t("Drag nodes to arrange. Click one node then another to connect.")}
-          </p>
-          <div className="table__actions">
-            {(selectedConversion || linkDraftFromId) && (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleClearConversionSelection}
-              >
-                {t("Clear selection")}
-              </Button>
-            )}
-          </div>
-          <EnergyConversionBoard
-            items={items}
-            conversions={conversions}
-            positions={conversionBoardPositions}
-            selectedLink={selectedConversion}
-            linkDraftFromId={linkDraftFromId}
-            onPositionsChange={setConversionBoardPositions}
-            onNodeClick={(id) => {
-              void handleNodeClick(id);
-            }}
-            onEdgeClick={handleSelectConversion}
-            onClearSelection={handleClearConversionSelection}
-          />
-        </div>
-      )}
 
       {showList && (
         <div className="card">
