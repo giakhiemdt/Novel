@@ -628,7 +628,7 @@ export const EnergyTypeCreate = () => {
         }
       />
 
-      <div className="filter-block">
+      <div className="energy-type-board-toggles">
         <button
           type="button"
           className="filter-toggle"
@@ -640,19 +640,7 @@ export const EnergyTypeCreate = () => {
             {showBoard ? t("Hide level board") : t("Show level board")}
           </span>
         </button>
-      </div>
 
-      {showBoard && (
-        <div className="card rank-system-landscape-card">
-          <h3 className="section-title">{t("Energy level board")}</h3>
-          <p className="header__subtitle">
-            {t("Matrix overview of level and ratio per energy type.")}
-          </p>
-          <EnergyTypeLevelBoard items={items} />
-        </div>
-      )}
-
-      <div className="filter-block">
         <button
           type="button"
           className="filter-toggle"
@@ -667,6 +655,16 @@ export const EnergyTypeCreate = () => {
           </span>
         </button>
       </div>
+
+      {showBoard && (
+        <div className="card rank-system-landscape-card">
+          <h3 className="section-title">{t("Energy level board")}</h3>
+          <p className="header__subtitle">
+            {t("Matrix overview of level and ratio per energy type.")}
+          </p>
+          <EnergyTypeLevelBoard items={items} />
+        </div>
+      )}
 
       {showConversionBoard && (
         <div className="card">
