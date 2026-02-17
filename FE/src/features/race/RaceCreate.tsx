@@ -318,8 +318,8 @@ export const RaceCreate = () => {
                 }
               />
             </div>
-            <div className="form-field--narrow">
-              <TextInput
+            <div className="form-field--wide">
+              <TextArea
                 label="Origin"
                 value={editValues.origin}
                 onChange={(value) =>
@@ -433,8 +433,8 @@ export const RaceCreate = () => {
                 onChange={(value) => setField("alias", value)}
               />
             </div>
-            <div className="form-field--narrow">
-              <TextInput
+            <div className="form-field--wide">
+              <TextArea
                 label="Origin"
                 value={values.origin}
                 onChange={(value) => setField("origin", value)}
