@@ -1,6 +1,7 @@
 import { useI18n } from "../../i18n/I18nProvider";
 import type { Race } from "./race.types";
 import { useState } from "react";
+import { traitValuesToLabels } from "../../utils/trait";
 
 export type RaceListProps = {
   items: Race[];
@@ -19,12 +20,13 @@ export const RaceList = ({ items, onSelect, onEdit, onDelete }: RaceListProps) =
 
   const renderValue = (value: unknown) => {
     if (Array.isArray(value)) {
-      if (value.length === 0) {
+      const labels = traitValuesToLabels(value);
+      if (labels.length === 0) {
         return <span className="header__subtitle">-</span>;
       }
       return (
         <div className="pill-list">
-          {value.map((item) => (
+          {labels.map((item) => (
             <span className="pill" key={item}>
               {item}
             </span>
@@ -98,7 +100,9 @@ export const RaceList = ({ items, onSelect, onEdit, onDelete }: RaceListProps) =
               <td>{item.origin ?? "-"}</td>
               <td>{item.culture ?? "-"}</td>
               <td>
-                {item.traits && item.traits.length > 0 ? item.traits.join(", ") : "-"}
+                {item.traits && item.traits.length > 0
+                  ? traitValuesToLabels(item.traits).join(", ")
+                  : "-"}
               </td>
               <td className="table__actions">
                 <button

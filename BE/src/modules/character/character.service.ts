@@ -1,6 +1,11 @@
 import { AppError } from "../../shared/errors/app-error";
 import { generateId } from "../../shared/utils/generate-id";
 import {
+  assertOptionalTraitArray,
+  normalizeTraitArray,
+  serializeTraitArray,
+} from "../../shared/utils/trait";
+import {
   createCharacter,
   deleteCharacter,
   getCharacters,
@@ -271,6 +276,62 @@ const serializeExtra = (extra?: Record<string, unknown>): string | undefined => 
   return JSON.stringify(extra);
 };
 
+const normalizeCharacterTraitFields = (node: CharacterNode): CharacterNode => {
+  const normalizedDistinctiveTraits = normalizeTraitArray(
+    (node as { distinctiveTraits?: unknown }).distinctiveTraits
+  );
+  const normalizedPersonalityTraits = normalizeTraitArray(
+    (node as { personalityTraits?: unknown }).personalityTraits
+  );
+
+  const {
+    distinctiveTraits: _distinctiveTraits,
+    personalityTraits: _personalityTraits,
+    ...rest
+  } = node as CharacterNode & {
+    distinctiveTraits?: unknown;
+    personalityTraits?: unknown;
+  };
+
+  return {
+    ...(rest as CharacterNode),
+    ...(normalizedDistinctiveTraits !== undefined
+      ? { distinctiveTraits: normalizedDistinctiveTraits }
+      : {}),
+    ...(normalizedPersonalityTraits !== undefined
+      ? { personalityTraits: normalizedPersonalityTraits }
+      : {}),
+  };
+};
+
+const serializeCharacterTraitFields = (node: CharacterNode): CharacterNode => {
+  const serializedDistinctiveTraits = serializeTraitArray(
+    (node as { distinctiveTraits?: unknown }).distinctiveTraits
+  );
+  const serializedPersonalityTraits = serializeTraitArray(
+    (node as { personalityTraits?: unknown }).personalityTraits
+  );
+
+  const {
+    distinctiveTraits: _distinctiveTraits,
+    personalityTraits: _personalityTraits,
+    ...rest
+  } = node as CharacterNode & {
+    distinctiveTraits?: unknown;
+    personalityTraits?: unknown;
+  };
+
+  return {
+    ...(rest as CharacterNode),
+    ...(serializedDistinctiveTraits !== undefined
+      ? { distinctiveTraits: serializedDistinctiveTraits }
+      : {}),
+    ...(serializedPersonalityTraits !== undefined
+      ? { personalityTraits: serializedPersonalityTraits }
+      : {}),
+  };
+};
+
 const parseExtra = (value: unknown): Record<string, unknown> | undefined => {
   if (!value || typeof value !== "string") {
     return undefined;
@@ -284,8 +345,9 @@ const parseExtra = (value: unknown): Record<string, unknown> | undefined => {
 };
 
 const withParsedExtra = (node: CharacterNode): CharacterNode => {
-  const parsed = parseExtra(node.extra as unknown);
-  const withExtra = parsed ? { ...node, extra: parsed } : node;
+  const withTraits = normalizeCharacterTraitFields(node);
+  const parsed = parseExtra(withTraits.extra as unknown);
+  const withExtra = parsed ? { ...withTraits, extra: parsed } : withTraits;
   const importance =
     withExtra.importance ??
     (withExtra.isMainCharacter ? "Protagonist" : "Supporting");
@@ -409,12 +471,12 @@ const validateCharacterPayload = (payload: unknown): CharacterInput => {
   addIfDefined(
     result,
     "distinctiveTraits",
-    assertOptionalStringArray(data.distinctiveTraits, "distinctiveTraits")
+    assertOptionalTraitArray(data.distinctiveTraits, "distinctiveTraits")
   );
   addIfDefined(
     result,
     "personalityTraits",
-    assertOptionalStringArray(data.personalityTraits, "personalityTraits")
+    assertOptionalTraitArray(data.personalityTraits, "personalityTraits")
   );
   addIfDefined(
     result,
@@ -504,7 +566,10 @@ export const characterService = {
       ...validated,
       extra: serializeExtra(validated.extra) as unknown as Record<string, unknown>,
     });
-    const created = await createCharacter(node, database);
+    const created = await createCharacter(
+      serializeCharacterTraitFields(node),
+      database
+    );
     if (raceName) {
       await linkCharacterRace(database, created.id, raceName);
     }
@@ -560,7 +625,10 @@ export const characterService = {
       updatedAt: now,
       extra: serializeExtra(validated.extra) as unknown as Record<string, unknown>,
     };
-    const updated = await updateCharacter(node, database);
+    const updated = await updateCharacter(
+      serializeCharacterTraitFields(node),
+      database
+    );
     if (!updated) {
       throw new AppError("character not found", 404);
     }

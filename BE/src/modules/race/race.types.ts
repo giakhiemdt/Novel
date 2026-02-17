@@ -1,10 +1,12 @@
+import { Trait } from "../../shared/types/trait";
+
 export type RaceInput = {
   id?: string;
   name: string;
   alias?: string[];
   description?: string;
   origin?: string;
-  traits?: string[];
+  traits?: Array<Trait | string>;
   culture?: string;
   lifespan?: string;
   notes?: string;

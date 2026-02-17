@@ -1,6 +1,11 @@
 import { AppError } from "../../shared/errors/app-error";
 import { generateId } from "../../shared/utils/generate-id";
 import {
+  assertOptionalTraitArray,
+  normalizeTraitArray,
+  serializeTraitArray,
+} from "../../shared/utils/trait";
+import {
   createRace,
   deleteRace,
   getRaceCount,
@@ -129,7 +134,7 @@ const validateRacePayload = (payload: unknown): RaceInput => {
     assertOptionalString(data.description, "description")
   );
   addIfDefined(result, "origin", assertOptionalString(data.origin, "origin"));
-  addIfDefined(result, "traits", assertOptionalStringArray(data.traits, "traits"));
+  addIfDefined(result, "traits", assertOptionalTraitArray(data.traits, "traits"));
   addIfDefined(result, "culture", assertOptionalString(data.culture, "culture"));
   addIfDefined(
     result,
@@ -149,6 +154,34 @@ const buildRaceNode = (payload: RaceInput): RaceNode => {
     id: payload.id ?? generateId(),
     createdAt: now,
     updatedAt: now,
+  };
+};
+
+const normalizeRaceForPersistence = (node: RaceNode): RaceNode => {
+  const serializedTraits = serializeTraitArray(
+    (node as { traits?: unknown }).traits
+  );
+  const { traits: _traits, ...rest } = node as RaceNode & { traits?: unknown };
+  if (serializedTraits === undefined) {
+    return rest as RaceNode;
+  }
+  return {
+    ...(rest as RaceNode),
+    traits: serializedTraits,
+  };
+};
+
+const normalizeRaceNode = (node: RaceNode): RaceNode => {
+  const normalizedTraits = normalizeTraitArray(
+    (node as { traits?: unknown }).traits
+  );
+  const { traits: _traits, ...rest } = node as RaceNode & { traits?: unknown };
+  if (normalizedTraits === undefined) {
+    return rest as RaceNode;
+  }
+  return {
+    ...(rest as RaceNode),
+    traits: normalizedTraits,
   };
 };
 
@@ -197,7 +230,8 @@ export const raceService = {
     const database = assertDatabaseName(dbName);
     const validated = validateRacePayload(payload);
     const node = buildRaceNode(validated);
-    return createRace(node, database);
+    const created = await createRace(normalizeRaceForPersistence(node), database);
+    return normalizeRaceNode(created);
   },
   update: async (
     id: string,
@@ -213,15 +247,16 @@ export const raceService = {
       createdAt: now,
       updatedAt: now,
     };
-    const updated = await updateRace(node, database);
+    const updated = await updateRace(normalizeRaceForPersistence(node), database);
     if (!updated) {
       throw new AppError("race not found", 404);
     }
-    return updated;
+    return normalizeRaceNode(updated);
   },
   getAll: async (dbName: unknown): Promise<RaceNode[]> => {
     const database = assertDatabaseName(dbName);
-    return getRaces(database, { limit: 50, offset: 0 });
+    const rows = await getRaces(database, { limit: 50, offset: 0 });
+    return rows.map(normalizeRaceNode);
   },
   getAllWithQuery: async (
     dbName: unknown,
@@ -233,7 +268,7 @@ export const raceService = {
       getRaces(database, parsedQuery),
       getRaceCount(database, parsedQuery),
     ]);
-    return { data, meta: { ...parsedQuery, total } };
+    return { data: data.map(normalizeRaceNode), meta: { ...parsedQuery, total } };
   },
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);

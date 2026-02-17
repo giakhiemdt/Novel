@@ -6,11 +6,13 @@ import { useToast } from "../../components/common/Toast";
 import { CrudPageShell } from "../../components/crud/CrudPageShell";
 import { FormSection } from "../../components/form/FormSection";
 import { Select } from "../../components/form/Select";
+import { TraitEditor } from "../../components/form/TraitEditor";
 import { TextArea } from "../../components/form/TextArea";
 import { TextInput } from "../../components/form/TextInput";
 import { useProjectChange } from "../../hooks/useProjectChange";
 import { useI18n } from "../../i18n/I18nProvider";
 import boardIcon from "../../assets/icons/board.svg";
+import { createEmptyTraitDraft, normalizeTraitArray, toTraitDrafts, toTraitPayload } from "../../utils/trait";
 import {
   createEnergyType,
   deleteEnergyConversion,
@@ -27,24 +29,13 @@ import type {
   EnergyConversionPayload,
   EnergyType,
   EnergyTypePayload,
-  EnergyTypeTrait,
 } from "./energy-type.types";
-
-type TraitFormState = {
-  name: string;
-  description: string;
-};
-
-const createEmptyTrait = (): TraitFormState => ({
-  name: "",
-  description: "",
-});
 
 const initialTypeState = {
   code: "",
   name: "",
   levelCount: "1",
-  traits: [createEmptyTrait()] as TraitFormState[],
+  traits: [createEmptyTraitDraft()],
   description: "",
   color: "#4B5563",
   isActive: true,
@@ -62,50 +53,6 @@ const initialConversionState = {
 type TypeFormState = typeof initialTypeState;
 type ConversionFormState = typeof initialConversionState;
 const CONVERSION_LAYOUT_STORAGE_KEY = "novel.energy-conversion-layout.v1";
-
-const normalizeTraits = (value: unknown): EnergyTypeTrait[] => {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  const next: EnergyTypeTrait[] = [];
-  value.forEach((item) => {
-    if (typeof item === "string") {
-      const name = item.trim();
-      if (name) {
-        next.push({ name });
-      }
-      return;
-    }
-    if (!item || typeof item !== "object" || Array.isArray(item)) {
-      return;
-    }
-    const raw = item as Record<string, unknown>;
-    if (typeof raw.name !== "string") {
-      return;
-    }
-    const name = raw.name.trim();
-    if (!name) {
-      return;
-    }
-    const description =
-      typeof raw.description === "string" && raw.description.trim().length > 0
-        ? raw.description.trim()
-        : undefined;
-    next.push({
-      name,
-      ...(description !== undefined ? { description } : {}),
-    });
-  });
-  return next;
-};
-
-const toTraitFormState = (traits: EnergyTypeTrait[] | undefined): TraitFormState[] => {
-  const normalized = normalizeTraits(traits).map((trait) => ({
-    name: trait.name,
-    description: trait.description ?? "",
-  }));
-  return normalized.length > 0 ? normalized : [createEmptyTrait()];
-};
 
 export const EnergyTypeCreate = () => {
   const { t } = useI18n();
@@ -143,7 +90,7 @@ export const EnergyTypeCreate = () => {
       const data = await getEnergyTypes(false);
       const next = (data ?? []).map((item) => ({
         ...item,
-        traits: normalizeTraits(item.traits),
+        traits: normalizeTraitArray(item.traits),
       }));
       setItems(next);
       setConversionForm((prev) => {
@@ -225,7 +172,7 @@ export const EnergyTypeCreate = () => {
       typeof item.levelCount === "number" && Number.isFinite(item.levelCount)
         ? String(Math.max(1, Math.floor(item.levelCount)))
         : "1",
-    traits: toTraitFormState(item.traits),
+    traits: toTraitDrafts(item.traits),
     description: item.description ?? "",
     color: item.color ?? "#4B5563",
     isActive: item.isActive,
@@ -237,21 +184,12 @@ export const EnergyTypeCreate = () => {
       Number.isFinite(parsedLevelCount) && parsedLevelCount >= 1
         ? Math.floor(parsedLevelCount)
         : 1;
-    const traits = state.traits
-      .map((trait) => ({
-        name: trait.name.trim(),
-        description: trait.description.trim(),
-      }))
-      .filter((trait) => trait.name.length > 0)
-      .map((trait) => ({
-        name: trait.name,
-        ...(trait.description.length > 0 ? { description: trait.description } : {}),
-      }));
+    const traits = toTraitPayload(state.traits);
     return {
       code: state.code.trim().toLowerCase(),
       name: state.name.trim(),
       levelCount,
-      traits: traits.length > 0 ? traits : undefined,
+      traits,
       description: state.description.trim() || undefined,
       color: state.color.trim() || undefined,
       isActive: state.isActive,
@@ -301,39 +239,6 @@ export const EnergyTypeCreate = () => {
     return true;
   };
 
-  const handleTraitFieldChange = (
-    index: number,
-    key: keyof TraitFormState,
-    value: string
-  ) => {
-    setForm((prev) => {
-      const nextTraits = prev.traits.map((trait, traitIndex) =>
-        traitIndex === index ? { ...trait, [key]: value } : trait
-      );
-      return { ...prev, traits: nextTraits };
-    });
-  };
-
-  const handleAddTrait = () => {
-    setForm((prev) => ({
-      ...prev,
-      traits: [...prev.traits, createEmptyTrait()],
-    }));
-  };
-
-  const handleRemoveTrait = (index: number) => {
-    setForm((prev) => {
-      if (prev.traits.length <= 1) {
-        return prev;
-      }
-      const nextTraits = prev.traits.filter((_, traitIndex) => traitIndex !== index);
-      return {
-        ...prev,
-        traits: nextTraits.length > 0 ? nextTraits : [createEmptyTrait()],
-      };
-    });
-  };
-
   const mapConversionToForm = (item: EnergyConversion): ConversionFormState => ({
     fromId: item.fromId,
     toId: item.toId,
@@ -359,7 +264,7 @@ export const EnergyTypeCreate = () => {
     const code = filters.code.trim().toLowerCase();
     return items.filter((item) => {
       if (q) {
-        const traitText = normalizeTraits(item.traits)
+        const traitText = normalizeTraitArray(item.traits)
           .map((trait) => `${trait.name} ${trait.description ?? ""}`)
           .join(" ");
         const text = `${item.name ?? ""} ${item.code ?? ""} ${item.description ?? ""} ${traitText}`.toLowerCase();
@@ -824,48 +729,11 @@ export const EnergyTypeCreate = () => {
           />
         </div>
         <div className="form-field--wide">
-          <label>{t("Traits")}</label>
-          <div className="trait-editor">
-            {form.traits.map((trait, index) => (
-              <div className="trait-editor__row" key={`trait-row-${index}`}>
-                <input
-                  className="input trait-editor__name"
-                  placeholder={t("Trait name")}
-                  value={trait.name}
-                  onChange={(event) =>
-                    handleTraitFieldChange(index, "name", event.target.value)
-                  }
-                />
-                <input
-                  className="input trait-editor__description"
-                  placeholder={t("Trait description")}
-                  value={trait.description}
-                  onChange={(event) =>
-                    handleTraitFieldChange(index, "description", event.target.value)
-                  }
-                />
-                {form.traits.length > 1 ? (
-                  <button
-                    type="button"
-                    className="table__action table__action--danger trait-editor__remove"
-                    onClick={() => handleRemoveTrait(index)}
-                    aria-label={t("Remove trait")}
-                  >
-                    -
-                  </button>
-                ) : null}
-              </div>
-            ))}
-            <div className="trait-editor__actions">
-              <button
-                type="button"
-                className="table__action table__action--ghost"
-                onClick={handleAddTrait}
-              >
-                + {t("Add trait")}
-              </button>
-            </div>
-          </div>
+          <TraitEditor
+            label="Traits"
+            values={form.traits}
+            onChange={(traits) => setForm((prev) => ({ ...prev, traits }))}
+          />
         </div>
         <div className="form-field--wide">
           <TextArea

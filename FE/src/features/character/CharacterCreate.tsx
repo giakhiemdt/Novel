@@ -8,6 +8,7 @@ import { CrudPageShell } from "../../components/crud/CrudPageShell";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
 import { Select } from "../../components/form/Select";
+import { TraitEditor } from "../../components/form/TraitEditor";
 import { TextArea } from "../../components/form/TextArea";
 import { TextInput } from "../../components/form/TextInput";
 import { useForm } from "../../hooks/useForm";
@@ -35,6 +36,12 @@ import type { Rank } from "../rank/rank.types";
 import type { SpecialAbility } from "../special-ability/special-ability.types";
 import { getSchemaByEntity } from "../schema/schema.api";
 import type { EntitySchema, SchemaField } from "../schema/schema.types";
+import {
+  createEmptyTraitDraft,
+  normalizeTraitArray,
+  toTraitDrafts,
+  toTraitPayload,
+} from "../../utils/trait";
 
 const initialState = {
   name: "",
@@ -48,8 +55,8 @@ const initialState = {
   specialAbilities: [] as string[],
   appearance: "",
   height: "",
-  distinctiveTraits: [] as string[],
-  personalityTraits: [] as string[],
+  distinctiveTraits: [createEmptyTraitDraft()],
+  personalityTraits: [createEmptyTraitDraft()],
   beliefs: [] as string[],
   fears: [] as string[],
   desires: [] as string[],
@@ -127,7 +134,11 @@ export const CharacterCreate = () => {
         limit: pageSize + 1,
         offset,
       });
-      const data = response?.data ?? [];
+      const data = (response?.data ?? []).map((item) => ({
+        ...item,
+        distinctiveTraits: normalizeTraitArray(item.distinctiveTraits),
+        personalityTraits: normalizeTraitArray(item.personalityTraits),
+      }));
       const total = typeof response?.meta?.total === "number" ? response.meta.total : undefined;
       const nextPage = total !== undefined ? offset + Math.min(data.length, pageSize) < total : data.length > pageSize;
       const trimmed = nextPage ? data.slice(0, pageSize) : data;
@@ -292,8 +303,8 @@ export const CharacterCreate = () => {
     specialAbilities: item.specialAbilities ?? [],
     appearance: item.appearance ?? "",
     height: item.height !== undefined ? String(item.height) : "",
-    distinctiveTraits: item.distinctiveTraits ?? [],
-    personalityTraits: item.personalityTraits ?? [],
+    distinctiveTraits: toTraitDrafts(item.distinctiveTraits),
+    personalityTraits: toTraitDrafts(item.personalityTraits),
     beliefs: item.beliefs ?? [],
     fears: item.fears ?? [],
     desires: item.desires ?? [],
@@ -324,8 +335,8 @@ export const CharacterCreate = () => {
     specialAbilities: values.specialAbilities,
     appearance: values.appearance || undefined,
     height: values.height === "" ? undefined : Number(values.height),
-    distinctiveTraits: values.distinctiveTraits,
-    personalityTraits: values.personalityTraits,
+    distinctiveTraits: toTraitPayload(values.distinctiveTraits),
+    personalityTraits: toTraitPayload(values.personalityTraits),
     beliefs: values.beliefs,
     fears: values.fears,
     desires: values.desires,
@@ -396,8 +407,8 @@ export const CharacterCreate = () => {
         specialAbilities: editValues.specialAbilities,
         appearance: editValues.appearance || undefined,
         height: editValues.height === "" ? undefined : Number(editValues.height),
-        distinctiveTraits: editValues.distinctiveTraits,
-        personalityTraits: editValues.personalityTraits,
+        distinctiveTraits: toTraitPayload(editValues.distinctiveTraits),
+        personalityTraits: toTraitPayload(editValues.personalityTraits),
         beliefs: editValues.beliefs,
         fears: editValues.fears,
         desires: editValues.desires,
@@ -822,7 +833,7 @@ export const CharacterCreate = () => {
               />
             </div>
             <div className="form-field--wide">
-              <MultiSelect
+              <TraitEditor
                 label="Distinctive Traits"
                 values={editValues.distinctiveTraits}
                 onChange={(value) =>
@@ -833,7 +844,7 @@ export const CharacterCreate = () => {
               />
             </div>
             <div className="form-field--wide">
-              <MultiSelect
+              <TraitEditor
                 label="Personality Traits"
                 values={editValues.personalityTraits}
                 onChange={(value) =>
@@ -1147,14 +1158,14 @@ export const CharacterCreate = () => {
 
       <FormSection title="Traits" description="Personality and inner layers.">
         <div className="form-field--wide">
-          <MultiSelect
+          <TraitEditor
             label="Distinctive Traits"
             values={values.distinctiveTraits}
             onChange={(value) => setField("distinctiveTraits", value)}
           />
         </div>
         <div className="form-field--wide">
-          <MultiSelect
+          <TraitEditor
             label="Personality Traits"
             values={values.personalityTraits}
             onChange={(value) => setField("personalityTraits", value)}

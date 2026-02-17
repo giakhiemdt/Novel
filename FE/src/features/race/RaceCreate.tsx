@@ -7,6 +7,7 @@ import { useToast } from "../../components/common/Toast";
 import { CrudPageShell } from "../../components/crud/CrudPageShell";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
+import { TraitEditor } from "../../components/form/TraitEditor";
 import { TextArea } from "../../components/form/TextArea";
 import { TextInput } from "../../components/form/TextInput";
 import { useForm } from "../../hooks/useForm";
@@ -16,13 +17,14 @@ import { createRace, deleteRace, getRacesPage, updateRace } from "./race.api";
 import { RaceList } from "./RaceList";
 import { validateRace } from "./race.schema";
 import type { Race, RacePayload } from "./race.types";
+import { createEmptyTraitDraft, normalizeTraitArray, toTraitDrafts, toTraitPayload } from "../../utils/trait";
 
 const initialState = {
   name: "",
   alias: [] as string[],
   description: "",
   origin: "",
-  traits: [] as string[],
+  traits: [createEmptyTraitDraft()],
   culture: "",
   lifespan: "",
   notes: "",
@@ -62,7 +64,10 @@ export const RaceCreate = () => {
         limit: pageSize + 1,
         offset,
       });
-      const data = response?.data ?? [];
+      const data = (response?.data ?? []).map((item) => ({
+        ...item,
+        traits: normalizeTraitArray(item.traits),
+      }));
       const total = typeof response?.meta?.total === "number" ? response.meta.total : undefined;
       const nextPage = total !== undefined ? offset + Math.min(data.length, pageSize) < total : data.length > pageSize;
       const trimmed = nextPage ? data.slice(0, pageSize) : data;
@@ -110,7 +115,7 @@ export const RaceCreate = () => {
     alias: item.alias ?? [],
     description: item.description ?? "",
     origin: item.origin ?? "",
-    traits: item.traits ?? [],
+    traits: toTraitDrafts(item.traits),
     culture: item.culture ?? "",
     lifespan: item.lifespan ?? "",
     notes: item.notes ?? "",
@@ -122,7 +127,7 @@ export const RaceCreate = () => {
     alias: state.alias,
     description: state.description || undefined,
     origin: state.origin || undefined,
-    traits: state.traits,
+    traits: toTraitPayload(state.traits),
     culture: state.culture || undefined,
     lifespan: state.lifespan || undefined,
     notes: state.notes || undefined,
@@ -351,11 +356,11 @@ export const RaceCreate = () => {
               />
             </div>
             <div className="form-field--wide">
-              <MultiSelect
+              <TraitEditor
                 label="Traits"
                 values={editValues.traits}
-                onChange={(value) =>
-                  setEditValues((prev) => prev && { ...prev, traits: value })
+                onChange={(traits) =>
+                  setEditValues((prev) => prev && { ...prev, traits })
                 }
               />
             </div>
@@ -458,10 +463,10 @@ export const RaceCreate = () => {
               />
             </div>
             <div className="form-field--wide">
-              <MultiSelect
+              <TraitEditor
                 label="Traits"
                 values={values.traits}
-                onChange={(value) => setField("traits", value)}
+                onChange={(traits) => setField("traits", traits)}
               />
             </div>
           </FormSection>

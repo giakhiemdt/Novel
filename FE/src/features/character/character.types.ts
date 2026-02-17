@@ -1,3 +1,5 @@
+import type { Trait } from "../../types/trait";
+
 export type CharacterImportance =
   | "Protagonist"
   | "Major"
@@ -20,8 +22,8 @@ export type CharacterPayload = {
   extra?: Record<string, unknown>;
   appearance?: string;
   height?: number;
-  distinctiveTraits?: string[];
-  personalityTraits?: string[];
+  distinctiveTraits?: Trait[];
+  personalityTraits?: Trait[];
   beliefs?: string[];
   fears?: string[];
   desires?: string[];

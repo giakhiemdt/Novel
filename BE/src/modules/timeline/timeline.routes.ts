@@ -1,4 +1,8 @@
 import { RouteConfig } from "../../routes";
+import {
+  traitArrayBodySchema,
+  traitArrayResponseSchema,
+} from "../../shared/constants/trait-schema";
 import { timelineController } from "./timeline.controller";
 
 export const timelineRoutes: RouteConfig[] = [
@@ -65,7 +69,7 @@ export const timelineRoutes: RouteConfig[] = [
           isOngoing: { type: "boolean" },
           summary: { type: "string" },
           description: { type: "string" },
-          characteristics: { type: "array", items: { type: "string" } },
+          characteristics: traitArrayBodySchema,
           dominantForces: { type: "array", items: { type: "string" } },
           technologyLevel: { type: "string" },
           powerEnvironment: { type: "string" },
@@ -91,7 +95,7 @@ export const timelineRoutes: RouteConfig[] = [
                 isOngoing: { type: "boolean" },
                 summary: { type: "string" },
                 description: { type: "string" },
-                characteristics: { type: "array", items: { type: "string" } },
+                characteristics: traitArrayResponseSchema,
                 dominantForces: { type: "array", items: { type: "string" } },
                 technologyLevel: { type: "string" },
                 powerEnvironment: { type: "string" },

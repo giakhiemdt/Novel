@@ -1,3 +1,5 @@
+import { Trait } from "../../shared/types/trait";
+
 export type CharacterStatus = "Alive" | "Dead";
 export type CharacterGender = "male" | "female" | "other";
 export type CharacterImportance =
@@ -22,8 +24,8 @@ export type CharacterInput = {
   extra?: Record<string, unknown>;
   appearance?: string;
   height?: number;
-  distinctiveTraits?: string[];
-  personalityTraits?: string[];
+  distinctiveTraits?: Array<Trait | string>;
+  personalityTraits?: Array<Trait | string>;
   beliefs?: string[];
   fears?: string[];
   desires?: string[];

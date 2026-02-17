@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useI18n } from "../../i18n/I18nProvider";
 import type { Character } from "./character.types";
+import { traitValuesToLabels } from "../../utils/trait";
 
 export type CharacterListProps = {
   items: Character[];
@@ -23,12 +24,13 @@ export const CharacterList = ({
 
   const renderValue = (value: unknown) => {
     if (Array.isArray(value)) {
-      if (value.length === 0) {
+      const labels = traitValuesToLabels(value);
+      if (labels.length === 0) {
         return <span className="header__subtitle">-</span>;
       }
       return (
         <div className="pill-list">
-          {value.map((item) => (
+          {labels.map((item) => (
             <span className="pill" key={item}>
               {item}
             </span>

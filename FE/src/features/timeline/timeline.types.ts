@@ -1,3 +1,5 @@
+import type { Trait } from "../../types/trait";
+
 export type TimelinePayload = {
   id?: string;
   name: string;
@@ -6,7 +8,7 @@ export type TimelinePayload = {
   isOngoing?: boolean;
   summary?: string;
   description?: string;
-  characteristics?: string[];
+  characteristics?: Trait[];
   dominantForces?: string[];
   technologyLevel?: string;
   powerEnvironment?: string;

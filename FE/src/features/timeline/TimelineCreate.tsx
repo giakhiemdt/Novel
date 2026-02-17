@@ -22,12 +22,18 @@ import { TimelineList } from "./TimelineList";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
 import { Select } from "../../components/form/Select";
+import { TraitEditor } from "../../components/form/TraitEditor";
 import { TextArea } from "../../components/form/TextArea";
 import { TextInput } from "../../components/form/TextInput";
 import { validateTimeline } from "./timeline.schema";
 import type { Timeline, TimelinePayload } from "./timeline.types";
 import { useI18n } from "../../i18n/I18nProvider";
 import boardIcon from "../../assets/icons/board.svg";
+import {
+  createEmptyTraitDraft,
+  normalizeTraitArray,
+  toTraitPayload,
+} from "../../utils/trait";
 
 const initialState = {
   name: "",
@@ -36,7 +42,7 @@ const initialState = {
   isOngoing: false,
   summary: "",
   description: "",
-  characteristics: [] as string[],
+  characteristics: [createEmptyTraitDraft()],
   dominantForces: [] as string[],
   technologyLevel: "",
   powerEnvironment: "",
@@ -94,7 +100,10 @@ export const TimelineCreate = () => {
         limit: pageSize + 1,
         offset,
       });
-      const timelines = response?.data ?? [];
+      const timelines = (response?.data ?? []).map((item) => ({
+        ...item,
+        characteristics: normalizeTraitArray(item.characteristics),
+      }));
       const total = typeof response?.meta?.total === "number" ? response.meta.total : undefined;
       const nextPage =
         total !== undefined
@@ -199,7 +208,7 @@ export const TimelineCreate = () => {
     isOngoing: values.isOngoing,
     summary: values.summary || undefined,
     description: values.description || undefined,
-    characteristics: values.characteristics,
+    characteristics: toTraitPayload(values.characteristics),
     dominantForces: values.dominantForces,
     technologyLevel: values.technologyLevel || undefined,
     powerEnvironment: values.powerEnvironment || undefined,
@@ -463,7 +472,7 @@ export const TimelineCreate = () => {
                   value={values.worldState}
                   onChange={(value) => setField("worldState", value)}
                 />
-                <MultiSelect
+                <TraitEditor
                   label="Characteristics"
                   values={values.characteristics}
                   onChange={(value) => setField("characteristics", value)}

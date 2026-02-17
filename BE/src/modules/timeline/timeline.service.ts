@@ -1,6 +1,11 @@
 import { AppError } from "../../shared/errors/app-error";
 import { generateId } from "../../shared/utils/generate-id";
 import {
+  assertOptionalTraitArray,
+  normalizeTraitArray,
+  serializeTraitArray,
+} from "../../shared/utils/trait";
+import {
   createTimeline,
   deleteTimeline,
   getTimelineCount,
@@ -199,7 +204,7 @@ const validateTimelinePayload = (payload: unknown): TimelineInput => {
   addIfDefined(
     result,
     "characteristics",
-    assertOptionalStringArray(data.characteristics, "characteristics")
+    assertOptionalTraitArray(data.characteristics, "characteristics")
   );
   addIfDefined(
     result,
@@ -251,6 +256,42 @@ const buildTimelineNode = (
     createdAt: now,
     updatedAt: now,
   };
+};
+
+const serializeTimelineCharacteristicsField = <T extends Record<string, unknown>>(
+  node: T
+): T => {
+  const serialized = serializeTraitArray(
+    (node as { characteristics?: unknown }).characteristics
+  );
+  const { characteristics: _characteristics, ...rest } = node as T & {
+    characteristics?: unknown;
+  };
+  if (serialized === undefined) {
+    return rest as T;
+  }
+  return {
+    ...(rest as T),
+    characteristics: serialized,
+  } as T;
+};
+
+const normalizeTimelineCharacteristicsField = <T extends Record<string, unknown>>(
+  node: T
+): T => {
+  const normalized = normalizeTraitArray(
+    (node as { characteristics?: unknown }).characteristics
+  );
+  const { characteristics: _characteristics, ...rest } = node as T & {
+    characteristics?: unknown;
+  };
+  if (normalized === undefined) {
+    return rest as T;
+  }
+  return {
+    ...(rest as T),
+    characteristics: normalized,
+  } as T;
 };
 
 const parseTimelineListQuery = (query: unknown): TimelineListQuery => {
@@ -311,12 +352,13 @@ export const timelineService = {
     }
 
     try {
-      return await createTimeline(
-        node,
+      const created = await createTimeline(
+        serializeTimelineCharacteristicsField(node),
         database,
         validated.previousId,
         validated.nextId
       );
+      return normalizeTimelineCharacteristicsField(created);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to create timeline";
       if (message.includes("not found")) {
@@ -330,7 +372,8 @@ export const timelineService = {
   },
   getAll: async (dbName: unknown): Promise<TimelineNode[]> => {
     const database = assertDatabaseName(dbName);
-    return getTimelines(database, { limit: 50, offset: 0 });
+    const rows = await getTimelines(database, { limit: 50, offset: 0 });
+    return rows.map(normalizeTimelineCharacteristicsField);
   },
   getAllWithQuery: async (
     dbName: unknown,
@@ -342,7 +385,10 @@ export const timelineService = {
       getTimelines(database, parsedQuery),
       getTimelineCount(database, parsedQuery),
     ]);
-    return { data, meta: { ...parsedQuery, total } };
+    return {
+      data: data.map(normalizeTimelineCharacteristicsField),
+      meta: { ...parsedQuery, total },
+    };
   },
   link: async (payload: unknown, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);

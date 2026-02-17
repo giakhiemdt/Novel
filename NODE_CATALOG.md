@@ -70,7 +70,7 @@ Tài liệu này mô tả chi tiết từng node đang dùng trong dự án hi�
 - Required: `name`, `gender` (`male`|`female`|`other`).
 - Optional chính:
 - `alias[]`, `level`, `status` (`Alive`|`Dead`), `isMainCharacter`, `age`, `race`, `specialAbilities[]`, `extra`.
-- `appearance`, `height`, `distinctiveTraits[]`, `personalityTraits[]`, `beliefs[]`, `fears[]`, `desires[]`, `weaknesses[]`.
+- `appearance`, `height`, `distinctiveTraits[{name,description}]`, `personalityTraits[{name,description}]`, `beliefs[]`, `fears[]`, `desires[]`, `weaknesses[]`.
 - `origin`, `background`, `trauma[]`, `secret`, `currentLocation`, `currentGoal`, `currentAffiliation`, `powerState`, `notes`, `tags[]`.
 - Quan hệ thường dùng: `CHARACTER_HAS_RACE`, `CHARACTER_HAS_RANK`, `CHARACTER_HAS_SPECIAL_ABILITY`, `CHARACTER_RELATES_TO`, `PARTICIPATES_IN`, `OWNS_ITEM`, `SCENE_FEATURES_CHARACTER`.
 - API chính: `GET/POST/PUT/DELETE /characters`.
@@ -78,7 +78,7 @@ Tài liệu này mô tả chi tiết từng node đang dùng trong dự án hi�
 ### 3.4 `Race`
 - Vai trò: Master data về chủng tộc.
 - Required: `name`.
-- Optional: `alias[]`, `description`, `origin`, `traits[]`, `culture`, `lifespan`, `notes`, `tags[]`.
+- Optional: `alias[]`, `description`, `origin`, `traits[{name,description}]`, `culture`, `lifespan`, `notes`, `tags[]`.
 - Quan hệ thường dùng: `CHARACTER_HAS_RACE`.
 - API chính: `GET/POST/PUT/DELETE /races`.
 
@@ -130,7 +130,7 @@ Tài liệu này mô tả chi tiết từng node đang dùng trong dự án hi�
 ### 3.9 `Timeline`
 - Vai trò: Trục thời gian/chương thời đại.
 - Required: `name`, `durationYears`.
-- Optional: `code`, `isOngoing`, `summary`, `description`, `characteristics[]`, `dominantForces[]`, `technologyLevel`, `powerEnvironment`, `worldState`, `majorChanges[]`, `notes`, `tags[]`, `previousId`, `nextId`.
+- Optional: `code`, `isOngoing`, `summary`, `description`, `characteristics[{name,description}]`, `dominantForces[]`, `technologyLevel`, `powerEnvironment`, `worldState`, `majorChanges[]`, `notes`, `tags[]`, `previousId`, `nextId`.
 - Quan hệ: `NEXT`/`PREVIOUS`, `OCCURS_ON` với Event.
 - API chính:
 - `GET/POST/DELETE /timelines`

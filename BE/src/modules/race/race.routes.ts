@@ -1,4 +1,8 @@
 import { RouteConfig } from "../../routes";
+import {
+  traitArrayBodySchema,
+  traitArrayResponseSchema,
+} from "../../shared/constants/trait-schema";
 import { raceController } from "./race.controller";
 
 export const raceRoutes: RouteConfig[] = [
@@ -63,7 +67,7 @@ export const raceRoutes: RouteConfig[] = [
           alias: { type: "array", items: { type: "string" } },
           description: { type: "string" },
           origin: { type: "string" },
-          traits: { type: "array", items: { type: "string" } },
+          traits: traitArrayBodySchema,
           culture: { type: "string" },
           lifespan: { type: "string" },
           notes: { type: "string" },
@@ -82,7 +86,7 @@ export const raceRoutes: RouteConfig[] = [
                 alias: { type: "array", items: { type: "string" } },
                 description: { type: "string" },
                 origin: { type: "string" },
-                traits: { type: "array", items: { type: "string" } },
+                traits: traitArrayResponseSchema,
                 culture: { type: "string" },
                 lifespan: { type: "string" },
                 notes: { type: "string" },
@@ -116,7 +120,7 @@ export const raceRoutes: RouteConfig[] = [
           alias: { type: "array", items: { type: "string" } },
           description: { type: "string" },
           origin: { type: "string" },
-          traits: { type: "array", items: { type: "string" } },
+          traits: traitArrayBodySchema,
           culture: { type: "string" },
           lifespan: { type: "string" },
           notes: { type: "string" },
@@ -135,7 +139,7 @@ export const raceRoutes: RouteConfig[] = [
                 alias: { type: "array", items: { type: "string" } },
                 description: { type: "string" },
                 origin: { type: "string" },
-                traits: { type: "array", items: { type: "string" } },
+                traits: traitArrayResponseSchema,
                 culture: { type: "string" },
                 lifespan: { type: "string" },
                 notes: { type: "string" },

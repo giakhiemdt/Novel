@@ -1,7 +1,6 @@
-export type EnergyTypeTrait = {
-  name: string;
-  description?: string;
-};
+import type { Trait } from "../../types/trait";
+
+export type EnergyTypeTrait = Trait;
 
 export type EnergyTypePayload = {
   id?: string;

@@ -1,4 +1,8 @@
 import { RouteConfig } from "../../routes";
+import {
+  traitArrayBodySchema,
+  traitArrayResponseSchema,
+} from "../../shared/constants/trait-schema";
 import { characterController } from "./character.controller";
 
 export const characterRoutes: RouteConfig[] = [
@@ -88,8 +92,8 @@ export const characterRoutes: RouteConfig[] = [
           extra: { type: "object", additionalProperties: true },
           appearance: { type: "string" },
           height: { type: "number" },
-          distinctiveTraits: { type: "array", items: { type: "string" } },
-          personalityTraits: { type: "array", items: { type: "string" } },
+          distinctiveTraits: traitArrayBodySchema,
+          personalityTraits: traitArrayBodySchema,
           beliefs: { type: "array", items: { type: "string" } },
           fears: { type: "array", items: { type: "string" } },
           desires: { type: "array", items: { type: "string" } },
@@ -127,8 +131,8 @@ export const characterRoutes: RouteConfig[] = [
                 extra: { type: "object", additionalProperties: true },
                 appearance: { type: "string" },
                 height: { type: "number" },
-                distinctiveTraits: { type: "array", items: { type: "string" } },
-                personalityTraits: { type: "array", items: { type: "string" } },
+                distinctiveTraits: traitArrayResponseSchema,
+                personalityTraits: traitArrayResponseSchema,
                 beliefs: { type: "array", items: { type: "string" } },
                 fears: { type: "array", items: { type: "string" } },
                 desires: { type: "array", items: { type: "string" } },
@@ -185,8 +189,8 @@ export const characterRoutes: RouteConfig[] = [
           extra: { type: "object", additionalProperties: true },
           appearance: { type: "string" },
           height: { type: "number" },
-          distinctiveTraits: { type: "array", items: { type: "string" } },
-          personalityTraits: { type: "array", items: { type: "string" } },
+          distinctiveTraits: traitArrayBodySchema,
+          personalityTraits: traitArrayBodySchema,
           beliefs: { type: "array", items: { type: "string" } },
           fears: { type: "array", items: { type: "string" } },
           desires: { type: "array", items: { type: "string" } },

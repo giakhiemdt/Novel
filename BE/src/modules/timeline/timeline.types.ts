@@ -1,3 +1,5 @@
+import { Trait } from "../../shared/types/trait";
+
 export type TimelineInput = {
   id?: string;
   name: string;
@@ -6,7 +8,7 @@ export type TimelineInput = {
   isOngoing?: boolean;
   summary?: string;
   description?: string;
-  characteristics?: string[];
+  characteristics?: Array<Trait | string>;
   dominantForces?: string[];
   technologyLevel?: string;
   powerEnvironment?: string;
