@@ -81,6 +81,7 @@ export const RankList = ({
       title: t("Notes & Tags"),
       fields: [
         { label: t("Description"), value: item.description, size: "wide" },
+        { label: t("Traits"), value: item.traits, size: "wide" },
         { label: t("Notes"), value: item.notes, size: "wide" },
         { label: t("Tags"), value: item.tags, size: "wide" },
         { label: t("Promotion Conditions"), value: item.conditions, size: "wide" },

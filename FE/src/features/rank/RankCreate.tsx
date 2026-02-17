@@ -9,6 +9,7 @@ import { CrudPageShell } from "../../components/crud/CrudPageShell";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
 import { Select } from "../../components/form/Select";
+import { TraitEditor } from "../../components/form/TraitEditor";
 import { TextArea } from "../../components/form/TextArea";
 import { TextInput } from "../../components/form/TextInput";
 import { useForm } from "../../hooks/useForm";
@@ -38,6 +39,12 @@ import type {
 } from "./rank.types";
 import { getAllRankSystems } from "../rank-system/rank-system.api";
 import type { RankSystem } from "../rank-system/rank-system.types";
+import {
+  createEmptyTraitDraft,
+  normalizeTraitArray,
+  toTraitDrafts,
+  toTraitPayload,
+} from "../../utils/trait";
 
 const initialState = {
   name: "",
@@ -46,6 +53,7 @@ const initialState = {
   systemId: "",
   system: "",
   description: "",
+  traits: [createEmptyTraitDraft()],
   notes: "",
   tags: [] as string[],
   color: "",
@@ -144,7 +152,10 @@ export const RankCreate = () => {
         limit: pageSize + 1,
         offset,
       });
-      const data = response?.data ?? [];
+      const data = (response?.data ?? []).map((item) => ({
+        ...item,
+        traits: normalizeTraitArray(item.traits),
+      }));
       const total = typeof response?.meta?.total === "number" ? response.meta.total : undefined;
       const nextPage =
         total !== undefined
@@ -168,10 +179,14 @@ export const RankCreate = () => {
   const loadBoardItems = useCallback(async () => {
     try {
       const data = await getAllRanks();
-      setBoardItems(data ?? []);
+      const normalizedData = (data ?? []).map((item) => ({
+        ...item,
+        traits: normalizeTraitArray(item.traits),
+      }));
+      setBoardItems(normalizedData);
       setLinks(() => {
         const next: Record<string, RankPreviousLink[]> = {};
-        (data ?? []).forEach((item) => {
+        normalizedData.forEach((item) => {
           const currentId = item.id;
           if (!currentId) {
             return;
@@ -310,6 +325,7 @@ export const RankCreate = () => {
     systemId: item.systemId ?? "",
     system: item.system ?? "",
     description: item.description ?? "",
+    traits: toTraitDrafts(item.traits),
     notes: item.notes ?? "",
     tags: item.tags ?? [],
     color: item.color ?? "",
@@ -322,6 +338,7 @@ export const RankCreate = () => {
     systemId: state.systemId || undefined,
     system: state.system || undefined,
     description: state.description || undefined,
+    traits: toTraitPayload(state.traits),
     notes: state.notes || undefined,
     tags: state.tags,
     color: state.color || undefined,
@@ -1038,6 +1055,15 @@ export const RankCreate = () => {
                 placeholder="Short summary or hierarchy description"
               />
             </div>
+            <div className="form-field--wide">
+              <TraitEditor
+                label="Traits"
+                values={editValues.traits}
+                onChange={(traits) =>
+                  setEditValues((prev) => prev && { ...prev, traits })
+                }
+              />
+            </div>
           </FormSection>
 
           <FormSection title="Notes & Tags" description="Extra details and tags.">
@@ -1133,6 +1159,13 @@ export const RankCreate = () => {
                 value={values.description}
                 onChange={(value) => setField("description", value)}
                 placeholder="Short summary or hierarchy description"
+              />
+            </div>
+            <div className="form-field--wide">
+              <TraitEditor
+                label="Traits"
+                values={values.traits}
+                onChange={(traits) => setField("traits", traits)}
               />
             </div>
           </FormSection>

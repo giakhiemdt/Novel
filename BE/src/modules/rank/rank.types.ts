@@ -1,3 +1,5 @@
+import { Trait } from "../../shared/types/trait";
+
 export type RankCondition = {
   name: string;
   description?: string;
@@ -32,6 +34,7 @@ export type RankInput = {
   tier?: string;
   system?: string;
   description?: string;
+  traits?: Array<Trait | string>;
   notes?: string;
   tags?: string[];
   color?: string;

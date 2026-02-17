@@ -189,6 +189,7 @@ export const nodeDocs: NodeDoc[] = [
       "tier",
       "system",
       "description",
+      "traits[{name,description}]",
       "notes",
       "tags[]",
       "color",

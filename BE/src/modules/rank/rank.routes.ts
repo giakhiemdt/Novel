@@ -1,4 +1,8 @@
 import { RouteConfig } from "../../routes";
+import {
+  traitArrayBodySchema,
+  traitArrayResponseSchema,
+} from "../../shared/constants/trait-schema";
 import { rankController } from "./rank.controller";
 
 export const rankRoutes: RouteConfig[] = [
@@ -67,6 +71,7 @@ export const rankRoutes: RouteConfig[] = [
           tier: { type: "string" },
           system: { type: "string" },
           description: { type: "string" },
+          traits: traitArrayBodySchema,
           notes: { type: "string" },
           tags: { type: "array", items: { type: "string" } },
         },
@@ -85,6 +90,7 @@ export const rankRoutes: RouteConfig[] = [
                 tier: { type: "string" },
                 system: { type: "string" },
                 description: { type: "string" },
+                traits: traitArrayResponseSchema,
                 notes: { type: "string" },
                 tags: { type: "array", items: { type: "string" } },
                 createdAt: { type: "string", format: "date-time" },
@@ -118,6 +124,7 @@ export const rankRoutes: RouteConfig[] = [
           tier: { type: "string" },
           system: { type: "string" },
           description: { type: "string" },
+          traits: traitArrayBodySchema,
           notes: { type: "string" },
           tags: { type: "array", items: { type: "string" } },
         },
@@ -136,6 +143,7 @@ export const rankRoutes: RouteConfig[] = [
                 tier: { type: "string" },
                 system: { type: "string" },
                 description: { type: "string" },
+                traits: traitArrayResponseSchema,
                 notes: { type: "string" },
                 tags: { type: "array", items: { type: "string" } },
                 createdAt: { type: "string", format: "date-time" },

@@ -1,6 +1,11 @@
 import { AppError } from "../../shared/errors/app-error";
 import { generateId } from "../../shared/utils/generate-id";
 import {
+  assertOptionalTraitArray,
+  normalizeTraitArray,
+  serializeTraitArray,
+} from "../../shared/utils/trait";
+import {
   attachRankToSystem,
   createRank,
   deleteRank,
@@ -282,6 +287,7 @@ const validateRankPayload = (payload: unknown): RankInput => {
     "description",
     assertOptionalString(data.description, "description")
   );
+  addIfDefined(result, "traits", assertOptionalTraitArray(data.traits, "traits"));
   addIfDefined(result, "notes", assertOptionalString(data.notes, "notes"));
   addIfDefined(result, "tags", assertOptionalStringArray(data.tags, "tags"));
   addIfDefined(result, "color", assertOptionalString(data.color, "color"));
@@ -303,6 +309,34 @@ const buildRankNode = (payload: RankInput): RankNode => {
     id: payload.id ?? generateId(),
     createdAt: now,
     updatedAt: now,
+  };
+};
+
+const normalizeRankForPersistence = (node: RankNode): RankNode => {
+  const serializedTraits = serializeTraitArray(
+    (node as { traits?: unknown }).traits
+  );
+  const { traits: _traits, ...rest } = node as RankNode & { traits?: unknown };
+  if (serializedTraits === undefined) {
+    return rest as RankNode;
+  }
+  return {
+    ...(rest as RankNode),
+    traits: serializedTraits,
+  };
+};
+
+const normalizeRankNode = (node: RankNode): RankNode => {
+  const normalizedTraits = normalizeTraitArray(
+    (node as { traits?: unknown }).traits
+  );
+  const { traits: _traits, ...rest } = node as RankNode & { traits?: unknown };
+  if (normalizedTraits === undefined) {
+    return rest as RankNode;
+  }
+  return {
+    ...(rest as RankNode),
+    traits: normalizedTraits,
   };
 };
 
@@ -358,11 +392,11 @@ export const rankService = {
       }
     }
     const node = buildRankNode(validated);
-    const created = await createRank(node, database);
+    const created = await createRank(normalizeRankForPersistence(node), database);
     if (validated.systemId && created.id) {
       await attachRankToSystem(database, created.id, validated.systemId);
     }
-    return created;
+    return normalizeRankNode(created);
   },
   update: async (
     id: string,
@@ -384,18 +418,19 @@ export const rankService = {
       createdAt: now,
       updatedAt: now,
     };
-    const updated = await updateRank(node, database);
+    const updated = await updateRank(normalizeRankForPersistence(node), database);
     if (!updated) {
       throw new AppError("rank not found", 404);
     }
     if (validated.systemId) {
       await attachRankToSystem(database, id, validated.systemId);
     }
-    return updated;
+    return normalizeRankNode(updated);
   },
   getAll: async (dbName: unknown): Promise<RankNode[]> => {
     const database = assertDatabaseName(dbName);
-    return getRanks(database, { limit: 50, offset: 0 });
+    const rows = await getRanks(database, { limit: 50, offset: 0 });
+    return rows.map(normalizeRankNode);
   },
   getAllWithQuery: async (
     dbName: unknown,
@@ -407,7 +442,7 @@ export const rankService = {
       getRanks(database, parsedQuery),
       getRankCount(database, parsedQuery),
     ]);
-    return { data, meta: { ...parsedQuery, total } };
+    return { data: data.map(normalizeRankNode), meta: { ...parsedQuery, total } };
   },
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);

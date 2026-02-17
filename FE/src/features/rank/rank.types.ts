@@ -1,3 +1,5 @@
+import type { Trait } from "../../types/trait";
+
 export type RankCondition = {
   name: string;
   description?: string;
@@ -16,6 +18,7 @@ export type RankPayload = {
   tier?: string;
   system?: string;
   description?: string;
+  traits?: Trait[];
   notes?: string;
   tags?: string[];
   previousId?: string;

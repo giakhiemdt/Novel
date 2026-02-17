@@ -97,7 +97,7 @@ Tài liệu này mô tả chi tiết từng node đang dùng trong dự án hi�
 ### 3.6 `Rank`
 - Vai trò: Node cấp bậc trong một `RankSystem`.
 - Required: `name`.
-- Optional: `systemId`, `alias[]`, `tier`, `system` (text), `description`, `notes`, `tags[]`, `color`.
+- Optional: `systemId`, `alias[]`, `tier`, `system` (text), `description`, `traits[{name,description}]`, `notes`, `tags[]`, `color`.
 - Quan hệ:
 - Thuộc hệ thống qua `HAS_RANK` + `systemId`.
 - Tiến cấp qua `RANK_NEXT` (có thể chứa `conditions` và `conditionDescriptions`).
