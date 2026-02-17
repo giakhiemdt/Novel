@@ -1005,6 +1005,7 @@ h3 {
   border-collapse: collapse;
   --row-hover: var(--accent-soft);
   --row-active: var(--accent-soft-strong);
+  --cell-max-width: 240px;
 }
 
 .table th,
@@ -1012,6 +1013,27 @@ h3 {
   text-align: left;
   padding: var(--space-2) var(--space-1);
   border-bottom: none;
+}
+
+.table td:not(.table__actions) {
+  max-width: var(--cell-max-width);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table td:not(.table__actions) > * {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table td.table__actions {
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .table__row {

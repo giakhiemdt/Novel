@@ -97,7 +97,7 @@ export const RaceList = ({ items, onSelect, onEdit, onDelete }: RaceListProps) =
               <td>
                 <strong>{item.name}</strong>
               </td>
-              <td>{item.origin ?? "-"}</td>
+              <td title={item.origin ?? ""}>{item.origin ?? "-"}</td>
               <td>{item.culture ?? "-"}</td>
               <td>
                 {item.traits && item.traits.length > 0
