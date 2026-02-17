@@ -905,89 +905,104 @@ export const EnergyTypeCreate = () => {
       </div>
       )}
 
-      <FormSection
-        title="Energy conversion rules"
-        description="Define which energy type can convert into another."
-      >
-        <div className="form-field--wide">
-          <Select
-            label="From"
-            value={conversionForm.fromId}
-            onChange={(value) => setConversionForm((prev) => ({ ...prev, fromId: value }))}
-            options={typeOptions}
-            required
-          />
-        </div>
-        <div className="form-field--wide">
-          <Select
-            label="To"
-            value={conversionForm.toId}
-            onChange={(value) => setConversionForm((prev) => ({ ...prev, toId: value }))}
-            options={typeOptions}
-            required
-          />
-        </div>
-        <div className="form-field--narrow">
-          <TextInput
-            label="Ratio"
-            type="number"
-            value={conversionForm.ratio}
-            onChange={(value) => setConversionForm((prev) => ({ ...prev, ratio: value }))}
-          />
-        </div>
-        <div className="form-field--wide">
-          <TextInput
-            label="Condition"
-            value={conversionForm.condition}
-            onChange={(value) =>
-              setConversionForm((prev) => ({ ...prev, condition: value }))
-            }
-          />
-        </div>
-        <div className="form-field--narrow">
-          <TextInput
-            label="Color"
-            type="color"
-            value={conversionForm.color}
-            onChange={(value) => setConversionForm((prev) => ({ ...prev, color: value }))}
-          />
-        </div>
-        <div className="form-field--narrow">
-          <label>
-            <input
-              type="checkbox"
-              checked={conversionForm.isActive}
-              onChange={(event) =>
-                setConversionForm((prev) => ({ ...prev, isActive: event.target.checked }))
-              }
-            />{" "}
-            {t("Active")}
-          </label>
-        </div>
-      </FormSection>
-
-      <div className="card">
-        <div className="table__actions">
-          <button
-            type="button"
-            className="table__action table__action--danger"
-            onClick={() => {
-              void handleDeleteConversionFromForm();
-            }}
-            disabled={
-              isSavingConversion ||
-              !conversionForm.fromId ||
-              !conversionForm.toId ||
-              !findConversion(conversionForm.fromId, conversionForm.toId)
-            }
+      {showConversionBoard && (
+        <>
+          <FormSection
+            title="Energy conversion rules"
+            description="Define which energy type can convert into another."
           >
-            {t("Delete link")}
-          </button>
-          <Button onClick={handleSubmitConversion} disabled={isSavingConversion}>
-            {isSavingConversion ? t("Saving...") : t("Save conversion")}
-          </Button>
-        </div>
-      </div>
+            <div className="form-field--wide">
+              <Select
+                label="From"
+                value={conversionForm.fromId}
+                onChange={(value) =>
+                  setConversionForm((prev) => ({ ...prev, fromId: value }))
+                }
+                options={typeOptions}
+                required
+              />
+            </div>
+            <div className="form-field--wide">
+              <Select
+                label="To"
+                value={conversionForm.toId}
+                onChange={(value) =>
+                  setConversionForm((prev) => ({ ...prev, toId: value }))
+                }
+                options={typeOptions}
+                required
+              />
+            </div>
+            <div className="form-field--narrow">
+              <TextInput
+                label="Ratio"
+                type="number"
+                value={conversionForm.ratio}
+                onChange={(value) =>
+                  setConversionForm((prev) => ({ ...prev, ratio: value }))
+                }
+              />
+            </div>
+            <div className="form-field--wide">
+              <TextInput
+                label="Condition"
+                value={conversionForm.condition}
+                onChange={(value) =>
+                  setConversionForm((prev) => ({ ...prev, condition: value }))
+                }
+              />
+            </div>
+            <div className="form-field--narrow">
+              <TextInput
+                label="Color"
+                type="color"
+                value={conversionForm.color}
+                onChange={(value) =>
+                  setConversionForm((prev) => ({ ...prev, color: value }))
+                }
+              />
+            </div>
+            <div className="form-field--narrow">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={conversionForm.isActive}
+                  onChange={(event) =>
+                    setConversionForm((prev) => ({
+                      ...prev,
+                      isActive: event.target.checked,
+                    }))
+                  }
+                />{" "}
+                {t("Active")}
+              </label>
+            </div>
+          </FormSection>
+
+          <div className="card">
+            <div className="table__actions">
+              <button
+                type="button"
+                className="table__action table__action--danger"
+                onClick={() => {
+                  void handleDeleteConversionFromForm();
+                }}
+                disabled={
+                  isSavingConversion ||
+                  !conversionForm.fromId ||
+                  !conversionForm.toId ||
+                  !findConversion(conversionForm.fromId, conversionForm.toId)
+                }
+              >
+                {t("Delete link")}
+              </button>
+              <Button onClick={handleSubmitConversion} disabled={isSavingConversion}>
+                {isSavingConversion ? t("Saving...") : t("Save conversion")}
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
 
       {showList && (
         <div className="card">
