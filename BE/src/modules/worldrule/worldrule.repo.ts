@@ -8,10 +8,18 @@ import { WorldRuleListQuery, WorldRuleNode } from "./worldrule.types";
 const CREATE_RULE = `
 CREATE (r:${nodeLabels.worldRule} {
   id: $id,
+  ruleCode: $ruleCode,
   title: $title,
+  tldr: $tldr,
   category: $category,
   description: $description,
   scope: $scope,
+  timelineIds: $timelineIds,
+  triggerConditions: $triggerConditions,
+  coreRules: $coreRules,
+  consequences: $consequences,
+  examples: $examples,
+  relatedRuleCodes: $relatedRuleCodes,
   constraints: $constraints,
   exceptions: $exceptions,
   status: $status,
@@ -29,10 +37,18 @@ RETURN r
 const UPDATE_RULE = `
 MATCH (r:${nodeLabels.worldRule} {id: $id})
 SET
+  r.ruleCode = $ruleCode,
   r.title = $title,
+  r.tldr = $tldr,
   r.category = $category,
   r.description = $description,
   r.scope = $scope,
+  r.timelineIds = $timelineIds,
+  r.triggerConditions = $triggerConditions,
+  r.coreRules = $coreRules,
+  r.consequences = $consequences,
+  r.examples = $examples,
+  r.relatedRuleCodes = $relatedRuleCodes,
   r.constraints = $constraints,
   r.exceptions = $exceptions,
   r.status = $status,
@@ -51,7 +67,11 @@ WHERE
   ($title IS NULL OR toLower(r.title) CONTAINS toLower($title))
   AND ($category IS NULL OR r.category = $category)
   AND ($status IS NULL OR r.status = $status)
-  AND ($scope IS NULL OR r.scope = $scope)
+  AND (
+    $scope IS NULL
+    OR r.scope = $scope
+    OR toString(r.scope) CONTAINS ('"' + $scope + '"')
+  )
   AND ($tag IS NULL OR $tag IN coalesce(r.tags, []))
 RETURN r
 ORDER BY r.createdAt DESC
@@ -66,7 +86,11 @@ WHERE
   ($title IS NULL OR toLower(r.title) CONTAINS toLower($title))
   AND ($category IS NULL OR r.category = $category)
   AND ($status IS NULL OR r.status = $status)
-  AND ($scope IS NULL OR r.scope = $scope)
+  AND (
+    $scope IS NULL
+    OR r.scope = $scope
+    OR toString(r.scope) CONTAINS ('"' + $scope + '"')
+  )
   AND ($tag IS NULL OR $tag IN coalesce(r.tags, []))
 RETURN r
 ORDER BY score DESC, r.createdAt DESC
@@ -80,7 +104,11 @@ WHERE
   ($title IS NULL OR toLower(r.title) CONTAINS toLower($title))
   AND ($category IS NULL OR r.category = $category)
   AND ($status IS NULL OR r.status = $status)
-  AND ($scope IS NULL OR r.scope = $scope)
+  AND (
+    $scope IS NULL
+    OR r.scope = $scope
+    OR toString(r.scope) CONTAINS ('"' + $scope + '"')
+  )
   AND ($tag IS NULL OR $tag IN coalesce(r.tags, []))
 RETURN count(r) AS total
 `;
@@ -92,7 +120,11 @@ WHERE
   ($title IS NULL OR toLower(r.title) CONTAINS toLower($title))
   AND ($category IS NULL OR r.category = $category)
   AND ($status IS NULL OR r.status = $status)
-  AND ($scope IS NULL OR r.scope = $scope)
+  AND (
+    $scope IS NULL
+    OR r.scope = $scope
+    OR toString(r.scope) CONTAINS ('"' + $scope + '"')
+  )
   AND ($tag IS NULL OR $tag IN coalesce(r.tags, []))
 RETURN count(r) AS total
 `;
@@ -106,10 +138,18 @@ RETURN 1 AS deleted
 
 const RULE_PARAMS = [
   "id",
+  "ruleCode",
   "title",
+  "tldr",
   "category",
   "description",
   "scope",
+  "timelineIds",
+  "triggerConditions",
+  "coreRules",
+  "consequences",
+  "examples",
+  "relatedRuleCodes",
   "constraints",
   "exceptions",
   "status",

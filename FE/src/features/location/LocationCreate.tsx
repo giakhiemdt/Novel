@@ -27,6 +27,7 @@ import type { Location, LocationPayload } from "./location.types";
 
 const initialState = {
   name: "",
+  description: "",
   alias: [] as string[],
   type: "",
   typeDetail: "",
@@ -104,6 +105,8 @@ const TYPE_DETAIL_OPTIONS: Record<string, { value: string; label: string }[]> = 
     { value: "ARCHIPELAGO", label: "ARCHIPELAGO" },
     { value: "OCEAN", label: "OCEAN" },
     { value: "SEA", label: "SEA" },
+    { value: "PLANET", label: "PLANET" },
+    { value: "DIMENSION", label: "DIMENSION" },
     { value: "WORLD", label: "WORLD" },
   ],
 };
@@ -207,6 +210,7 @@ export const LocationCreate = () => {
 
   const mapLocationToForm = (item: Location): LocationFormState => ({
     name: item.name ?? "",
+    description: item.description ?? "",
     alias: item.alias ?? [],
     type: item.type ?? "",
     typeDetail: item.typeDetail ?? "",
@@ -233,6 +237,7 @@ export const LocationCreate = () => {
 
   const buildPayload = (): LocationPayload => ({
     name: values.name,
+    description: values.description || undefined,
     alias: values.alias,
     type: values.type || undefined,
     typeDetail: values.typeDetail || undefined,
@@ -299,6 +304,7 @@ export const LocationCreate = () => {
     try {
       await updateLocation(editItem.id, {
         name: editValues.name,
+        description: editValues.description || undefined,
         alias: editValues.alias,
         type: editValues.type || undefined,
         typeDetail: editValues.typeDetail || undefined,
@@ -508,6 +514,15 @@ export const LocationCreate = () => {
                   setEditValues((prev) => prev && { ...prev, name: value })
                 }
                 required
+              />
+            </div>
+            <div className="form-field--wide">
+              <TextArea
+                label="Description"
+                value={editValues.description}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, description: value })
+                }
               />
             </div>
             <div className="form-field--narrow">
@@ -763,6 +778,13 @@ export const LocationCreate = () => {
             value={values.name}
             onChange={(value) => setField("name", value)}
             required
+          />
+        </div>
+        <div className="form-field--wide">
+          <TextArea
+            label="Description"
+            value={values.description}
+            onChange={(value) => setField("description", value)}
           />
         </div>
         <div className="form-field--narrow">

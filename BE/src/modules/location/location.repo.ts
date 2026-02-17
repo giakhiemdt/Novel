@@ -10,6 +10,7 @@ const CREATE_LOCATION = `
 CREATE (l:${nodeLabels.location} {
   id: $id,
   name: $name,
+  description: $description,
   alias: $alias,
   type: $type,
   typeDetail: $typeDetail,
@@ -42,6 +43,7 @@ const UPDATE_LOCATION = `
 MATCH (l:${nodeLabels.location} {id: $id})
 SET
   l.name = $name,
+  l.description = $description,
   l.alias = $alias,
   l.type = $type,
   l.typeDetail = $typeDetail,
@@ -174,6 +176,7 @@ DELETE r
 const LOCATION_PARAMS = [
   "id",
   "name",
+  "description",
   "alias",
   "type",
   "typeDetail",

@@ -27,13 +27,24 @@ import type {
   EnergyConversionPayload,
   EnergyType,
   EnergyTypePayload,
+  EnergyTypeTrait,
 } from "./energy-type.types";
+
+type TraitFormState = {
+  name: string;
+  description: string;
+};
+
+const createEmptyTrait = (): TraitFormState => ({
+  name: "",
+  description: "",
+});
 
 const initialTypeState = {
   code: "",
   name: "",
   levelCount: "1",
-  levelRatiosText: "1",
+  traits: [createEmptyTrait()] as TraitFormState[],
   description: "",
   color: "#4B5563",
   isActive: true,
@@ -52,22 +63,48 @@ type TypeFormState = typeof initialTypeState;
 type ConversionFormState = typeof initialConversionState;
 const CONVERSION_LAYOUT_STORAGE_KEY = "novel.energy-conversion-layout.v1";
 
-const parseRatios = (text: string): number[] | undefined => {
-  const normalized = text.trim();
-  if (!normalized) {
-    return undefined;
+const normalizeTraits = (value: unknown): EnergyTypeTrait[] => {
+  if (!Array.isArray(value)) {
+    return [];
   }
-  return normalized
-    .split(",")
-    .map((item) => Number(item.trim()))
-    .filter((value) => Number.isFinite(value));
+  const next: EnergyTypeTrait[] = [];
+  value.forEach((item) => {
+    if (typeof item === "string") {
+      const name = item.trim();
+      if (name) {
+        next.push({ name });
+      }
+      return;
+    }
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return;
+    }
+    const raw = item as Record<string, unknown>;
+    if (typeof raw.name !== "string") {
+      return;
+    }
+    const name = raw.name.trim();
+    if (!name) {
+      return;
+    }
+    const description =
+      typeof raw.description === "string" && raw.description.trim().length > 0
+        ? raw.description.trim()
+        : undefined;
+    next.push({
+      name,
+      ...(description !== undefined ? { description } : {}),
+    });
+  });
+  return next;
 };
 
-const formatRatios = (ratios: number[] | undefined): string => {
-  if (!ratios || ratios.length === 0) {
-    return "";
-  }
-  return ratios.join(", ");
+const toTraitFormState = (traits: EnergyTypeTrait[] | undefined): TraitFormState[] => {
+  const normalized = normalizeTraits(traits).map((trait) => ({
+    name: trait.name,
+    description: trait.description ?? "",
+  }));
+  return normalized.length > 0 ? normalized : [createEmptyTrait()];
 };
 
 export const EnergyTypeCreate = () => {
@@ -104,7 +141,10 @@ export const EnergyTypeCreate = () => {
   const loadItems = useCallback(async () => {
     try {
       const data = await getEnergyTypes(false);
-      const next = data ?? [];
+      const next = (data ?? []).map((item) => ({
+        ...item,
+        traits: normalizeTraits(item.traits),
+      }));
       setItems(next);
       setConversionForm((prev) => {
         const fallbackFrom = prev.fromId || (next.length > 0 ? next[0].id : "");
@@ -185,7 +225,7 @@ export const EnergyTypeCreate = () => {
       typeof item.levelCount === "number" && Number.isFinite(item.levelCount)
         ? String(Math.max(1, Math.floor(item.levelCount)))
         : "1",
-    levelRatiosText: formatRatios(item.levelRatios),
+    traits: toTraitFormState(item.traits),
     description: item.description ?? "",
     color: item.color ?? "#4B5563",
     isActive: item.isActive,
@@ -197,12 +237,21 @@ export const EnergyTypeCreate = () => {
       Number.isFinite(parsedLevelCount) && parsedLevelCount >= 1
         ? Math.floor(parsedLevelCount)
         : 1;
-    const ratios = parseRatios(state.levelRatiosText) ?? [];
+    const traits = state.traits
+      .map((trait) => ({
+        name: trait.name.trim(),
+        description: trait.description.trim(),
+      }))
+      .filter((trait) => trait.name.length > 0)
+      .map((trait) => ({
+        name: trait.name,
+        ...(trait.description.length > 0 ? { description: trait.description } : {}),
+      }));
     return {
       code: state.code.trim().toLowerCase(),
       name: state.name.trim(),
       levelCount,
-      levelRatios: ratios.length > 0 ? ratios : undefined,
+      traits: traits.length > 0 ? traits : undefined,
       description: state.description.trim() || undefined,
       color: state.color.trim() || undefined,
       isActive: state.isActive,
@@ -233,10 +282,6 @@ export const EnergyTypeCreate = () => {
       notify(t("Level count must be an integer >= 1."), "error");
       return false;
     }
-    if (payload.levelRatios && payload.levelRatios.length !== payload.levelCount) {
-      notify(t("Level ratios must have same length as level count."), "error");
-      return false;
-    }
     return true;
   };
 
@@ -254,6 +299,39 @@ export const EnergyTypeCreate = () => {
       return false;
     }
     return true;
+  };
+
+  const handleTraitFieldChange = (
+    index: number,
+    key: keyof TraitFormState,
+    value: string
+  ) => {
+    setForm((prev) => {
+      const nextTraits = prev.traits.map((trait, traitIndex) =>
+        traitIndex === index ? { ...trait, [key]: value } : trait
+      );
+      return { ...prev, traits: nextTraits };
+    });
+  };
+
+  const handleAddTrait = () => {
+    setForm((prev) => ({
+      ...prev,
+      traits: [...prev.traits, createEmptyTrait()],
+    }));
+  };
+
+  const handleRemoveTrait = (index: number) => {
+    setForm((prev) => {
+      if (prev.traits.length <= 1) {
+        return prev;
+      }
+      const nextTraits = prev.traits.filter((_, traitIndex) => traitIndex !== index);
+      return {
+        ...prev,
+        traits: nextTraits.length > 0 ? nextTraits : [createEmptyTrait()],
+      };
+    });
   };
 
   const mapConversionToForm = (item: EnergyConversion): ConversionFormState => ({
@@ -281,7 +359,10 @@ export const EnergyTypeCreate = () => {
     const code = filters.code.trim().toLowerCase();
     return items.filter((item) => {
       if (q) {
-        const text = `${item.name ?? ""} ${item.code ?? ""} ${item.description ?? ""}`.toLowerCase();
+        const traitText = normalizeTraits(item.traits)
+          .map((trait) => `${trait.name} ${trait.description ?? ""}`)
+          .join(" ");
+        const text = `${item.name ?? ""} ${item.code ?? ""} ${item.description ?? ""} ${traitText}`.toLowerCase();
         if (!text.includes(q)) {
           return false;
         }
@@ -457,7 +538,7 @@ export const EnergyTypeCreate = () => {
         code: item.code,
         name: item.name,
         levelCount: item.levelCount,
-        levelRatios: item.levelRatios,
+        traits: item.traits,
         description: item.description,
         color: item.color,
         isActive: !item.isActive,
@@ -591,7 +672,7 @@ export const EnergyTypeCreate = () => {
                       <th>{t("Code")}</th>
                       <th>{t("Name")}</th>
                       <th>{t("Levels")}</th>
-                      <th>{t("Ratios")}</th>
+                      <th>{t("Traits")}</th>
                       <th>{t("Active")}</th>
                       <th>{t("Actions")}</th>
                     </tr>
@@ -602,7 +683,22 @@ export const EnergyTypeCreate = () => {
                         <td>{item.code}</td>
                         <td>{item.name}</td>
                         <td>{item.levelCount ?? "-"}</td>
-                        <td>{item.levelRatios?.join(", ") ?? "-"}</td>
+                        <td>
+                          {item.traits && item.traits.length > 0 ? (
+                            <div className="pill-list">
+                              {item.traits.map((trait) => (
+                                <span
+                                  className="pill"
+                                  key={`${item.id}-${trait.name}-${trait.description ?? ""}`}
+                                >
+                                  {trait.name}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
                         <td>{item.isActive ? t("Yes") : t("No")}</td>
                         <td className="table__actions">
                           <button
@@ -700,7 +796,7 @@ export const EnergyTypeCreate = () => {
       {showForm && (
       <FormSection
         title={editingId ? "Edit energy type" : "Create energy type"}
-        description="Define reusable energy metadata and level ratios."
+        description="Define reusable energy metadata."
       >
         <div className="form-field--narrow">
           <TextInput
@@ -728,12 +824,48 @@ export const EnergyTypeCreate = () => {
           />
         </div>
         <div className="form-field--wide">
-          <TextInput
-            label="Level ratios"
-            value={form.levelRatiosText}
-            onChange={(value) => setForm((prev) => ({ ...prev, levelRatiosText: value }))}
-            placeholder="1, 2, 4, 8"
-          />
+          <label>{t("Traits")}</label>
+          <div className="trait-editor">
+            {form.traits.map((trait, index) => (
+              <div className="trait-editor__row" key={`trait-row-${index}`}>
+                <input
+                  className="input trait-editor__name"
+                  placeholder={t("Trait name")}
+                  value={trait.name}
+                  onChange={(event) =>
+                    handleTraitFieldChange(index, "name", event.target.value)
+                  }
+                />
+                <input
+                  className="input trait-editor__description"
+                  placeholder={t("Trait description")}
+                  value={trait.description}
+                  onChange={(event) =>
+                    handleTraitFieldChange(index, "description", event.target.value)
+                  }
+                />
+                {form.traits.length > 1 ? (
+                  <button
+                    type="button"
+                    className="table__action table__action--danger trait-editor__remove"
+                    onClick={() => handleRemoveTrait(index)}
+                    aria-label={t("Remove trait")}
+                  >
+                    -
+                  </button>
+                ) : null}
+              </div>
+            ))}
+            <div className="trait-editor__actions">
+              <button
+                type="button"
+                className="table__action table__action--ghost"
+                onClick={handleAddTrait}
+              >
+                + {t("Add trait")}
+              </button>
+            </div>
+          </div>
         </div>
         <div className="form-field--wide">
           <TextArea

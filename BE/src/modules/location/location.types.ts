@@ -1,6 +1,7 @@
 export type LocationInput = {
   id?: string;
   name: string;
+  description?: string;
   alias?: string[];
   type?: string;
   typeDetail?: string;

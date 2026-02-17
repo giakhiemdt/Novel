@@ -790,6 +790,20 @@ export const RankCreate = () => {
               </div>
             </FilterPanel>
             <ListPanel open={showList} onToggle={() => setShowList((prev) => !prev)} />
+            <div className="filter-block">
+              <button
+                type="button"
+                className="filter-toggle"
+                onClick={() => setShowBoard((prev) => !prev)}
+                aria-expanded={showBoard}
+              >
+                <img className="filter-toggle__icon" src={boardIcon} alt={t("Board")} />
+                <span className="filter-toggle__label">
+                  {showBoard ? t("Hide board") : t("Show board")}
+                </span>
+              </button>
+              {showBoard && <p className="header__subtitle">{t("Board")}</p>}
+            </div>
           </>
         }
         list={
@@ -819,20 +833,6 @@ export const RankCreate = () => {
           ) : null
         }
       />
-      <div className="filter-block">
-        <button
-          type="button"
-          className="filter-toggle"
-          onClick={() => setShowBoard((prev) => !prev)}
-          aria-expanded={showBoard}
-        >
-          <img className="filter-toggle__icon" src={boardIcon} alt={t("Board")} />
-          <span className="filter-toggle__label">
-            {showBoard ? t("Hide board") : t("Show board")}
-          </span>
-        </button>
-        {showBoard && <p className="header__subtitle">{t("Board")}</p>}
-      </div>
       {showBoard && (
         <RankBoard
           items={visibleBoardItems}

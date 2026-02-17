@@ -183,6 +183,11 @@ const validateLocationPayload = (payload: unknown): LocationInput => {
   };
 
   addIfDefined(result, "id", assertOptionalString(data.id, "id"));
+  addIfDefined(
+    result,
+    "description",
+    assertOptionalString(data.description, "description")
+  );
   addIfDefined(result, "alias", assertOptionalStringArray(data.alias, "alias"));
   addIfDefined(result, "type", assertRequiredString(data.type, "type"));
   addIfDefined(

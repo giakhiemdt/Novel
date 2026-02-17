@@ -66,6 +66,7 @@ export const locationRoutes: RouteConfig[] = [
         properties: {
           id: { type: "string" },
           name: { type: "string" },
+          description: { type: "string" },
           alias: { type: "array", items: { type: "string" } },
           type: { type: "string" },
           typeDetail: { type: "string" },
@@ -99,6 +100,7 @@ export const locationRoutes: RouteConfig[] = [
               properties: {
                 id: { type: "string" },
                 name: { type: "string" },
+                description: { type: "string" },
                 alias: { type: "array", items: { type: "string" } },
                 type: { type: "string" },
                 typeDetail: { type: "string" },
@@ -147,6 +149,7 @@ export const locationRoutes: RouteConfig[] = [
         properties: {
           id: { type: "string" },
           name: { type: "string" },
+          description: { type: "string" },
           alias: { type: "array", items: { type: "string" } },
           type: { type: "string" },
           typeDetail: { type: "string" },
@@ -180,6 +183,7 @@ export const locationRoutes: RouteConfig[] = [
               properties: {
                 id: { type: "string" },
                 name: { type: "string" },
+                description: { type: "string" },
                 alias: { type: "array", items: { type: "string" } },
                 type: { type: "string" },
                 typeDetail: { type: "string" },

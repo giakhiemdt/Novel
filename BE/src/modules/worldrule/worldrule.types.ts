@@ -2,10 +2,18 @@ export type WorldRuleStatus = "draft" | "active" | "deprecated";
 
 export type WorldRuleInput = {
   id?: string;
+  ruleCode?: string;
   title: string;
+  tldr?: string;
   category?: string;
   description?: string;
-  scope?: string;
+  scope?: string[];
+  timelineIds?: string[];
+  triggerConditions?: string[];
+  coreRules?: string[];
+  consequences?: string[];
+  examples?: string[];
+  relatedRuleCodes?: string[];
   constraints?: string;
   exceptions?: string;
   status?: WorldRuleStatus;

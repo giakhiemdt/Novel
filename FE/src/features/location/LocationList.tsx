@@ -37,6 +37,16 @@ export const LocationList = ({
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
+  const formatDisplayName = (item: Location) => {
+    const aliases = (item.alias ?? [])
+      .map((alias) => alias.trim())
+      .filter((alias) => alias.length > 0);
+    if (aliases.length === 0) {
+      return item.name;
+    }
+    return `${item.name} - ${aliases.join(", ")}`;
+  };
+
   const renderValue = (value: unknown) => {
     if (Array.isArray(value)) {
       if (value.length === 0) {
@@ -66,6 +76,7 @@ export const LocationList = ({
       title: t("Location Identity"),
       fields: [
         { label: t("Name"), value: item.name, size: "wide" },
+        { label: t("Description"), value: item.description, size: "wide" },
         { label: t("Alias"), value: item.alias, size: "wide" },
         { label: t("Type"), value: item.type ? t(item.type) : "-", size: "narrow" },
         {
@@ -227,7 +238,12 @@ export const LocationList = ({
             >
               {hasChildren ? (isCollapsed ? "▸" : "▾") : "•"}
             </button>
-            <strong>{item.name}</strong>
+            <div className="tree-row__name">
+              <strong>{formatDisplayName(item)}</strong>
+              {item.description ? (
+                <span className="tree-row__description">{item.description}</span>
+              ) : null}
+            </div>
             <span className="tree-row__meta">
               {item.type ? t(item.type) : "-"}
             </span>

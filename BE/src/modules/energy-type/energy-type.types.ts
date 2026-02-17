@@ -1,9 +1,15 @@
+export type EnergyTypeTrait = {
+  name: string;
+  description?: string;
+};
+
 export type EnergyTypeInput = {
   id?: string;
   code: string;
   name: string;
   levelCount?: number;
   levelRatios?: number[];
+  traits?: Array<EnergyTypeTrait | string>;
   description?: string;
   color?: string;
   isActive?: boolean;
@@ -15,6 +21,7 @@ export type EnergyTypeNode = {
   name: string;
   levelCount?: number;
   levelRatios?: number[];
+  traits?: Array<EnergyTypeTrait | string>;
   description?: string;
   color?: string;
   isActive: boolean;

@@ -65,6 +65,49 @@ const assertOptionalStringArray = (
   return value;
 };
 
+const assertOptionalScopeList = (value: unknown): string[] | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? [trimmed] : undefined;
+  }
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
+    throw new AppError("scope must be an array of strings", 400);
+  }
+  const normalized = value
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+  if (normalized.length === 0) {
+    return undefined;
+  }
+  return Array.from(new Set(normalized));
+};
+
+const assertOptionalStringList = (
+  value: unknown,
+  field: string
+): string[] | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? [trimmed] : undefined;
+  }
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
+    throw new AppError(`${field} must be an array of strings`, 400);
+  }
+  const normalized = value
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+  if (normalized.length === 0) {
+    return undefined;
+  }
+  return Array.from(new Set(normalized));
+};
+
 const assertOptionalEnum = <T extends string>(
   value: unknown,
   allowed: T[],
@@ -156,13 +199,45 @@ const validateRulePayload = (payload: unknown): WorldRuleInput => {
   };
 
   addIfDefined(result, "id", assertOptionalString(data.id, "id"));
+  addIfDefined(result, "ruleCode", assertOptionalString(data.ruleCode, "ruleCode"));
+  addIfDefined(result, "tldr", assertOptionalString(data.tldr, "tldr"));
   addIfDefined(result, "category", assertOptionalString(data.category, "category"));
   addIfDefined(
     result,
     "description",
     assertOptionalString(data.description, "description")
   );
-  addIfDefined(result, "scope", assertOptionalString(data.scope, "scope"));
+  addIfDefined(result, "scope", assertOptionalScopeList(data.scope));
+  addIfDefined(
+    result,
+    "timelineIds",
+    assertOptionalStringList(data.timelineIds, "timelineIds")
+  );
+  addIfDefined(
+    result,
+    "triggerConditions",
+    assertOptionalStringList(data.triggerConditions, "triggerConditions")
+  );
+  addIfDefined(
+    result,
+    "coreRules",
+    assertOptionalStringList(data.coreRules, "coreRules")
+  );
+  addIfDefined(
+    result,
+    "consequences",
+    assertOptionalStringList(data.consequences, "consequences")
+  );
+  addIfDefined(
+    result,
+    "examples",
+    assertOptionalStringList(data.examples, "examples")
+  );
+  addIfDefined(
+    result,
+    "relatedRuleCodes",
+    assertOptionalStringList(data.relatedRuleCodes, "relatedRuleCodes")
+  );
   addIfDefined(
     result,
     "constraints",

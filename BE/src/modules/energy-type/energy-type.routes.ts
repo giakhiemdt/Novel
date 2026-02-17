@@ -44,6 +44,22 @@ export const energyTypeRoutes: RouteConfig[] = [
           name: { type: "string" },
           levelCount: { type: "number" },
           levelRatios: { type: "array", items: { type: "number" } },
+          traits: {
+            type: "array",
+            items: {
+              anyOf: [
+                { type: "string" },
+                {
+                  type: "object",
+                  required: ["name"],
+                  properties: {
+                    name: { type: "string" },
+                    description: { type: "string" },
+                  },
+                },
+              ],
+            },
+          },
           description: { type: "string" },
           color: { type: "string" },
           isActive: { type: "boolean" },
@@ -71,6 +87,22 @@ export const energyTypeRoutes: RouteConfig[] = [
           name: { type: "string" },
           levelCount: { type: "number" },
           levelRatios: { type: "array", items: { type: "number" } },
+          traits: {
+            type: "array",
+            items: {
+              anyOf: [
+                { type: "string" },
+                {
+                  type: "object",
+                  required: ["name"],
+                  properties: {
+                    name: { type: "string" },
+                    description: { type: "string" },
+                  },
+                },
+              ],
+            },
+          },
           description: { type: "string" },
           color: { type: "string" },
           isActive: { type: "boolean" },

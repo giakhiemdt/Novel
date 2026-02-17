@@ -4,14 +4,40 @@ import type { WorldRule } from "./worldrule.types";
 
 export type WorldRuleListProps = {
   items: WorldRule[];
+  locationNameById: Record<string, string>;
+  timelineNameById: Record<string, string>;
   onSelect?: (item: WorldRule) => void;
   onEdit?: (item: WorldRule) => void;
   onDelete?: (item: WorldRule) => void;
 };
 
-export const WorldRuleList = ({ items, onSelect, onEdit, onDelete }: WorldRuleListProps) => {
+const normalizeStringList = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === "string");
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    return [value.trim()];
+  }
+  return [];
+};
+
+export const WorldRuleList = ({
+  items,
+  locationNameById,
+  timelineNameById,
+  onSelect,
+  onEdit,
+  onDelete,
+}: WorldRuleListProps) => {
   const { t } = useI18n();
   const [detailItem, setDetailItem] = useState<WorldRule | null>(null);
+
+  const mapScopeLocations = (scope: unknown) =>
+    normalizeStringList(scope).map((locationId) => locationNameById[locationId] ?? locationId);
+  const mapTimelines = (timelineIds: unknown) =>
+    normalizeStringList(timelineIds).map(
+      (timelineId) => timelineNameById[timelineId] ?? timelineId
+    );
 
   if (items.length === 0) {
     return <p className="header__subtitle">{t("No world rules yet.")}</p>;
@@ -42,10 +68,12 @@ export const WorldRuleList = ({ items, onSelect, onEdit, onDelete }: WorldRuleLi
     {
       title: t("World Rule"),
       fields: [
+        { label: t("Rule Code"), value: item.ruleCode, size: "narrow" },
         { label: t("Title"), value: item.title, size: "wide" },
+        { label: t("TLDR"), value: item.tldr, size: "wide" },
         { label: t("Status"), value: item.status ? t(item.status) : "-", size: "narrow" },
         { label: t("Category"), value: item.category, size: "wide" },
-        { label: t("Scope"), value: item.scope, size: "wide" },
+        { label: t("Scope"), value: mapScopeLocations(item.scope), size: "wide" },
         { label: t("Version"), value: item.version, size: "narrow" },
       ],
     },
@@ -53,6 +81,23 @@ export const WorldRuleList = ({ items, onSelect, onEdit, onDelete }: WorldRuleLi
       title: t("Details"),
       fields: [
         { label: t("Description"), value: item.description, size: "wide" },
+        {
+          label: t("Trigger Conditions"),
+          value: normalizeStringList(item.triggerConditions),
+          size: "wide",
+        },
+        { label: t("Core Rules"), value: normalizeStringList(item.coreRules), size: "wide" },
+        {
+          label: t("Consequences"),
+          value: normalizeStringList(item.consequences),
+          size: "wide",
+        },
+        { label: t("Examples"), value: normalizeStringList(item.examples), size: "wide" },
+        {
+          label: t("Related Rule Codes"),
+          value: normalizeStringList(item.relatedRuleCodes),
+          size: "wide",
+        },
         { label: t("Constraints"), value: item.constraints, size: "wide" },
         { label: t("Exceptions"), value: item.exceptions, size: "wide" },
       ],
@@ -60,6 +105,7 @@ export const WorldRuleList = ({ items, onSelect, onEdit, onDelete }: WorldRuleLi
     {
       title: t("Timeline"),
       fields: [
+        { label: t("Timeline"), value: mapTimelines(item.timelineIds), size: "wide" },
         { label: t("Valid From"), value: item.validFrom, size: "narrow" },
         { label: t("Valid To"), value: item.validTo, size: "narrow" },
       ],
@@ -78,6 +124,7 @@ export const WorldRuleList = ({ items, onSelect, onEdit, onDelete }: WorldRuleLi
       <table className="table table--clean">
         <thead>
           <tr>
+            <th>{t("Rule Code")}</th>
             <th>{t("Title")}</th>
             <th>{t("Category")}</th>
             <th>{t("Status")}</th>
@@ -100,12 +147,14 @@ export const WorldRuleList = ({ items, onSelect, onEdit, onDelete }: WorldRuleLi
               tabIndex={0}
               role="button"
             >
+              <td>{item.ruleCode ?? "-"}</td>
               <td>
                 <strong>{item.title}</strong>
+                {item.tldr ? <p className="header__subtitle">{item.tldr}</p> : null}
               </td>
               <td>{item.category ?? "-"}</td>
               <td>{item.status ? t(item.status) : "-"}</td>
-              <td>{item.scope ?? "-"}</td>
+              <td>{renderValue(mapScopeLocations(item.scope))}</td>
               <td className="table__actions">
                 <button
                   type="button"

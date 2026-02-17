@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/common/Button";
 import { FilterPanel } from "../../components/common/FilterPanel";
 import { Pagination } from "../../components/common/Pagination";
@@ -13,6 +13,10 @@ import { TextInput } from "../../components/form/TextInput";
 import { useForm } from "../../hooks/useForm";
 import { useProjectChange } from "../../hooks/useProjectChange";
 import { useI18n } from "../../i18n/I18nProvider";
+import { getAllLocations } from "../location/location.api";
+import type { Location } from "../location/location.types";
+import { getAllTimelines } from "../timeline/timeline.api";
+import type { Timeline } from "../timeline/timeline.types";
 import {
   createWorldRule,
   deleteWorldRule,
@@ -24,10 +28,18 @@ import type { WorldRule, WorldRulePayload, WorldRuleStatus } from "./worldrule.t
 import { WorldRuleList } from "./WorldRuleList";
 
 const initialState = {
+  ruleCode: "",
   title: "",
+  tldr: "",
   category: "",
   description: "",
-  scope: "",
+  scope: [] as string[],
+  timelineIds: [] as string[],
+  triggerConditions: [] as string[],
+  coreRules: [] as string[],
+  consequences: [] as string[],
+  examples: [] as string[],
+  relatedRuleCodes: [] as string[],
   constraints: "",
   exceptions: "",
   status: "draft" as WorldRuleStatus,
@@ -42,10 +54,36 @@ type WorldRuleFormState = typeof initialState;
 
 const STATUS_OPTIONS: WorldRuleStatus[] = ["draft", "active", "deprecated"];
 
+const normalizeStringList = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return Array.from(
+      new Set(
+        value
+          .filter((item): item is string => typeof item === "string")
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0)
+      )
+    );
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return [];
+    }
+    return [trimmed];
+  }
+  return [];
+};
+
 export const WorldRuleCreate = () => {
   const { t } = useI18n();
   const { values, setField, reset } = useForm<WorldRuleFormState>(initialState);
   const [items, setItems] = useState<WorldRule[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [timelines, setTimelines] = useState<Timeline[]>([]);
+  const [relatedRuleCodeOptions, setRelatedRuleCodeOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<WorldRule | null>(null);
   const [editValues, setEditValues] = useState<WorldRuleFormState | null>(null);
@@ -65,6 +103,40 @@ export const WorldRuleCreate = () => {
   });
   const [refreshKey, setRefreshKey] = useState(0);
   const { notify } = useToast();
+  const locationNameById = useMemo(
+    () =>
+      Object.fromEntries(
+        locations.map((location) => [location.id, location.name])
+      ) as Record<string, string>,
+    [locations]
+  );
+  const timelineNameById = useMemo(
+    () =>
+      Object.fromEntries(
+        timelines.map((timeline) => [timeline.id, timeline.name])
+      ) as Record<string, string>,
+    [timelines]
+  );
+
+  const addSelection = (current: string[], itemId: string) => {
+    if (!itemId || current.includes(itemId)) {
+      return current;
+    }
+    return [...current, itemId];
+  };
+
+  const removeSelection = (current: string[], itemId: string) =>
+    current.filter((item) => item !== itemId);
+
+  const getAvailableRelatedRuleOptions = (
+    selectedCodes: string[],
+    currentRuleCode: string
+  ) =>
+    relatedRuleCodeOptions.filter(
+      (option) =>
+        !selectedCodes.includes(option.value) &&
+        (currentRuleCode.trim().length === 0 || option.value !== currentRuleCode.trim())
+    );
 
   const loadItems = useCallback(async () => {
     try {
@@ -78,6 +150,16 @@ export const WorldRuleCreate = () => {
       const total = typeof response?.meta?.total === "number" ? response.meta.total : undefined;
       const nextPage = total !== undefined ? offset + Math.min(data.length, pageSize) < total : data.length > pageSize;
       const trimmed = nextPage ? data.slice(0, pageSize) : data;
+      const normalized = trimmed.map((item) => ({
+        ...item,
+        scope: normalizeStringList(item.scope),
+        timelineIds: normalizeStringList(item.timelineIds),
+        triggerConditions: normalizeStringList(item.triggerConditions),
+        coreRules: normalizeStringList(item.coreRules),
+        consequences: normalizeStringList(item.consequences),
+        examples: normalizeStringList(item.examples),
+        relatedRuleCodes: normalizeStringList(item.relatedRuleCodes),
+      }));
       setTotalCount(total);
       if (trimmed.length === 0 && page > 1) {
         setHasNext(false);
@@ -85,12 +167,86 @@ export const WorldRuleCreate = () => {
         setPage((prev) => Math.max(1, prev - 1));
         return;
       }
-      setItems(trimmed);
+      setItems(normalized);
       setHasNext(nextPage);
     } catch (err) {
       notify((err as Error).message, "error");
     }
   }, [page, pageSize, filters, notify, getWorldRulesPage]);
+
+  const loadLocations = useCallback(async () => {
+    try {
+      const data = await getAllLocations();
+      setLocations(data ?? []);
+    } catch (err) {
+      notify((err as Error).message, "error");
+    }
+  }, [notify]);
+
+  const loadTimelines = useCallback(async () => {
+    try {
+      const data = await getAllTimelines();
+      setTimelines(data ?? []);
+    } catch (err) {
+      notify((err as Error).message, "error");
+    }
+  }, [notify]);
+
+  const loadRelatedRuleCodeOptions = useCallback(async () => {
+    try {
+      const limit = 200;
+      let offset = 0;
+      let done = false;
+      const seen = new Set<string>();
+      const options: { value: string; label: string }[] = [];
+
+      while (!done) {
+        const response = await getWorldRulesPage({ limit, offset });
+        const batch = response?.data ?? [];
+        for (const rule of batch) {
+          const code =
+            typeof rule.ruleCode === "string" ? rule.ruleCode.trim() : "";
+          if (!code || seen.has(code)) {
+            continue;
+          }
+          seen.add(code);
+          const title =
+            typeof rule.title === "string" ? rule.title.trim() : "";
+          options.push({
+            value: code,
+            label: title ? `${code} - ${title}` : code,
+          });
+        }
+
+        const total =
+          typeof response?.meta?.total === "number"
+            ? response.meta.total
+            : undefined;
+        offset += batch.length;
+        if (total !== undefined) {
+          done = offset >= total || batch.length === 0;
+        } else {
+          done = batch.length < limit;
+        }
+      }
+
+      options.sort((a, b) =>
+        a.value.localeCompare(b.value, undefined, {
+          numeric: true,
+          sensitivity: "base",
+        })
+      );
+      setRelatedRuleCodeOptions(options);
+    } catch (err) {
+      notify((err as Error).message, "error");
+    }
+  }, [notify]);
+
+  useEffect(() => {
+    void loadLocations();
+    void loadTimelines();
+    void loadRelatedRuleCodeOptions();
+  }, [loadLocations, loadTimelines, loadRelatedRuleCodeOptions]);
 
   useEffect(() => {
     if (!showList) {
@@ -102,6 +258,9 @@ export const WorldRuleCreate = () => {
   useProjectChange(() => {
     setPage(1);
     setRefreshKey((prev) => prev + 1);
+    void loadLocations();
+    void loadTimelines();
+    void loadRelatedRuleCodeOptions();
   });
 
   const handleFilterChange = (
@@ -125,10 +284,18 @@ export const WorldRuleCreate = () => {
   };
 
   const mapWorldRuleToForm = (item: WorldRule): WorldRuleFormState => ({
+    ruleCode: item.ruleCode ?? "",
     title: item.title ?? "",
+    tldr: item.tldr ?? "",
     category: item.category ?? "",
     description: item.description ?? "",
-    scope: item.scope ?? "",
+    scope: normalizeStringList(item.scope),
+    timelineIds: normalizeStringList(item.timelineIds),
+    triggerConditions: normalizeStringList(item.triggerConditions),
+    coreRules: normalizeStringList(item.coreRules),
+    consequences: normalizeStringList(item.consequences),
+    examples: normalizeStringList(item.examples),
+    relatedRuleCodes: normalizeStringList(item.relatedRuleCodes),
     constraints: item.constraints ?? "",
     exceptions: item.exceptions ?? "",
     status: item.status ?? "draft",
@@ -140,10 +307,20 @@ export const WorldRuleCreate = () => {
   });
 
   const buildPayload = (state: WorldRuleFormState): WorldRulePayload => ({
+    ruleCode: state.ruleCode || undefined,
     title: state.title,
+    tldr: state.tldr || undefined,
     category: state.category || undefined,
     description: state.description || undefined,
-    scope: state.scope || undefined,
+    scope: state.scope.length > 0 ? state.scope : undefined,
+    timelineIds: state.timelineIds.length > 0 ? state.timelineIds : undefined,
+    triggerConditions:
+      state.triggerConditions.length > 0 ? state.triggerConditions : undefined,
+    coreRules: state.coreRules.length > 0 ? state.coreRules : undefined,
+    consequences: state.consequences.length > 0 ? state.consequences : undefined,
+    examples: state.examples.length > 0 ? state.examples : undefined,
+    relatedRuleCodes:
+      state.relatedRuleCodes.length > 0 ? state.relatedRuleCodes : undefined,
     constraints: state.constraints || undefined,
     exceptions: state.exceptions || undefined,
     status: state.status || undefined,
@@ -172,6 +349,7 @@ export const WorldRuleCreate = () => {
       setShowForm(false);
       setPage(1);
       setRefreshKey((prev) => prev + 1);
+      void loadRelatedRuleCodeOptions();
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -206,6 +384,7 @@ export const WorldRuleCreate = () => {
       await updateWorldRule(editItem.id, payload);
       notify(t("World rule updated successfully."), "success");
       setRefreshKey((prev) => prev + 1);
+      void loadRelatedRuleCodeOptions();
     } catch (err) {
       notify((err as Error).message, "error");
     } finally {
@@ -227,6 +406,7 @@ export const WorldRuleCreate = () => {
         handleEditCancel();
       }
       setRefreshKey((prev) => prev + 1);
+      void loadRelatedRuleCodeOptions();
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -269,10 +449,15 @@ export const WorldRuleCreate = () => {
                 }))}
                 placeholder="All"
               />
-              <TextInput
+              <Select
                 label="Scope"
                 value={filters.scope}
                 onChange={(value) => handleFilterChange("scope", value)}
+                options={locations.map((location) => ({
+                  value: location.id,
+                  label: location.name,
+                }))}
+                placeholder={locations.length > 0 ? "All" : "No locations yet."}
               />
               <TextInput
                 label="Tag"
@@ -291,7 +476,13 @@ export const WorldRuleCreate = () => {
         list={
           showList ? (
             <>
-              <WorldRuleList items={items} onEdit={handleEditOpen} onDelete={handleDelete} />
+              <WorldRuleList
+                items={items}
+                locationNameById={locationNameById}
+                timelineNameById={timelineNameById}
+                onEdit={handleEditOpen}
+                onDelete={handleDelete}
+              />
               {items.length > 0 || page > 1 || hasNext ? (
                 <Pagination
                   page={page}
@@ -326,6 +517,16 @@ export const WorldRuleCreate = () => {
           </div>
 
           <FormSection title="World Rule" description="Core rule definition.">
+            <div className="form-field--narrow">
+              <TextInput
+                label="Rule Code"
+                value={editValues.ruleCode}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, ruleCode: value })
+                }
+                placeholder="WL-00"
+              />
+            </div>
             <div className="form-field--wide">
               <TextInput
                 label="Title"
@@ -334,6 +535,15 @@ export const WorldRuleCreate = () => {
                   setEditValues((prev) => prev && { ...prev, title: value })
                 }
                 required
+              />
+            </div>
+            <div className="form-field--wide">
+              <TextArea
+                label="TLDR"
+                value={editValues.tldr}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, tldr: value })
+                }
               />
             </div>
             <div className="form-field--narrow">
@@ -356,13 +566,48 @@ export const WorldRuleCreate = () => {
               />
             </div>
             <div className="form-field--wide">
-              <TextInput
+              <Select
                 label="Scope"
-                value={editValues.scope}
+                value=""
                 onChange={(value) =>
-                  setEditValues((prev) => prev && { ...prev, scope: value })
+                  setEditValues((prev) =>
+                    prev
+                      ? { ...prev, scope: addSelection(prev.scope, value) }
+                      : prev
+                  )
                 }
+                options={locations
+                  .filter((location) => !editValues.scope.includes(location.id))
+                  .map((location) => ({
+                    value: location.id,
+                    label: location.name,
+                  }))}
+                placeholder={locations.length > 0 ? "Select" : "No locations yet."}
+                disabled={locations.length === 0}
               />
+              {editValues.scope.length > 0 ? (
+                <div className="pill-list">
+                  {editValues.scope.map((locationId) => (
+                    <button
+                      type="button"
+                      className="pill"
+                      key={locationId}
+                      onClick={() =>
+                        setEditValues((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                scope: removeSelection(prev.scope, locationId),
+                              }
+                            : prev
+                        )
+                      }
+                    >
+                      {(locationNameById[locationId] ?? locationId)} ✕
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
             <div className="form-field--wide">
               <TextArea
@@ -372,6 +617,106 @@ export const WorldRuleCreate = () => {
                   setEditValues((prev) => prev && { ...prev, description: value })
                 }
               />
+            </div>
+          </FormSection>
+
+          <FormSection
+            title="Rule Structure"
+            description="Break complex rules into quick lookup blocks."
+          >
+            <div className="form-field--wide">
+              <MultiSelect
+                label="Trigger Conditions"
+                values={editValues.triggerConditions}
+                onChange={(value) =>
+                  setEditValues((prev) =>
+                    prev ? { ...prev, triggerConditions: value } : prev
+                  )
+                }
+              />
+            </div>
+            <div className="form-field--wide">
+              <MultiSelect
+                label="Core Rules"
+                values={editValues.coreRules}
+                onChange={(value) =>
+                  setEditValues((prev) =>
+                    prev ? { ...prev, coreRules: value } : prev
+                  )
+                }
+              />
+            </div>
+            <div className="form-field--wide">
+              <MultiSelect
+                label="Consequences"
+                values={editValues.consequences}
+                onChange={(value) =>
+                  setEditValues((prev) =>
+                    prev ? { ...prev, consequences: value } : prev
+                  )
+                }
+              />
+            </div>
+            <div className="form-field--wide">
+              <MultiSelect
+                label="Examples"
+                values={editValues.examples}
+                onChange={(value) =>
+                  setEditValues((prev) =>
+                    prev ? { ...prev, examples: value } : prev
+                  )
+                }
+              />
+            </div>
+            <div className="form-field--wide">
+              <Select
+                label="Related Rule Codes"
+                value=""
+                onChange={(value) =>
+                  setEditValues((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          relatedRuleCodes: addSelection(prev.relatedRuleCodes, value),
+                        }
+                      : prev
+                  )
+                }
+                options={getAvailableRelatedRuleOptions(
+                  editValues.relatedRuleCodes,
+                  editValues.ruleCode
+                )}
+                placeholder={
+                  relatedRuleCodeOptions.length > 0 ? "Select" : "No world rules yet."
+                }
+                disabled={relatedRuleCodeOptions.length === 0}
+              />
+              {editValues.relatedRuleCodes.length > 0 ? (
+                <div className="pill-list">
+                  {editValues.relatedRuleCodes.map((ruleCode) => (
+                    <button
+                      type="button"
+                      className="pill"
+                      key={ruleCode}
+                      onClick={() =>
+                        setEditValues((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                relatedRuleCodes: removeSelection(
+                                  prev.relatedRuleCodes,
+                                  ruleCode
+                                ),
+                              }
+                            : prev
+                        )
+                      }
+                    >
+                      {ruleCode} ✕
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           </FormSection>
 
@@ -397,6 +742,53 @@ export const WorldRuleCreate = () => {
           </FormSection>
 
           <FormSection title="Timeline" description="Validity window.">
+            <div className="form-field--wide">
+              <Select
+                label="Timeline"
+                value=""
+                onChange={(value) =>
+                  setEditValues((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          timelineIds: addSelection(prev.timelineIds, value),
+                        }
+                      : prev
+                  )
+                }
+                options={timelines
+                  .filter((timeline) => !editValues.timelineIds.includes(timeline.id))
+                  .map((timeline) => ({
+                    value: timeline.id,
+                    label: timeline.name,
+                  }))}
+                placeholder={timelines.length > 0 ? "Select timeline" : "No timelines yet."}
+                disabled={timelines.length === 0}
+              />
+              {editValues.timelineIds.length > 0 ? (
+                <div className="pill-list">
+                  {editValues.timelineIds.map((timelineId) => (
+                    <button
+                      type="button"
+                      className="pill"
+                      key={timelineId}
+                      onClick={() =>
+                        setEditValues((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                timelineIds: removeSelection(prev.timelineIds, timelineId),
+                              }
+                            : prev
+                        )
+                      }
+                    >
+                      {(timelineNameById[timelineId] ?? timelineId)} ✕
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
             <div className="form-field--narrow form-field--compact">
               <TextInput
                 label="Valid From"
@@ -460,12 +852,27 @@ export const WorldRuleCreate = () => {
       {showForm && (
         <>
           <FormSection title="World Rule" description="Core rule definition.">
+            <div className="form-field--narrow">
+              <TextInput
+                label="Rule Code"
+                value={values.ruleCode}
+                onChange={(value) => setField("ruleCode", value)}
+                placeholder="WL-00"
+              />
+            </div>
             <div className="form-field--wide">
               <TextInput
                 label="Title"
                 value={values.title}
                 onChange={(value) => setField("title", value)}
                 required
+              />
+            </div>
+            <div className="form-field--wide">
+              <TextArea
+                label="TLDR"
+                value={values.tldr}
+                onChange={(value) => setField("tldr", value)}
               />
             </div>
             <div className="form-field--narrow">
@@ -484,11 +891,37 @@ export const WorldRuleCreate = () => {
               />
             </div>
             <div className="form-field--wide">
-              <TextInput
+              <Select
                 label="Scope"
-                value={values.scope}
-                onChange={(value) => setField("scope", value)}
+                value=""
+                onChange={(value) =>
+                  setField("scope", addSelection(values.scope, value))
+                }
+                options={locations
+                  .filter((location) => !values.scope.includes(location.id))
+                  .map((location) => ({
+                    value: location.id,
+                    label: location.name,
+                  }))}
+                placeholder={locations.length > 0 ? "Select" : "No locations yet."}
+                disabled={locations.length === 0}
               />
+              {values.scope.length > 0 ? (
+                <div className="pill-list">
+                  {values.scope.map((locationId) => (
+                    <button
+                      type="button"
+                      className="pill"
+                      key={locationId}
+                      onClick={() =>
+                        setField("scope", removeSelection(values.scope, locationId))
+                      }
+                    >
+                      {(locationNameById[locationId] ?? locationId)} ✕
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
             <div className="form-field--wide">
               <TextArea
@@ -496,6 +929,79 @@ export const WorldRuleCreate = () => {
                 value={values.description}
                 onChange={(value) => setField("description", value)}
               />
+            </div>
+          </FormSection>
+
+          <FormSection
+            title="Rule Structure"
+            description="Break complex rules into quick lookup blocks."
+          >
+            <div className="form-field--wide">
+              <MultiSelect
+                label="Trigger Conditions"
+                values={values.triggerConditions}
+                onChange={(value) => setField("triggerConditions", value)}
+              />
+            </div>
+            <div className="form-field--wide">
+              <MultiSelect
+                label="Core Rules"
+                values={values.coreRules}
+                onChange={(value) => setField("coreRules", value)}
+              />
+            </div>
+            <div className="form-field--wide">
+              <MultiSelect
+                label="Consequences"
+                values={values.consequences}
+                onChange={(value) => setField("consequences", value)}
+              />
+            </div>
+            <div className="form-field--wide">
+              <MultiSelect
+                label="Examples"
+                values={values.examples}
+                onChange={(value) => setField("examples", value)}
+              />
+            </div>
+            <div className="form-field--wide">
+              <Select
+                label="Related Rule Codes"
+                value=""
+                onChange={(value) =>
+                  setField(
+                    "relatedRuleCodes",
+                    addSelection(values.relatedRuleCodes, value)
+                  )
+                }
+                options={getAvailableRelatedRuleOptions(
+                  values.relatedRuleCodes,
+                  values.ruleCode
+                )}
+                placeholder={
+                  relatedRuleCodeOptions.length > 0 ? "Select" : "No world rules yet."
+                }
+                disabled={relatedRuleCodeOptions.length === 0}
+              />
+              {values.relatedRuleCodes.length > 0 ? (
+                <div className="pill-list">
+                  {values.relatedRuleCodes.map((ruleCode) => (
+                    <button
+                      type="button"
+                      className="pill"
+                      key={ruleCode}
+                      onClick={() =>
+                        setField(
+                          "relatedRuleCodes",
+                          removeSelection(values.relatedRuleCodes, ruleCode)
+                        )
+                      }
+                    >
+                      {ruleCode} ✕
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           </FormSection>
 
@@ -517,6 +1023,42 @@ export const WorldRuleCreate = () => {
           </FormSection>
 
           <FormSection title="Timeline" description="Validity window.">
+            <div className="form-field--wide">
+              <Select
+                label="Timeline"
+                value=""
+                onChange={(value) =>
+                  setField("timelineIds", addSelection(values.timelineIds, value))
+                }
+                options={timelines
+                  .filter((timeline) => !values.timelineIds.includes(timeline.id))
+                  .map((timeline) => ({
+                    value: timeline.id,
+                    label: timeline.name,
+                  }))}
+                placeholder={timelines.length > 0 ? "Select timeline" : "No timelines yet."}
+                disabled={timelines.length === 0}
+              />
+              {values.timelineIds.length > 0 ? (
+                <div className="pill-list">
+                  {values.timelineIds.map((timelineId) => (
+                    <button
+                      type="button"
+                      className="pill"
+                      key={timelineId}
+                      onClick={() =>
+                        setField(
+                          "timelineIds",
+                          removeSelection(values.timelineIds, timelineId)
+                        )
+                      }
+                    >
+                      {(timelineNameById[timelineId] ?? timelineId)} ✕
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
             <div className="form-field--narrow form-field--compact">
               <TextInput
                 label="Valid From"
