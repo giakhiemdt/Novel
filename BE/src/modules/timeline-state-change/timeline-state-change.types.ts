@@ -86,3 +86,24 @@ export type TimelineSnapshotQuery = {
   subjectType?: TimelineSubjectType;
   subjectId?: string;
 };
+
+export type TimelineProjectionQuery = TimelineSnapshotQuery;
+
+export type TimelineStateProjectionField = {
+  stateChangeId: string;
+  fieldPath: string;
+  value?: unknown;
+  rawValue?: string;
+  changeType?: string;
+  effectiveTick: number;
+  markerId?: string;
+  eventId?: string;
+  updatedAt: string;
+};
+
+export type TimelineStateProjectionSubject = {
+  subjectType: TimelineSubjectType;
+  subjectId: string;
+  state: Record<string, unknown>;
+  fields: TimelineStateProjectionField[];
+};

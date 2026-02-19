@@ -14,6 +14,9 @@ import {
 } from "./timeline-state-change.repo";
 import {
   TIMELINE_STATE_CHANGE_STATUSES,
+  TimelineProjectionQuery,
+  TimelineStateProjectionField,
+  TimelineStateProjectionSubject,
   TIMELINE_SUBJECT_TYPES,
   TimelineSnapshotQuery,
   TimelineStateChangeInput,
@@ -307,6 +310,114 @@ const parseSnapshotQuery = (query: unknown): TimelineSnapshotQuery => {
   return result;
 };
 
+const parseProjectionQuery = (query: unknown): TimelineProjectionQuery =>
+  parseSnapshotQuery(query);
+
+const parseSerializedValue = (value: string | undefined): unknown => {
+  if (value === undefined) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+};
+
+const normalizePathTokens = (fieldPath: string): string[] =>
+  fieldPath
+    .replace(/\[(\d+)\]/g, ".$1")
+    .split(".")
+    .map((token) => token.trim())
+    .filter((token) => token.length > 0);
+
+const setFieldValueByPath = (
+  root: Record<string, unknown>,
+  fieldPath: string,
+  value: unknown
+): void => {
+  const tokens = normalizePathTokens(fieldPath);
+  if (tokens.length === 0) {
+    return;
+  }
+  let current: Record<string, unknown> = root;
+
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (!token) {
+      continue;
+    }
+    const isLast = index === tokens.length - 1;
+
+    if (isLast) {
+      current[token] = value;
+      return;
+    }
+
+    const existing = current[token];
+    if (existing && typeof existing === "object" && !Array.isArray(existing)) {
+      current = existing as Record<string, unknown>;
+      continue;
+    }
+
+    const childContainer: Record<string, unknown> = {};
+    current[token] = childContainer;
+    current = childContainer;
+  }
+};
+
+const removalChangeTypes = new Set(["remove", "delete", "unset"]);
+
+const buildProjectionFromSnapshot = (
+  snapshot: TimelineStateChangeNode[]
+): TimelineStateProjectionSubject[] => {
+  const grouped = new Map<string, TimelineStateProjectionSubject>();
+
+  for (const change of snapshot) {
+    const groupKey = `${change.subjectType}:${change.subjectId}`;
+    const existing = grouped.get(groupKey);
+    const subject: TimelineStateProjectionSubject =
+      existing ??
+      ({
+        subjectType: change.subjectType,
+        subjectId: change.subjectId,
+        state: {},
+        fields: [],
+      } as TimelineStateProjectionSubject);
+
+    const normalizedChangeType = (change.changeType ?? "").trim().toLowerCase();
+    const isRemoval = removalChangeTypes.has(normalizedChangeType);
+    const parsedValue = parseSerializedValue(change.newValue);
+
+    if (!isRemoval) {
+      if (parsedValue === undefined) {
+        setFieldValueByPath(subject.state, change.fieldPath, null);
+      } else {
+        setFieldValueByPath(subject.state, change.fieldPath, parsedValue);
+      }
+    }
+
+    const fieldData: Record<string, unknown> = {
+      stateChangeId: change.id,
+      fieldPath: change.fieldPath,
+      effectiveTick: change.effectiveTick,
+      updatedAt: change.updatedAt,
+    };
+    if (!isRemoval) {
+      addIfDefined(fieldData, "value", parsedValue ?? null);
+    }
+    addIfDefined(fieldData, "rawValue", change.newValue);
+    addIfDefined(fieldData, "changeType", change.changeType);
+    addIfDefined(fieldData, "markerId", change.markerId);
+    addIfDefined(fieldData, "eventId", change.eventId);
+    const field = fieldData as TimelineStateProjectionField;
+    subject.fields.push(field);
+    grouped.set(groupKey, subject);
+  }
+
+  return Array.from(grouped.values());
+};
+
 const resolveStateChangeRefs = async (
   database: string,
   input: TimelineStateChangeInput
@@ -442,6 +553,31 @@ export const timelineStateChangeService = {
     }
     const data = await getTimelineStateSnapshot(database, parsedQuery);
     return { data, meta: parsedQuery };
+  },
+
+  getProjection: async (
+    dbName: unknown,
+    query: unknown
+  ): Promise<{
+    data: TimelineStateProjectionSubject[];
+    meta: TimelineProjectionQuery & { subjectCount: number; fieldCount: number };
+  }> => {
+    const database = assertDatabaseName(dbName);
+    const parsedQuery = parseProjectionQuery(query);
+    const axisExists = await checkTimelineAxisExists(database, parsedQuery.axisId);
+    if (!axisExists) {
+      throw new AppError("axis not found", 404);
+    }
+    const snapshot = await getTimelineStateSnapshot(database, parsedQuery);
+    const projected = buildProjectionFromSnapshot(snapshot);
+    return {
+      data: projected,
+      meta: {
+        ...parsedQuery,
+        subjectCount: projected.length,
+        fieldCount: snapshot.length,
+      },
+    };
   },
 
   delete: async (id: string, dbName: unknown): Promise<void> => {

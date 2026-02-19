@@ -111,6 +111,7 @@ Backend quản lý dữ liệu tiểu thuyết dài hạn (worldbuilding + cấu
 - `PUT /timeline-state-changes/:id`
 - `DELETE /timeline-state-changes/:id`
 - `GET /timeline-state-changes/snapshot` (query `axisId` + `tick`)
+- `GET /timeline-state-changes/projection` (project trạng thái thực thể tại `axisId` + `tick`)
 
 ### Location
 - `GET /locations` (pagination + filter + search `q`)

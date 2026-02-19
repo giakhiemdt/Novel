@@ -127,6 +127,79 @@ export const timelineStateChangeRoutes: RouteConfig[] = [
     },
   },
   {
+    method: "GET",
+    path: "/timeline-state-changes/projection",
+    handler: timelineStateChangeController.getStateProjection,
+    schema: {
+      tags: ["Timeline State Change"],
+      summary: "Get projected entity state at a tick",
+      querystring: {
+        type: "object",
+        required: ["axisId", "tick"],
+        properties: {
+          axisId: { type: "string" },
+          tick: { type: "number" },
+          subjectType: { type: "string", enum: [...TIMELINE_SUBJECT_TYPES] },
+          subjectId: { type: "string" },
+        },
+      },
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            data: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  subjectType: {
+                    type: "string",
+                    enum: [...TIMELINE_SUBJECT_TYPES],
+                  },
+                  subjectId: { type: "string" },
+                  state: { type: "object", additionalProperties: true },
+                  fields: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        stateChangeId: { type: "string" },
+                        fieldPath: { type: "string" },
+                        value: {},
+                        rawValue: { type: "string" },
+                        changeType: { type: "string" },
+                        effectiveTick: { type: "number" },
+                        markerId: { type: "string" },
+                        eventId: { type: "string" },
+                        updatedAt: { type: "string", format: "date-time" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            meta: {
+              type: "object",
+              properties: {
+                axisId: { type: "string" },
+                tick: { type: "number" },
+                subjectType: {
+                  type: "string",
+                  enum: [...TIMELINE_SUBJECT_TYPES],
+                },
+                subjectId: { type: "string" },
+                subjectCount: { type: "number" },
+                fieldCount: { type: "number" },
+              },
+            },
+          },
+        },
+        400: errorSchema,
+        404: errorSchema,
+      },
+    },
+  },
+  {
     method: "POST",
     path: "/timeline-state-changes",
     handler: timelineStateChangeController.createStateChange,
