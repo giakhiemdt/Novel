@@ -1,3 +1,5 @@
+import { Trait } from "../../shared/types/trait";
+
 export type ItemStatus = "owned" | "lost" | "destroyed";
 export type ItemOwnerType = "character" | "faction";
 
@@ -10,6 +12,7 @@ export type ItemInput = {
   status?: ItemStatus;
   powerLevel?: number;
   powerDescription?: string;
+  abilities?: Array<Trait | string>;
   notes?: string;
   tags?: string[];
 };

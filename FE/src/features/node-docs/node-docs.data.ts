@@ -549,6 +549,7 @@ export const nodeDocs: NodeDoc[] = [
       "status",
       "powerLevel",
       "powerDescription",
+      "abilities[{name,description}]",
       "notes",
       "tags[]",
     ],

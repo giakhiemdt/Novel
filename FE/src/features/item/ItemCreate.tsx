@@ -8,6 +8,7 @@ import { useToast } from "../../components/common/Toast";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
 import { Select } from "../../components/form/Select";
+import { TraitEditor } from "../../components/form/TraitEditor";
 import { TextArea } from "../../components/form/TextArea";
 import { TextInput } from "../../components/form/TextInput";
 import { useForm } from "../../hooks/useForm";
@@ -31,6 +32,12 @@ import {
 } from "./item.api";
 import { validateItem } from "./item.schema";
 import type { Item, ItemOwnerType, ItemPayload, ItemStatus } from "./item.types";
+import {
+  createEmptyTraitDraft,
+  normalizeTraitArray,
+  toTraitDrafts,
+  toTraitPayload,
+} from "../../utils/trait";
 
 const initialState = {
   name: "",
@@ -40,6 +47,7 @@ const initialState = {
   status: "owned" as ItemStatus,
   powerLevel: "",
   powerDescription: "",
+  abilities: [createEmptyTraitDraft()],
   notes: "",
   tags: [] as string[],
 };
@@ -103,7 +111,10 @@ export const ItemCreate = () => {
         limit: pageSize + 1,
         offset,
       });
-      const data = response?.data ?? [];
+      const data = (response?.data ?? []).map((item) => ({
+        ...item,
+        abilities: normalizeTraitArray(item.abilities),
+      }));
       const total = typeof response?.meta?.total === "number" ? response.meta.total : undefined;
       const nextPage = total !== undefined ? offset + Math.min(data.length, pageSize) < total : data.length > pageSize;
       const trimmed = nextPage ? data.slice(0, pageSize) : data;
@@ -238,6 +249,7 @@ export const ItemCreate = () => {
     status: item.status ?? "owned",
     powerLevel: item.powerLevel !== undefined ? String(item.powerLevel) : "",
     powerDescription: item.powerDescription ?? "",
+    abilities: toTraitDrafts(item.abilities),
     notes: item.notes ?? "",
     tags: item.tags ?? [],
   });
@@ -250,6 +262,7 @@ export const ItemCreate = () => {
     status: values.status || undefined,
     powerLevel: values.powerLevel === "" ? undefined : Number(values.powerLevel),
     powerDescription: values.powerDescription || undefined,
+    abilities: toTraitPayload(values.abilities),
     notes: values.notes || undefined,
     tags: values.tags,
   });
@@ -306,6 +319,7 @@ export const ItemCreate = () => {
         powerLevel:
           editValues.powerLevel === "" ? undefined : Number(editValues.powerLevel),
         powerDescription: editValues.powerDescription || undefined,
+        abilities: toTraitPayload(editValues.abilities),
         notes: editValues.notes || undefined,
         tags: editValues.tags,
       });
@@ -588,6 +602,17 @@ export const ItemCreate = () => {
                 }
               />
             </div>
+            <div className="form-field--wide">
+              <TraitEditor
+                label="Abilities"
+                values={editValues.abilities}
+                onChange={(abilities) =>
+                  setEditValues((prev) => prev && { ...prev, abilities })
+                }
+                namePlaceholder="Ability name"
+                descriptionPlaceholder="Ability content"
+              />
+            </div>
           </FormSection>
 
           <FormSection title="Events" description="Link this item to events.">
@@ -736,6 +761,15 @@ export const ItemCreate = () => {
                 label="Power Description"
                 value={values.powerDescription}
                 onChange={(value) => setField("powerDescription", value)}
+              />
+            </div>
+            <div className="form-field--wide">
+              <TraitEditor
+                label="Abilities"
+                values={values.abilities}
+                onChange={(abilities) => setField("abilities", abilities)}
+                namePlaceholder="Ability name"
+                descriptionPlaceholder="Ability content"
               />
             </div>
           </FormSection>

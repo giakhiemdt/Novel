@@ -1,3 +1,5 @@
+import type { Trait } from "../../types/trait";
+
 export type ItemStatus = "owned" | "lost" | "destroyed";
 export type ItemOwnerType = "character" | "faction";
 
@@ -10,6 +12,7 @@ export type ItemPayload = {
   status?: ItemStatus;
   powerLevel?: number;
   powerDescription?: string;
+  abilities?: Trait[];
   notes?: string;
   tags?: string[];
 };

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useI18n } from "../../i18n/I18nProvider";
 import type { Item } from "./item.types";
+import { traitValuesToLabels } from "../../utils/trait";
 
 export type ItemListProps = {
   items: Item[];
@@ -38,12 +39,13 @@ export const ItemList = ({
 
   const renderValue = (value: unknown) => {
     if (Array.isArray(value)) {
-      if (value.length === 0) {
+      const labels = traitValuesToLabels(value);
+      if (labels.length === 0) {
         return <span className="header__subtitle">-</span>;
       }
       return (
         <div className="pill-list">
-          {value.map((item) => (
+          {labels.map((item) => (
             <span className="pill" key={item}>
               {item}
             </span>
@@ -72,6 +74,7 @@ export const ItemList = ({
       fields: [
         { label: t("Power Level"), value: item.powerLevel, size: "narrow" },
         { label: t("Power Description"), value: item.powerDescription, size: "wide" },
+        { label: t("Abilities"), value: item.abilities, size: "wide" },
       ],
     },
     {

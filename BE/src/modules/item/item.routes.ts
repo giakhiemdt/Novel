@@ -1,4 +1,8 @@
 import { RouteConfig } from "../../routes";
+import {
+  traitArrayBodySchema,
+  traitArrayResponseSchema,
+} from "../../shared/constants/trait-schema";
 import { itemController } from "./item.controller";
 
 export const itemRoutes: RouteConfig[] = [
@@ -100,6 +104,7 @@ export const itemRoutes: RouteConfig[] = [
           status: { type: "string", enum: ["owned", "lost", "destroyed"] },
           powerLevel: { type: "number" },
           powerDescription: { type: "string" },
+          abilities: traitArrayBodySchema,
           notes: { type: "string" },
           tags: { type: "array", items: { type: "string" } },
         },
@@ -161,12 +166,24 @@ export const itemRoutes: RouteConfig[] = [
           status: { type: "string", enum: ["owned", "lost", "destroyed"] },
           powerLevel: { type: "number" },
           powerDescription: { type: "string" },
+          abilities: traitArrayBodySchema,
           notes: { type: "string" },
           tags: { type: "array", items: { type: "string" } },
         },
       },
       response: {
-        200: { type: "object", properties: { data: { type: "object" } } },
+        200: {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                abilities: traitArrayResponseSchema,
+              },
+              additionalProperties: true,
+            },
+          },
+        },
         400: { type: "object", properties: { message: { type: "string" } } },
         404: { type: "object", properties: { message: { type: "string" } } },
       },

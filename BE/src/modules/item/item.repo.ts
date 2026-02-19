@@ -16,6 +16,7 @@ CREATE (i:${nodeLabels.item} {
   status: $status,
   powerLevel: $powerLevel,
   powerDescription: $powerDescription,
+  abilities: $abilities,
   notes: $notes,
   tags: $tags,
   createdAt: $createdAt,
@@ -34,6 +35,7 @@ SET
   i.status = $status,
   i.powerLevel = $powerLevel,
   i.powerDescription = $powerDescription,
+  i.abilities = $abilities,
   i.notes = $notes,
   i.tags = $tags,
   i.updatedAt = $updatedAt
@@ -223,6 +225,7 @@ const ITEM_PARAMS = [
   "status",
   "powerLevel",
   "powerDescription",
+  "abilities",
   "notes",
   "tags",
   "createdAt",

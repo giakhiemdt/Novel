@@ -1,6 +1,11 @@
 import { AppError } from "../../shared/errors/app-error";
 import { generateId } from "../../shared/utils/generate-id";
 import {
+  assertOptionalTraitArray,
+  normalizeTraitArray,
+  serializeTraitArray,
+} from "../../shared/utils/trait";
+import {
   checkEventExists,
   checkItemExists,
   checkOwnerExists,
@@ -189,6 +194,11 @@ const validateItemPayload = (payload: unknown): ItemInput => {
     "powerDescription",
     assertOptionalString(data.powerDescription, "powerDescription")
   );
+  addIfDefined(
+    result,
+    "abilities",
+    assertOptionalTraitArray(data.abilities, "abilities")
+  );
   addIfDefined(result, "notes", assertOptionalString(data.notes, "notes"));
   addIfDefined(result, "tags", assertOptionalStringArray(data.tags, "tags"));
 
@@ -203,6 +213,38 @@ const buildItemNode = (payload: ItemInput): ItemNode => {
     status: payload.status ?? "owned",
     createdAt: now,
     updatedAt: now,
+  };
+};
+
+const normalizeItemForPersistence = (node: ItemNode): ItemNode => {
+  const serializedAbilities = serializeTraitArray(
+    (node as { abilities?: unknown }).abilities
+  );
+  const { abilities: _abilities, ...rest } = node as ItemNode & {
+    abilities?: unknown;
+  };
+  if (serializedAbilities === undefined) {
+    return rest as ItemNode;
+  }
+  return {
+    ...(rest as ItemNode),
+    abilities: serializedAbilities,
+  };
+};
+
+const normalizeItemNode = (node: ItemNode): ItemNode => {
+  const normalizedAbilities = normalizeTraitArray(
+    (node as { abilities?: unknown }).abilities
+  );
+  const { abilities: _abilities, ...rest } = node as ItemNode & {
+    abilities?: unknown;
+  };
+  if (normalizedAbilities === undefined) {
+    return rest as ItemNode;
+  }
+  return {
+    ...(rest as ItemNode),
+    abilities: normalizedAbilities,
   };
 };
 
@@ -340,13 +382,16 @@ export const itemService = {
     }
 
     const node = buildItemNode(validated);
-    const created = await createItem(node, database);
+    const created = await createItem(
+      normalizeItemForPersistence(node),
+      database
+    );
 
     if (validated.ownerId && validated.ownerType) {
       await linkOwner(database, created.id, validated.ownerType, validated.ownerId);
     }
 
-    return created;
+    return normalizeItemNode(created);
   },
   update: async (
     id: string,
@@ -380,7 +425,10 @@ export const itemService = {
       updatedAt: now,
     };
 
-    const updated = await updateItem(node, database);
+    const updated = await updateItem(
+      normalizeItemForPersistence(node),
+      database
+    );
     if (!updated) {
       throw new AppError("item not found", 404);
     }
@@ -390,7 +438,7 @@ export const itemService = {
       await linkOwner(database, id, validated.ownerType, validated.ownerId);
     }
 
-    return updated;
+    return normalizeItemNode(updated);
   },
   getAll: async (
     dbName: unknown,
@@ -402,7 +450,10 @@ export const itemService = {
       getItems(database, parsedQuery),
       getItemCount(database, parsedQuery),
     ]);
-    return { data, meta: { ...parsedQuery, total } };
+    return {
+      data: data.map(normalizeItemNode),
+      meta: { ...parsedQuery, total },
+    };
   },
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);
@@ -448,7 +499,7 @@ export const itemService = {
     }
     const parsedQuery = parseItemListQuery(query);
     const data = await getItemsByEvent(database, eventId, parsedQuery);
-    return { data, meta: parsedQuery };
+    return { data: data.map(normalizeItemNode), meta: parsedQuery };
   },
   getEventsByItem: async (
     itemId: string,
