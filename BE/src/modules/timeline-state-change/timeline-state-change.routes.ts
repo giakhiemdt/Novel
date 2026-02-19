@@ -200,6 +200,78 @@ export const timelineStateChangeRoutes: RouteConfig[] = [
     },
   },
   {
+    method: "GET",
+    path: "/timeline-state-changes/history",
+    handler: timelineStateChangeController.getStateHistory,
+    schema: {
+      tags: ["Timeline State Change"],
+      summary: "Get state change replay history for one subject",
+      querystring: {
+        type: "object",
+        required: ["axisId", "subjectType", "subjectId"],
+        properties: {
+          axisId: { type: "string" },
+          subjectType: { type: "string", enum: [...TIMELINE_SUBJECT_TYPES] },
+          subjectId: { type: "string" },
+          fieldPath: { type: "string" },
+          status: {
+            type: "string",
+            enum: [...TIMELINE_STATE_CHANGE_STATUSES],
+          },
+          tickFrom: { type: "number" },
+          tickTo: { type: "number" },
+          limit: { type: "number" },
+        },
+      },
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            data: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  stateChangeId: { type: "string" },
+                  effectiveTick: { type: "number" },
+                  fieldPath: { type: "string" },
+                  changeType: { type: "string" },
+                  oldValue: {},
+                  newValue: {},
+                  markerId: { type: "string" },
+                  eventId: { type: "string" },
+                  updatedAt: { type: "string", format: "date-time" },
+                  stateAfter: { type: "object", additionalProperties: true },
+                },
+              },
+            },
+            meta: {
+              type: "object",
+              properties: {
+                axisId: { type: "string" },
+                subjectType: { type: "string", enum: [...TIMELINE_SUBJECT_TYPES] },
+                subjectId: { type: "string" },
+                fieldPath: { type: "string" },
+                status: {
+                  type: "string",
+                  enum: [...TIMELINE_STATE_CHANGE_STATUSES],
+                },
+                tickFrom: { type: "number" },
+                tickTo: { type: "number" },
+                limit: { type: "number" },
+                total: { type: "number" },
+                hasMore: { type: "boolean" },
+                finalState: { type: "object", additionalProperties: true },
+              },
+            },
+          },
+        },
+        400: errorSchema,
+        404: errorSchema,
+      },
+    },
+  },
+  {
     method: "POST",
     path: "/timeline-state-changes",
     handler: timelineStateChangeController.createStateChange,

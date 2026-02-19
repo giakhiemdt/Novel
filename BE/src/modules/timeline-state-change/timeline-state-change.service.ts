@@ -14,9 +14,11 @@ import {
 } from "./timeline-state-change.repo";
 import {
   TIMELINE_STATE_CHANGE_STATUSES,
+  TimelineHistoryQuery,
   TimelineProjectionQuery,
   TimelineStateProjectionField,
   TimelineStateProjectionSubject,
+  TimelineStateHistoryEntry,
   TIMELINE_SUBJECT_TYPES,
   TimelineSnapshotQuery,
   TimelineStateChangeInput,
@@ -313,6 +315,53 @@ const parseSnapshotQuery = (query: unknown): TimelineSnapshotQuery => {
 const parseProjectionQuery = (query: unknown): TimelineProjectionQuery =>
   parseSnapshotQuery(query);
 
+const parseHistoryQuery = (query: unknown): TimelineHistoryQuery => {
+  if (!query || typeof query !== "object") {
+    throw new AppError("axisId, subjectType, and subjectId are required", 400);
+  }
+  const data = query as Record<string, unknown>;
+  const axisId = assertRequiredString(data.axisId, "axisId");
+  const subjectType = assertOptionalEnum(
+    data.subjectType,
+    TIMELINE_SUBJECT_TYPES,
+    "subjectType"
+  );
+  const subjectId = assertRequiredString(data.subjectId, "subjectId");
+  if (!subjectType) {
+    throw new AppError("subjectType is required", 400);
+  }
+
+  const fieldPath = parseOptionalQueryString(data.fieldPath, "fieldPath");
+  const status =
+    assertOptionalEnum(data.status, TIMELINE_STATE_CHANGE_STATUSES, "status") ??
+    "active";
+  const tickFrom = parseOptionalQueryNumber(data.tickFrom, "tickFrom");
+  const tickTo = parseOptionalQueryNumber(data.tickTo, "tickTo");
+  const limit = parseOptionalQueryNumber(data.limit, "limit") ?? 200;
+
+  if (typeof tickFrom === "number" && typeof tickTo === "number" && tickTo < tickFrom) {
+    throw new AppError("tickTo must be >= tickFrom", 400);
+  }
+  if (limit <= 0) {
+    throw new AppError("limit must be > 0", 400);
+  }
+  if (limit > 1000) {
+    throw new AppError("limit must be <= 1000", 400);
+  }
+
+  const result: TimelineHistoryQuery = {
+    axisId,
+    subjectType,
+    subjectId,
+    status,
+    limit,
+  };
+  addIfDefined(result, "fieldPath", fieldPath);
+  addIfDefined(result, "tickFrom", tickFrom);
+  addIfDefined(result, "tickTo", tickTo);
+  return result;
+};
+
 const parseSerializedValue = (value: string | undefined): unknown => {
   if (value === undefined) {
     return undefined;
@@ -366,6 +415,42 @@ const setFieldValueByPath = (
   }
 };
 
+const removeFieldByPath = (
+  root: Record<string, unknown>,
+  fieldPath: string
+): void => {
+  const tokens = normalizePathTokens(fieldPath);
+  if (tokens.length === 0) {
+    return;
+  }
+  const leafToken = tokens[tokens.length - 1];
+  if (!leafToken) {
+    return;
+  }
+
+  let current: Record<string, unknown> = root;
+  for (let index = 0; index < tokens.length - 1; index += 1) {
+    const token = tokens[index];
+    if (!token) {
+      return;
+    }
+    const next = current[token];
+    if (!next || typeof next !== "object" || Array.isArray(next)) {
+      return;
+    }
+    current = next as Record<string, unknown>;
+  }
+  delete current[leafToken];
+};
+
+const cloneState = (state: Record<string, unknown>): Record<string, unknown> => {
+  try {
+    return JSON.parse(JSON.stringify(state)) as Record<string, unknown>;
+  } catch {
+    return { ...state };
+  }
+};
+
 const removalChangeTypes = new Set(["remove", "delete", "unset"]);
 
 const buildProjectionFromSnapshot = (
@@ -416,6 +501,44 @@ const buildProjectionFromSnapshot = (
   }
 
   return Array.from(grouped.values());
+};
+
+const buildHistoryFromChanges = (
+  changes: TimelineStateChangeNode[]
+): TimelineStateHistoryEntry[] => {
+  const currentState: Record<string, unknown> = {};
+  const entries: TimelineStateHistoryEntry[] = [];
+
+  for (const change of changes) {
+    const normalizedChangeType = (change.changeType ?? "").trim().toLowerCase();
+    const isRemoval = removalChangeTypes.has(normalizedChangeType);
+    const oldValue = parseSerializedValue(change.oldValue);
+    const newValue = parseSerializedValue(change.newValue);
+
+    if (isRemoval) {
+      removeFieldByPath(currentState, change.fieldPath);
+    } else {
+      setFieldValueByPath(currentState, change.fieldPath, newValue ?? null);
+    }
+
+    const entryData: Record<string, unknown> = {
+      stateChangeId: change.id,
+      effectiveTick: change.effectiveTick,
+      fieldPath: change.fieldPath,
+      updatedAt: change.updatedAt,
+      stateAfter: cloneState(currentState),
+    };
+    addIfDefined(entryData, "changeType", change.changeType);
+    addIfDefined(entryData, "oldValue", oldValue);
+    if (!isRemoval) {
+      addIfDefined(entryData, "newValue", newValue ?? null);
+    }
+    addIfDefined(entryData, "markerId", change.markerId);
+    addIfDefined(entryData, "eventId", change.eventId);
+    entries.push(entryData as TimelineStateHistoryEntry);
+  }
+
+  return entries;
 };
 
 const resolveStateChangeRefs = async (
@@ -576,6 +699,64 @@ export const timelineStateChangeService = {
         ...parsedQuery,
         subjectCount: projected.length,
         fieldCount: snapshot.length,
+      },
+    };
+  },
+
+  getHistory: async (
+    dbName: unknown,
+    query: unknown
+  ): Promise<{
+    data: TimelineStateHistoryEntry[];
+    meta: TimelineHistoryQuery & {
+      total: number;
+      hasMore: boolean;
+      finalState: Record<string, unknown>;
+    };
+  }> => {
+    const database = assertDatabaseName(dbName);
+    const parsedQuery = parseHistoryQuery(query);
+    const axisExists = await checkTimelineAxisExists(database, parsedQuery.axisId);
+    if (!axisExists) {
+      throw new AppError("axis not found", 404);
+    }
+    const subjectExists = await checkSubjectExists(
+      database,
+      parsedQuery.subjectType,
+      parsedQuery.subjectId
+    );
+    if (!subjectExists) {
+      throw new AppError("subject not found", 404);
+    }
+
+    const listQuery: TimelineStateChangeListQuery = {
+      axisId: parsedQuery.axisId,
+      subjectType: parsedQuery.subjectType,
+      subjectId: parsedQuery.subjectId,
+      offset: 0,
+    };
+    addIfDefined(listQuery, "status", parsedQuery.status);
+    addIfDefined(listQuery, "limit", parsedQuery.limit);
+    addIfDefined(listQuery, "fieldPath", parsedQuery.fieldPath);
+    addIfDefined(listQuery, "tickFrom", parsedQuery.tickFrom);
+    addIfDefined(listQuery, "tickTo", parsedQuery.tickTo);
+
+    const [changes, total] = await Promise.all([
+      getTimelineStateChanges(database, listQuery),
+      getTimelineStateChangeCount(database, listQuery),
+    ]);
+    const history = buildHistoryFromChanges(changes);
+    const lastEntry =
+      history.length > 0 ? history[history.length - 1] : undefined;
+    const finalState = lastEntry ? lastEntry.stateAfter : {};
+
+    return {
+      data: history,
+      meta: {
+        ...parsedQuery,
+        total,
+        hasMore: total > changes.length,
+        finalState,
       },
     };
   },
