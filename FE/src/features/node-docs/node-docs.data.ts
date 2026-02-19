@@ -315,6 +315,7 @@ export const nodeDocs: NodeDoc[] = [
     apis: [
       "GET /timelines",
       "POST /timelines",
+      "PUT /timelines/:id",
       "DELETE /timelines/:id",
       "POST /timelines/link",
       "POST /timelines/unlink",

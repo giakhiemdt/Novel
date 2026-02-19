@@ -134,6 +134,63 @@ export const timelineRoutes: RouteConfig[] = [
     },
   },
   {
+    method: "PUT",
+    path: "/timelines/:id",
+    handler: timelineController.updateTimeline,
+    schema: {
+      tags: ["Timeline"],
+      summary: "Update timeline",
+      body: {
+        type: "object",
+        required: ["name", "durationYears"],
+        properties: {
+          name: { type: "string" },
+          code: { type: "string" },
+          durationYears: { type: "number" },
+          isOngoing: { type: "boolean" },
+          summary: { type: "string" },
+          description: { type: "string" },
+          characteristics: traitArrayBodySchema,
+          dominantForces: { type: "array", items: { type: "string" } },
+          technologyLevel: { type: "string" },
+          powerEnvironment: { type: "string" },
+          worldState: { type: "string" },
+          majorChanges: { type: "array", items: { type: "string" } },
+          notes: { type: "string" },
+          tags: { type: "array", items: { type: "string" } },
+          previousId: { type: "string" },
+          nextId: { type: "string" },
+        },
+      },
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                characteristics: traitArrayResponseSchema,
+              },
+              additionalProperties: true,
+            },
+          },
+        },
+        400: {
+          type: "object",
+          properties: { message: { type: "string" } },
+        },
+        404: {
+          type: "object",
+          properties: { message: { type: "string" } },
+        },
+        409: {
+          type: "object",
+          properties: { message: { type: "string" } },
+        },
+      },
+    },
+  },
+  {
     method: "POST",
     path: "/timelines/link",
     handler: timelineController.linkTimeline,

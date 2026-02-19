@@ -29,6 +29,27 @@ CREATE (t:${nodeLabels.timeline} {
 RETURN t
 `;
 
+const UPDATE_TIMELINE = `
+MATCH (t:${nodeLabels.timeline} {id: $id})
+SET
+  t.name = $name,
+  t.code = $code,
+  t.durationYears = $durationYears,
+  t.isOngoing = $isOngoing,
+  t.summary = $summary,
+  t.description = $description,
+  t.characteristics = $characteristics,
+  t.dominantForces = $dominantForces,
+  t.technologyLevel = $technologyLevel,
+  t.powerEnvironment = $powerEnvironment,
+  t.worldState = $worldState,
+  t.majorChanges = $majorChanges,
+  t.notes = $notes,
+  t.tags = $tags,
+  t.updatedAt = $updatedAt
+RETURN t
+`;
+
 const GET_TIMELINES = `
 MATCH (t:${nodeLabels.timeline})
 OPTIONAL MATCH (t)-[:${relationTypes.timelinePrevious}]->(p:${nodeLabels.timeline})
@@ -100,6 +121,9 @@ const TIMELINE_PARAMS = [
   "createdAt",
   "updatedAt",
 ];
+const TIMELINE_UPDATE_PARAMS = TIMELINE_PARAMS.filter(
+  (key) => key !== "createdAt"
+);
 
 const CHECK_NEXT = `
 MATCH (t:${nodeLabels.timeline} {id: $id})
@@ -239,6 +263,28 @@ export const getTimelines = async (
         nextId: next?.properties?.id ?? undefined,
       } as TimelineNode;
     });
+  } finally {
+    await session.close();
+  }
+};
+
+export const updateTimeline = async (
+  data: Omit<TimelineNode, "previousId" | "nextId" | "createdAt"> & {
+    id: string;
+    updatedAt: string;
+  },
+  database: string
+): Promise<Omit<TimelineNode, "previousId" | "nextId"> | null> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    const params = buildParams(data, TIMELINE_UPDATE_PARAMS);
+    const result = await session.run(UPDATE_TIMELINE, params);
+    const record = result.records[0];
+    if (!record) {
+      return null;
+    }
+    const node = record.get("t");
+    return mapNode(node?.properties ?? data) as TimelineNode;
   } finally {
     await session.close();
   }

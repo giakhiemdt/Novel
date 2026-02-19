@@ -24,6 +24,21 @@ const createTimeline = async (
   }
 };
 
+const updateTimeline = async (
+  req: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> => {
+  try {
+    const dbName = getDatabaseHeader(req);
+    const { id } = req.params as { id: string };
+    const timeline = await timelineService.update(id, req.body, dbName);
+    reply.status(200).send({ data: timeline });
+  } catch (error) {
+    const handled = handleError(error);
+    reply.status(handled.statusCode).send({ message: handled.message });
+  }
+};
+
 const getAllTimelines = async (
   _req: FastifyRequest,
   reply: FastifyReply
@@ -40,6 +55,7 @@ const getAllTimelines = async (
 
 export const timelineController = {
   createTimeline,
+  updateTimeline,
   getAllTimelines,
   linkTimeline: async (
     req: FastifyRequest,

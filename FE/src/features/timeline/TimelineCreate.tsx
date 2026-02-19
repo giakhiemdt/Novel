@@ -14,6 +14,7 @@ import {
   linkTimeline,
   relinkTimeline,
   unlinkTimeline,
+  updateTimeline,
 } from "./timeline.api";
 import { getAllEvents } from "../event/event.api";
 import type { Event } from "../event/event.types";
@@ -32,6 +33,7 @@ import boardIcon from "../../assets/icons/board.svg";
 import {
   createEmptyTraitDraft,
   normalizeTraitArray,
+  toTraitDrafts,
   toTraitPayload,
 } from "../../utils/trait";
 
@@ -58,10 +60,11 @@ type TimelineFormState = typeof initialState;
 
 export const TimelineCreate = () => {
   const { t } = useI18n();
-  const { values, setField, reset } = useForm<TimelineFormState>(initialState);
+  const { values, setField, setValues, reset } = useForm<TimelineFormState>(initialState);
   const [items, setItems] = useState<Timeline[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [selected, setSelected] = useState<Timeline | null>(null);
+  const [editingItem, setEditingItem] = useState<Timeline | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -220,6 +223,38 @@ export const TimelineCreate = () => {
     nextId: values.nextId || undefined,
   });
 
+  const mapTimelineToFormState = (item: Timeline): TimelineFormState => ({
+    name: item.name ?? "",
+    code: item.code ?? "",
+    durationYears:
+      typeof item.durationYears === "number" ? String(item.durationYears) : "",
+    isOngoing: Boolean(item.isOngoing),
+    summary: item.summary ?? "",
+    description: item.description ?? "",
+    characteristics: toTraitDrafts(item.characteristics),
+    dominantForces: item.dominantForces ?? [],
+    technologyLevel: item.technologyLevel ?? "",
+    powerEnvironment: item.powerEnvironment ?? "",
+    worldState: item.worldState ?? "",
+    majorChanges: item.majorChanges ?? [],
+    notes: item.notes ?? "",
+    tags: item.tags ?? [],
+    previousId: item.previousId ?? "",
+    nextId: item.nextId ?? "",
+  });
+
+  const openCreateForm = () => {
+    setEditingItem(null);
+    reset();
+    setIsFormOpen(true);
+  };
+
+  const closeForm = () => {
+    setIsFormOpen(false);
+    setEditingItem(null);
+    reset();
+  };
+
   const handleSubmit = async () => {
     const payload = buildPayload();
     const validation = validateTimeline(payload);
@@ -234,10 +269,43 @@ export const TimelineCreate = () => {
     try {
       const created = await createTimeline(payload);
       notify(t("Timeline created successfully."), "success");
-      reset();
-      setIsFormOpen(false);
+      closeForm();
       pendingSelectId.current = created.id;
       setPage(1);
+      setRefreshKey((prev) => prev + 1);
+    } catch (err) {
+      notify((err as Error).message, "error");
+    }
+  };
+
+  const handleEditOpen = (item: Timeline) => {
+    setSelected(item);
+    setEditingItem(item);
+    setValues(mapTimelineToFormState(item));
+    setIsFormOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!editingItem) {
+      await handleSubmit();
+      return;
+    }
+
+    const payload = buildPayload();
+    const validation = validateTimeline(payload);
+    if (!validation.valid) {
+      notify(
+        `${t("Missing required fields:")} ${validation.missing.join(", ")}`,
+        "error"
+      );
+      return;
+    }
+
+    try {
+      await updateTimeline(editingItem.id, payload);
+      notify(t("Timeline updated successfully."), "success");
+      pendingSelectId.current = editingItem.id;
+      closeForm();
       setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
@@ -285,6 +353,9 @@ export const TimelineCreate = () => {
       await deleteTimeline(item.id);
       notify(t("Timeline deleted."), "success");
       setSelected(null);
+      if (editingItem?.id === item.id) {
+        closeForm();
+      }
       setRefreshKey((prev) => prev + 1);
     } catch (err) {
       notify((err as Error).message, "error");
@@ -298,7 +369,13 @@ export const TimelineCreate = () => {
         subtitle="Click a row to inspect details."
         showForm={isFormOpen}
         createLabel="Create new timeline"
-        onToggleForm={() => setIsFormOpen((prev) => !prev)}
+        onToggleForm={() => {
+          if (isFormOpen) {
+            closeForm();
+            return;
+          }
+          openCreateForm();
+        }}
         controls={
           <>
             <FilterPanel>
@@ -349,6 +426,8 @@ export const TimelineCreate = () => {
                 items={items}
                 selectedId={selected?.id}
                 onSelect={setSelected}
+                onEdit={handleEditOpen}
+                onDelete={handleDelete}
               />
               {items.length > 0 || page > 1 || hasNext ? (
                 <Pagination
@@ -402,14 +481,14 @@ export const TimelineCreate = () => {
       )}
 
       {isFormOpen && (
-        <div className="timeline-modal__backdrop" onClick={() => setIsFormOpen(false)}>
+        <div className="timeline-modal__backdrop" onClick={closeForm}>
           <div
             className="timeline-modal timeline-modal--wide"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="timeline-modal__header">
               <div>
-                <h3>{t("Create timeline")}</h3>
+                <h3>{editingItem ? t("Edit timeline") : t("Create timeline")}</h3>
                 <p className="header__subtitle">
                   {t("Define the era and its scope.")}
                 </p>
@@ -417,7 +496,7 @@ export const TimelineCreate = () => {
               <button
                 className="timeline-modal__close"
                 type="button"
-                onClick={() => setIsFormOpen(false)}
+                onClick={closeForm}
                 aria-label="Close modal"
               >
                 ✕
@@ -528,11 +607,15 @@ export const TimelineCreate = () => {
             </div>
 
             <div className="timeline-modal__footer">
-              <Button variant="ghost" onClick={() => setIsFormOpen(false)}>
+              <Button variant="ghost" onClick={closeForm}>
                 {t("Cancel")}
               </Button>
-              <Button onClick={handleSubmit} disabled={loading}>
-                {loading ? t("Saving...") : t("Create timeline")}
+              <Button onClick={handleSave} disabled={loading}>
+                {loading
+                  ? t("Saving...")
+                  : editingItem
+                    ? t("Save changes")
+                    : t("Create timeline")}
               </Button>
             </div>
           </div>

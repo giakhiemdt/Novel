@@ -133,7 +133,7 @@ Tài liệu này mô tả chi tiết từng node đang dùng trong dự án hi�
 - Optional: `code`, `isOngoing`, `summary`, `description`, `characteristics[{name,description}]`, `dominantForces[]`, `technologyLevel`, `powerEnvironment`, `worldState`, `majorChanges[]`, `notes`, `tags[]`, `previousId`, `nextId`.
 - Quan hệ: `NEXT`/`PREVIOUS`, `OCCURS_ON` với Event.
 - API chính:
-- `GET/POST/DELETE /timelines`
+- `GET/POST/PUT/DELETE /timelines`
 - `POST /timelines/link`, `POST /timelines/unlink`, `POST /timelines/relink`.
 - Ghi chú FE:
 - Danh sách timeline và board timeline tách riêng.

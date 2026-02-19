@@ -12,6 +12,7 @@ import {
   getTimelines,
   linkTimeline,
   unlinkTimeline,
+  updateTimeline,
 } from "./timeline.repo";
 import { TimelineInput, TimelineListQuery, TimelineNode } from "./timeline.types";
 
@@ -369,6 +370,66 @@ export const timelineService = {
       }
       throw new AppError(message, 500);
     }
+  },
+  update: async (
+    id: string,
+    payload: unknown,
+    dbName: unknown
+  ): Promise<Omit<TimelineNode, "previousId" | "nextId">> => {
+    const database = assertDatabaseName(dbName);
+    const shouldUpdateLinks =
+      payload &&
+      typeof payload === "object" &&
+      (Object.prototype.hasOwnProperty.call(payload, "previousId") ||
+        Object.prototype.hasOwnProperty.call(payload, "nextId"));
+    const validated = validateTimelinePayload(payload);
+    const now = new Date().toISOString();
+    const { previousId, nextId, ...basePayload } = validated;
+    const node = {
+      ...basePayload,
+      id,
+      isOngoing: validated.isOngoing ?? false,
+      updatedAt: now,
+    };
+
+    if (previousId && previousId === id) {
+      throw new AppError("previousId must be different from currentId", 400);
+    }
+    if (nextId && nextId === id) {
+      throw new AppError("nextId must be different from currentId", 400);
+    }
+    if (previousId && nextId && previousId === nextId) {
+      throw new AppError("previousId and nextId must be different", 400);
+    }
+
+    const updated = await updateTimeline(
+      serializeTimelineCharacteristicsField(node),
+      database
+    );
+    if (!updated) {
+      throw new AppError("timeline not found", 404);
+    }
+
+    if (shouldUpdateLinks) {
+      try {
+        await unlinkTimeline(database, id);
+        if (previousId || nextId) {
+          await linkTimeline(database, id, previousId, nextId);
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to update timeline links";
+        if (message.includes("not found")) {
+          throw new AppError(message, 404);
+        }
+        if (message.includes("already has")) {
+          throw new AppError(message, 409);
+        }
+        throw new AppError(message, 500);
+      }
+    }
+
+    return normalizeTimelineCharacteristicsField(updated);
   },
   getAll: async (dbName: unknown): Promise<TimelineNode[]> => {
     const database = assertDatabaseName(dbName);

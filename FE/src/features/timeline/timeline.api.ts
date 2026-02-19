@@ -27,6 +27,9 @@ export const getTimelinesPage = (query: TimelineListQuery) =>
 export const createTimeline = (payload: TimelinePayload) =>
   api.post<Timeline>(endpoints.timelines, payload, withDatabaseHeader());
 
+export const updateTimeline = (id: string, payload: TimelinePayload) =>
+  api.put<Timeline>(`${endpoints.timelines}/${id}`, payload, withDatabaseHeader());
+
 export const linkTimeline = (payload: TimelineLinkPayload) =>
   api.post<{ message: string }>(endpoints.timelineLink, payload, withDatabaseHeader());
 
