@@ -17,6 +17,9 @@ Backend quản lý dữ liệu tiểu thuyết dài hạn (worldbuilding + cấu
 - `NEO4J_DATABASE` (mặc định `novel`)
 - `APP_PORT` (mặc định `3000`)
 - `NODE_ENV` (`development` | `test` | `production`)
+- `TIMELINE_READ_MODE` (`legacy` | `timeline`, mặc định `legacy`)
+- `TIMELINE_WRITE_MODE` (`legacy` | `dual-write` | `timeline`, mặc định `legacy`)
+- `TIMELINE_AUDIT_ENABLED` (`true` | `false`, mặc định `true`)
 
 ## Cách khởi động
 - `npm run dev`: chạy phát triển bằng `ts-node` + `nodemon`.
@@ -73,6 +76,7 @@ Backend quản lý dữ liệu tiểu thuyết dài hạn (worldbuilding + cấu
 ### Timeline
 - `GET /timelines` (pagination + filter + search `q`)
 - `POST /timelines`
+- `PUT /timelines/:id`
 - `DELETE /timelines/:id`
 - `POST /timelines/link`
 - `POST /timelines/unlink`

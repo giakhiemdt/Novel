@@ -3,12 +3,16 @@ import { env } from "./config/env";
 import { createApp } from "./app";
 import { closeDriver, ensureConstraintsForDatabase, verifyConnection } from "./database";
 import { logger } from "./shared/utils/logger";
+import { timelineMigrationConfig } from "./shared/utils/timeline-migration";
 
 const main = async (): Promise<void> => {
   try {
     await verifyConnection();
     await ensureConstraintsForDatabase(env.NEO4J_DATABASE);
     logger.info("Neo4j connection verified against database 'novel'.");
+    logger.info(
+      `[timeline-migration] readMode=${timelineMigrationConfig.readMode}, writeMode=${timelineMigrationConfig.writeMode}, audit=${timelineMigrationConfig.auditEnabled}`
+    );
 
     const app = createApp();
     await app.start();
