@@ -564,7 +564,7 @@ export const nodeDocs: NodeDoc[] = [
       "GET /events/:id/items",
       "GET /items/:id/events",
     ],
-    notes: ["status: owned | lost | destroyed"],
+    notes: ["status: owned | stored | damaged | lost | stolen | destroyed"],
   },
   {
     id: "relationship",

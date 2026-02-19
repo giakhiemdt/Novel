@@ -31,6 +31,10 @@ import {
   updateItem,
 } from "./item.api";
 import { validateItem } from "./item.schema";
+import {
+  ITEM_OWNER_TYPES,
+  ITEM_STATUSES,
+} from "./item.types";
 import type { Item, ItemOwnerType, ItemPayload, ItemStatus } from "./item.types";
 import {
   createEmptyTraitDraft,
@@ -53,8 +57,14 @@ const initialState = {
 };
 
 type ItemFormState = typeof initialState;
-
-const STATUS_OPTIONS: ItemStatus[] = ["owned", "lost", "destroyed"];
+type ItemFilterState = {
+  q: string;
+  name: string;
+  tag: string;
+  status: ItemStatus | "";
+  ownerType: ItemOwnerType | "";
+  ownerId: string;
+};
 
 export const ItemCreate = () => {
   const { t } = useI18n();
@@ -74,7 +84,7 @@ export const ItemCreate = () => {
   const [hasNext, setHasNext] = useState(false);
   const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
   const [showList, setShowList] = useState(false);
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState<ItemFilterState>({
     q: "",
     name: "",
     tag: "",
@@ -108,6 +118,8 @@ export const ItemCreate = () => {
       const offset = (page - 1) * pageSize;
       const response = await getItemsPage({
         ...filters,
+        status: filters.status || undefined,
+        ownerType: filters.ownerType || undefined,
         limit: pageSize + 1,
         offset,
       });
@@ -192,9 +204,9 @@ export const ItemCreate = () => {
     void loadEvents();
   });
 
-  const handleFilterChange = (
-    key: "q" | "name" | "tag" | "status" | "ownerType" | "ownerId",
-    value: string
+  const handleFilterChange = <K extends keyof ItemFilterState>(
+    key: K,
+    value: ItemFilterState[K]
   ) => {
     setPage(1);
     setFilters((prev) => ({
@@ -440,22 +452,23 @@ export const ItemCreate = () => {
               <Select
                 label="Status"
                 value={filters.status}
-                onChange={(value) => handleFilterChange("status", value)}
-                options={[
-                  { value: "owned", label: "owned" },
-                  { value: "lost", label: "lost" },
-                  { value: "destroyed", label: "destroyed" },
-                ]}
+                onChange={(value) => handleFilterChange("status", value as ItemStatus | "")}
+                options={ITEM_STATUSES.map((value) => ({
+                  value,
+                  label: t(value),
+                }))}
                 placeholder="All"
               />
               <Select
                 label="Owner Type"
                 value={filters.ownerType}
-                onChange={(value) => handleFilterChange("ownerType", value)}
-                options={[
-                  { value: "character", label: "Character" },
-                  { value: "faction", label: "Faction" },
-                ]}
+                onChange={(value) =>
+                  handleFilterChange("ownerType", value as ItemOwnerType | "")
+                }
+                options={ITEM_OWNER_TYPES.map((value) => ({
+                  value,
+                  label: t(value === "character" ? "Character" : "Faction"),
+                }))}
                 placeholder="All"
               />
               <Select
@@ -574,7 +587,7 @@ export const ItemCreate = () => {
                 onChange={(value) =>
                   setEditValues((prev) => prev && { ...prev, status: value as ItemStatus })
                 }
-                options={STATUS_OPTIONS.map((value) => ({
+                options={ITEM_STATUSES.map((value) => ({
                   label: t(value),
                   value,
                 }))}
@@ -739,7 +752,7 @@ export const ItemCreate = () => {
                 label="Status"
                 value={values.status}
                 onChange={(value) => setField("status", value as ItemStatus)}
-                options={STATUS_OPTIONS.map((value) => ({
+                options={ITEM_STATUSES.map((value) => ({
                   label: t(value),
                   value,
                 }))}

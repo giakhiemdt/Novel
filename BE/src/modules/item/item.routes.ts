@@ -4,6 +4,7 @@ import {
   traitArrayResponseSchema,
 } from "../../shared/constants/trait-schema";
 import { itemController } from "./item.controller";
+import { ITEM_OWNER_TYPES, ITEM_STATUSES } from "./item.types";
 
 export const itemRoutes: RouteConfig[] = [
   {
@@ -21,9 +22,9 @@ export const itemRoutes: RouteConfig[] = [
           offset: { type: "number" },
           name: { type: "string" },
           tag: { type: "string" },
-          status: { type: "string", enum: ["owned", "lost", "destroyed"] },
+          status: { type: "string", enum: [...ITEM_STATUSES] },
           ownerId: { type: "string" },
-          ownerType: { type: "string", enum: ["character", "faction"] },
+          ownerType: { type: "string", enum: [...ITEM_OWNER_TYPES] },
         },
       },
       response: {
@@ -68,9 +69,9 @@ export const itemRoutes: RouteConfig[] = [
           offset: { type: "number" },
           name: { type: "string" },
           tag: { type: "string" },
-          status: { type: "string", enum: ["owned", "lost", "destroyed"] },
+          status: { type: "string", enum: [...ITEM_STATUSES] },
           ownerId: { type: "string" },
-          ownerType: { type: "string", enum: ["character", "faction"] },
+          ownerType: { type: "string", enum: [...ITEM_OWNER_TYPES] },
         },
       },
       response: {
@@ -100,8 +101,8 @@ export const itemRoutes: RouteConfig[] = [
           name: { type: "string" },
           origin: { type: "string" },
           ownerId: { type: "string" },
-          ownerType: { type: "string", enum: ["character", "faction"] },
-          status: { type: "string", enum: ["owned", "lost", "destroyed"] },
+          ownerType: { type: "string", enum: [...ITEM_OWNER_TYPES] },
+          status: { type: "string", enum: [...ITEM_STATUSES] },
           powerLevel: { type: "number" },
           powerDescription: { type: "string" },
           abilities: traitArrayBodySchema,
@@ -162,8 +163,8 @@ export const itemRoutes: RouteConfig[] = [
           name: { type: "string" },
           origin: { type: "string" },
           ownerId: { type: "string" },
-          ownerType: { type: "string", enum: ["character", "faction"] },
-          status: { type: "string", enum: ["owned", "lost", "destroyed"] },
+          ownerType: { type: "string", enum: [...ITEM_OWNER_TYPES] },
+          status: { type: "string", enum: [...ITEM_STATUSES] },
           powerLevel: { type: "number" },
           powerDescription: { type: "string" },
           abilities: traitArrayBodySchema,

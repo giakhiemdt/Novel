@@ -22,6 +22,8 @@ import {
   updateItem,
 } from "./item.repo";
 import {
+  ITEM_OWNER_TYPES,
+  ITEM_STATUSES,
   ItemInput,
   ItemListQuery,
   ItemNode,
@@ -29,8 +31,8 @@ import {
   ItemStatus,
 } from "./item.types";
 
-const STATUSES: ItemStatus[] = ["owned", "lost", "destroyed"];
-const OWNER_TYPES: ItemOwnerType[] = ["character", "faction"];
+const STATUSES: ItemStatus[] = [...ITEM_STATUSES];
+const OWNER_TYPES: ItemOwnerType[] = [...ITEM_OWNER_TYPES];
 
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");

@@ -1,7 +1,17 @@
 import type { Trait } from "../../types/trait";
 
-export type ItemStatus = "owned" | "lost" | "destroyed";
-export type ItemOwnerType = "character" | "faction";
+export const ITEM_STATUSES = [
+  "owned",
+  "stored",
+  "damaged",
+  "lost",
+  "stolen",
+  "destroyed",
+] as const;
+export const ITEM_OWNER_TYPES = ["character", "faction"] as const;
+
+export type ItemStatus = (typeof ITEM_STATUSES)[number];
+export type ItemOwnerType = (typeof ITEM_OWNER_TYPES)[number];
 
 export type ItemPayload = {
   id?: string;

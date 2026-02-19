@@ -4,7 +4,7 @@ import { endpoints } from "../../services/endpoints";
 import type { PagedResponse, PaginationMeta } from "../../types/api";
 import { toQueryString } from "../../utils/query";
 import type { Event } from "../event/event.types";
-import type { Item, ItemPayload } from "./item.types";
+import type { Item, ItemOwnerType, ItemPayload, ItemStatus } from "./item.types";
 
 export const getAllItems = () =>
   api.get<Item[]>(endpoints.items, withDatabaseHeader());
@@ -15,9 +15,9 @@ export type ItemListQuery = {
   q?: string;
   name?: string;
   tag?: string;
-  status?: string;
+  status?: ItemStatus;
   ownerId?: string;
-  ownerType?: string;
+  ownerType?: ItemOwnerType;
 };
 
 export const getItemsPage = (query: ItemListQuery) =>
