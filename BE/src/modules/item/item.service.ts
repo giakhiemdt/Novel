@@ -24,15 +24,18 @@ import {
 import {
   ITEM_OWNER_TYPES,
   ITEM_STATUSES,
+  ITEM_TYPES,
   ItemInput,
   ItemListQuery,
   ItemNode,
   ItemOwnerType,
   ItemStatus,
+  ItemType,
 } from "./item.types";
 
 const STATUSES: ItemStatus[] = [...ITEM_STATUSES];
 const OWNER_TYPES: ItemOwnerType[] = [...ITEM_OWNER_TYPES];
+const TYPES: ItemType[] = [...ITEM_TYPES];
 
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
@@ -181,6 +184,7 @@ const validateItemPayload = (payload: unknown): ItemInput => {
     "ownerType",
     assertOptionalEnum(data.ownerType, OWNER_TYPES, "ownerType")
   );
+  addIfDefined(result, "type", assertOptionalEnum(data.type, TYPES, "type"));
   addIfDefined(
     result,
     "status",
@@ -274,6 +278,7 @@ const parseItemListQuery = (query: unknown): ItemListQuery => {
 
   const status = parseOptionalQueryString(data.status, "status");
   const ownerType = parseOptionalQueryString(data.ownerType, "ownerType");
+  const type = parseOptionalQueryString(data.type, "type");
 
   if (status && !STATUSES.includes(status as ItemStatus)) {
     throw new AppError(`status must be one of ${STATUSES.join(", ")}`, 400);
@@ -284,6 +289,9 @@ const parseItemListQuery = (query: unknown): ItemListQuery => {
       400
     );
   }
+  if (type && !TYPES.includes(type as ItemType)) {
+    throw new AppError(`type must be one of ${TYPES.join(", ")}`, 400);
+  }
 
   const result: ItemListQuery = {
     limit: normalizedLimit,
@@ -293,6 +301,7 @@ const parseItemListQuery = (query: unknown): ItemListQuery => {
   addIfDefined(result, "q", parseOptionalQueryString(data.q, "q"));
   addIfDefined(result, "name", parseOptionalQueryString(data.name, "name"));
   addIfDefined(result, "tag", parseOptionalQueryString(data.tag, "tag"));
+  addIfDefined(result, "type", type as ItemType | undefined);
   addIfDefined(result, "status", status as ItemStatus | undefined);
   addIfDefined(result, "ownerId", parseOptionalQueryString(data.ownerId, "ownerId"));
   addIfDefined(result, "ownerType", ownerType as ItemOwnerType | undefined);

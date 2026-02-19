@@ -4,7 +4,7 @@ import {
   traitArrayResponseSchema,
 } from "../../shared/constants/trait-schema";
 import { itemController } from "./item.controller";
-import { ITEM_OWNER_TYPES, ITEM_STATUSES } from "./item.types";
+import { ITEM_OWNER_TYPES, ITEM_STATUSES, ITEM_TYPES } from "./item.types";
 
 export const itemRoutes: RouteConfig[] = [
   {
@@ -22,6 +22,7 @@ export const itemRoutes: RouteConfig[] = [
           offset: { type: "number" },
           name: { type: "string" },
           tag: { type: "string" },
+          type: { type: "string", enum: [...ITEM_TYPES] },
           status: { type: "string", enum: [...ITEM_STATUSES] },
           ownerId: { type: "string" },
           ownerType: { type: "string", enum: [...ITEM_OWNER_TYPES] },
@@ -43,6 +44,7 @@ export const itemRoutes: RouteConfig[] = [
                 offset: { type: "number" },
                 name: { type: "string" },
                 tag: { type: "string" },
+                type: { type: "string" },
                 status: { type: "string" },
                 ownerId: { type: "string" },
                 ownerType: { type: "string" },
@@ -69,6 +71,7 @@ export const itemRoutes: RouteConfig[] = [
           offset: { type: "number" },
           name: { type: "string" },
           tag: { type: "string" },
+          type: { type: "string", enum: [...ITEM_TYPES] },
           status: { type: "string", enum: [...ITEM_STATUSES] },
           ownerId: { type: "string" },
           ownerType: { type: "string", enum: [...ITEM_OWNER_TYPES] },
@@ -99,6 +102,7 @@ export const itemRoutes: RouteConfig[] = [
         properties: {
           id: { type: "string" },
           name: { type: "string" },
+          type: { type: "string", enum: [...ITEM_TYPES] },
           origin: { type: "string" },
           ownerId: { type: "string" },
           ownerType: { type: "string", enum: [...ITEM_OWNER_TYPES] },
@@ -161,6 +165,7 @@ export const itemRoutes: RouteConfig[] = [
         required: ["name"],
         properties: {
           name: { type: "string" },
+          type: { type: "string", enum: [...ITEM_TYPES] },
           origin: { type: "string" },
           ownerId: { type: "string" },
           ownerType: { type: "string", enum: [...ITEM_OWNER_TYPES] },

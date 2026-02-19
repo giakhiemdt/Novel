@@ -34,8 +34,15 @@ import { validateItem } from "./item.schema";
 import {
   ITEM_OWNER_TYPES,
   ITEM_STATUSES,
+  ITEM_TYPES,
 } from "./item.types";
-import type { Item, ItemOwnerType, ItemPayload, ItemStatus } from "./item.types";
+import type {
+  Item,
+  ItemOwnerType,
+  ItemPayload,
+  ItemStatus,
+  ItemType,
+} from "./item.types";
 import {
   createEmptyTraitDraft,
   normalizeTraitArray,
@@ -48,6 +55,7 @@ const initialState = {
   origin: "",
   ownerType: "" as ItemOwnerType | "",
   ownerId: "",
+  type: "" as ItemType | "",
   status: "owned" as ItemStatus,
   powerLevel: "",
   powerDescription: "",
@@ -61,6 +69,7 @@ type ItemFilterState = {
   q: string;
   name: string;
   tag: string;
+  type: ItemType | "";
   status: ItemStatus | "";
   ownerType: ItemOwnerType | "";
   ownerId: string;
@@ -88,6 +97,7 @@ export const ItemCreate = () => {
     q: "",
     name: "",
     tag: "",
+    type: "",
     status: "",
     ownerType: "",
     ownerId: "",
@@ -118,6 +128,7 @@ export const ItemCreate = () => {
       const offset = (page - 1) * pageSize;
       const response = await getItemsPage({
         ...filters,
+        type: filters.type || undefined,
         status: filters.status || undefined,
         ownerType: filters.ownerType || undefined,
         limit: pageSize + 1,
@@ -222,6 +233,7 @@ export const ItemCreate = () => {
       q: "",
       name: "",
       tag: "",
+      type: "",
       status: "",
       ownerType: "",
       ownerId: "",
@@ -258,6 +270,7 @@ export const ItemCreate = () => {
     origin: item.origin ?? "",
     ownerType: item.ownerType ?? "",
     ownerId: item.ownerId ?? "",
+    type: item.type ?? "",
     status: item.status ?? "owned",
     powerLevel: item.powerLevel !== undefined ? String(item.powerLevel) : "",
     powerDescription: item.powerDescription ?? "",
@@ -271,6 +284,7 @@ export const ItemCreate = () => {
     origin: values.origin || undefined,
     ownerType: values.ownerType || undefined,
     ownerId: values.ownerId || undefined,
+    type: values.type || undefined,
     status: values.status || undefined,
     powerLevel: values.powerLevel === "" ? undefined : Number(values.powerLevel),
     powerDescription: values.powerDescription || undefined,
@@ -327,6 +341,7 @@ export const ItemCreate = () => {
         origin: editValues.origin || undefined,
         ownerType: editValues.ownerType || undefined,
         ownerId: editValues.ownerId || undefined,
+        type: editValues.type || undefined,
         status: editValues.status || undefined,
         powerLevel:
           editValues.powerLevel === "" ? undefined : Number(editValues.powerLevel),
@@ -450,6 +465,16 @@ export const ItemCreate = () => {
                 onChange={(value) => handleFilterChange("tag", value)}
               />
               <Select
+                label="Type"
+                value={filters.type}
+                onChange={(value) => handleFilterChange("type", value as ItemType | "")}
+                options={ITEM_TYPES.map((value) => ({
+                  value,
+                  label: t(value),
+                }))}
+                placeholder="All"
+              />
+              <Select
                 label="Status"
                 value={filters.status}
                 onChange={(value) => handleFilterChange("status", value as ItemStatus | "")}
@@ -548,6 +573,20 @@ export const ItemCreate = () => {
                 onChange={(value) =>
                   setEditValues((prev) => prev && { ...prev, origin: value })
                 }
+              />
+            </div>
+            <div className="form-field--narrow">
+              <Select
+                label="Type"
+                value={editValues.type}
+                onChange={(value) =>
+                  setEditValues((prev) => prev && { ...prev, type: value as ItemType | "" })
+                }
+                options={ITEM_TYPES.map((value) => ({
+                  label: t(value),
+                  value,
+                }))}
+                placeholder={t("Select")}
               />
             </div>
             <div className="form-field--narrow">
@@ -720,6 +759,18 @@ export const ItemCreate = () => {
                 label="Origin"
                 value={values.origin}
                 onChange={(value) => setField("origin", value)}
+              />
+            </div>
+            <div className="form-field--narrow">
+              <Select
+                label="Type"
+                value={values.type}
+                onChange={(value) => setField("type", value as ItemType | "")}
+                options={ITEM_TYPES.map((value) => ({
+                  label: t(value),
+                  value,
+                }))}
+                placeholder={t("Select")}
               />
             </div>
             <div className="form-field--narrow">

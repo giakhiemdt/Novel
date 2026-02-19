@@ -9,9 +9,19 @@ export const ITEM_STATUSES = [
   "destroyed",
 ] as const;
 export const ITEM_OWNER_TYPES = ["character", "faction"] as const;
+export const ITEM_TYPES = [
+  "resource",
+  "currency",
+  "mineral",
+  "consumable",
+  "equipment",
+  "relic",
+  "kim-chi-thu",
+] as const;
 
 export type ItemStatus = (typeof ITEM_STATUSES)[number];
 export type ItemOwnerType = (typeof ITEM_OWNER_TYPES)[number];
+export type ItemType = (typeof ITEM_TYPES)[number];
 
 export type ItemPayload = {
   id?: string;
@@ -19,6 +29,7 @@ export type ItemPayload = {
   origin?: string;
   ownerId?: string;
   ownerType?: ItemOwnerType;
+  type?: ItemType;
   status?: ItemStatus;
   powerLevel?: number;
   powerDescription?: string;

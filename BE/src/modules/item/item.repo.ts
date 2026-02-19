@@ -10,6 +10,7 @@ const CREATE_ITEM = `
 CREATE (i:${nodeLabels.item} {
   id: $id,
   name: $name,
+  type: $type,
   origin: $origin,
   ownerId: $ownerId,
   ownerType: $ownerType,
@@ -29,6 +30,7 @@ const UPDATE_ITEM = `
 MATCH (i:${nodeLabels.item} {id: $id})
 SET
   i.name = $name,
+  i.type = $type,
   i.origin = $origin,
   i.ownerId = $ownerId,
   i.ownerType = $ownerType,
@@ -47,6 +49,7 @@ MATCH (i:${nodeLabels.item})
 WHERE
   ($name IS NULL OR toLower(i.name) CONTAINS toLower($name))
   AND ($tag IS NULL OR $tag IN coalesce(i.tags, []))
+  AND ($type IS NULL OR i.type = $type)
   AND ($status IS NULL OR i.status = $status)
   AND ($ownerId IS NULL OR i.ownerId = $ownerId)
   AND ($ownerType IS NULL OR i.ownerType = $ownerType)
@@ -62,6 +65,7 @@ WITH node AS i, score
 WHERE
   ($name IS NULL OR toLower(i.name) CONTAINS toLower($name))
   AND ($tag IS NULL OR $tag IN coalesce(i.tags, []))
+  AND ($type IS NULL OR i.type = $type)
   AND ($status IS NULL OR i.status = $status)
   AND ($ownerId IS NULL OR i.ownerId = $ownerId)
   AND ($ownerType IS NULL OR i.ownerType = $ownerType)
@@ -76,6 +80,7 @@ MATCH (i:${nodeLabels.item})
 WHERE
   ($name IS NULL OR toLower(i.name) CONTAINS toLower($name))
   AND ($tag IS NULL OR $tag IN coalesce(i.tags, []))
+  AND ($type IS NULL OR i.type = $type)
   AND ($status IS NULL OR i.status = $status)
   AND ($ownerId IS NULL OR i.ownerId = $ownerId)
   AND ($ownerType IS NULL OR i.ownerType = $ownerType)
@@ -88,6 +93,7 @@ WITH node AS i, score
 WHERE
   ($name IS NULL OR toLower(i.name) CONTAINS toLower($name))
   AND ($tag IS NULL OR $tag IN coalesce(i.tags, []))
+  AND ($type IS NULL OR i.type = $type)
   AND ($status IS NULL OR i.status = $status)
   AND ($ownerId IS NULL OR i.ownerId = $ownerId)
   AND ($ownerType IS NULL OR i.ownerType = $ownerType)
@@ -157,6 +163,7 @@ MATCH (i:${nodeLabels.item})-[:${relationTypes.itemAppearsIn}]->(e:${nodeLabels.
 WHERE
   ($name IS NULL OR toLower(i.name) CONTAINS toLower($name))
   AND ($tag IS NULL OR $tag IN coalesce(i.tags, []))
+  AND ($type IS NULL OR i.type = $type)
   AND ($status IS NULL OR i.status = $status)
   AND ($ownerId IS NULL OR i.ownerId = $ownerId)
   AND ($ownerType IS NULL OR i.ownerType = $ownerType)
@@ -173,6 +180,7 @@ MATCH (i)-[:${relationTypes.itemAppearsIn}]->(e:${nodeLabels.event} {id: $eventI
 WHERE
   ($name IS NULL OR toLower(i.name) CONTAINS toLower($name))
   AND ($tag IS NULL OR $tag IN coalesce(i.tags, []))
+  AND ($type IS NULL OR i.type = $type)
   AND ($status IS NULL OR i.status = $status)
   AND ($ownerId IS NULL OR i.ownerId = $ownerId)
   AND ($ownerType IS NULL OR i.ownerType = $ownerType)
@@ -219,6 +227,7 @@ LIMIT toInteger($limit)
 const ITEM_PARAMS = [
   "id",
   "name",
+  "type",
   "origin",
   "ownerId",
   "ownerType",
@@ -280,6 +289,7 @@ export const getItems = async (
       q: query.q ?? "",
       name: query.name ?? null,
       tag: query.tag ?? null,
+      type: query.type ?? null,
       status: query.status ?? null,
       ownerId: query.ownerId ?? null,
       ownerType: query.ownerType ?? null,
@@ -306,6 +316,7 @@ export const getItemCount = async (
       q: query.q ?? "",
       name: query.name ?? null,
       tag: query.tag ?? null,
+      type: query.type ?? null,
       status: query.status ?? null,
       ownerId: query.ownerId ?? null,
       ownerType: query.ownerType ?? null,
@@ -439,6 +450,7 @@ export const getItemsByEvent = async (
       q: query.q ?? "",
       name: query.name ?? null,
       tag: query.tag ?? null,
+      type: query.type ?? null,
       status: query.status ?? null,
       ownerId: query.ownerId ?? null,
       ownerType: query.ownerType ?? null,

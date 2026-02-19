@@ -546,6 +546,7 @@ export const nodeDocs: NodeDoc[] = [
       "origin",
       "ownerId",
       "ownerType",
+      "type",
       "status",
       "powerLevel",
       "powerDescription",
@@ -564,7 +565,10 @@ export const nodeDocs: NodeDoc[] = [
       "GET /events/:id/items",
       "GET /items/:id/events",
     ],
-    notes: ["status: owned | stored | damaged | lost | stolen | destroyed"],
+    notes: [
+      "type: resource | currency | mineral | consumable | equipment | relic | kim-chi-thu",
+      "status: owned | stored | damaged | lost | stolen | destroyed",
+    ],
   },
   {
     id: "relationship",

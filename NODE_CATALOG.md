@@ -204,7 +204,7 @@ Tài liệu này mô tả chi tiết từng node đang dùng trong dự án hi�
 ### 3.16 `Item`
 - Vai trò: Vật phẩm có chủ sở hữu, trạng thái.
 - Required: `name`.
-- Optional: `origin`, `ownerId`, `ownerType` (`character`|`faction`), `status` (`owned`|`stored`|`damaged`|`lost`|`stolen`|`destroyed`), `powerLevel`, `powerDescription`, `abilities[{name,description}]`, `notes`, `tags[]`.
+- Optional: `origin`, `ownerId`, `ownerType` (`character`|`faction`), `type` (`resource`|`currency`|`mineral`|`consumable`|`equipment`|`relic`|`kim-chi-thu`), `status` (`owned`|`stored`|`damaged`|`lost`|`stolen`|`destroyed`), `powerLevel`, `powerDescription`, `abilities[{name,description}]`, `notes`, `tags[]`.
 - Quan hệ: `OWNS_ITEM`, `ITEM_APPEARS_IN`.
 - API chính:
 - `GET/POST/PUT/DELETE /items`

@@ -64,6 +64,7 @@ export const ItemList = ({
       title: t("Item Identity"),
       fields: [
         { label: t("Name"), value: item.name, size: "wide" },
+        { label: t("Type"), value: item.type ? t(item.type) : "-", size: "narrow" },
         { label: t("Status"), value: item.status ? t(item.status) : "-", size: "narrow" },
         { label: t("Owner"), value: renderOwner(item), size: "wide" },
         { label: t("Origin"), value: item.origin, size: "wide" },
@@ -92,6 +93,7 @@ export const ItemList = ({
         <thead>
           <tr>
             <th>{t("Name")}</th>
+            <th>{t("Type")}</th>
             <th>{t("Owner")}</th>
             <th>{t("Status")}</th>
             <th>{t("Power Level")}</th>
@@ -116,6 +118,7 @@ export const ItemList = ({
               <td>
                 <strong>{item.name}</strong>
               </td>
+              <td>{item.type ? t(item.type) : "-"}</td>
               <td>{renderOwner(item)}</td>
               <td>{item.status ? t(item.status) : "-"}</td>
               <td>{item.powerLevel ?? "-"}</td>
