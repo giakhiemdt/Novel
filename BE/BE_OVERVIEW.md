@@ -83,7 +83,34 @@ Backend quản lý dữ liệu tiểu thuyết dài hạn (worldbuilding + cấu
 - `POST /timelines/link`
 - `POST /timelines/unlink`
 - `POST /timelines/relink`
-- Ghi chú migration: phase hiện tại mới tạo constraint/index cho timeline-first, chưa mở API CRUD cho Axis/Era/Segment/Marker/StateChange.
+
+### Timeline Structure (Timeline-first)
+- `GET /timeline-axes` (pagination + filter + search `q`)
+- `POST /timeline-axes`
+- `PUT /timeline-axes/:id`
+- `DELETE /timeline-axes/:id`
+
+- `GET /timeline-eras` (pagination + filter + search `q`)
+- `POST /timeline-eras`
+- `PUT /timeline-eras/:id`
+- `DELETE /timeline-eras/:id`
+
+- `GET /timeline-segments` (pagination + filter + search `q`)
+- `POST /timeline-segments`
+- `PUT /timeline-segments/:id`
+- `DELETE /timeline-segments/:id`
+
+- `GET /timeline-markers` (pagination + filter + search `q`)
+- `POST /timeline-markers`
+- `PUT /timeline-markers/:id`
+- `DELETE /timeline-markers/:id`
+
+### Timeline State Change (Timeline-first)
+- `GET /timeline-state-changes` (pagination + filter + search `q`)
+- `POST /timeline-state-changes`
+- `PUT /timeline-state-changes/:id`
+- `DELETE /timeline-state-changes/:id`
+- `GET /timeline-state-changes/snapshot` (query `axisId` + `tick`)
 
 ### Location
 - `GET /locations` (pagination + filter + search `q`)
@@ -159,7 +186,7 @@ Backend quản lý dữ liệu tiểu thuyết dài hạn (worldbuilding + cấu
 
 ## Tìm kiếm & phân trang
 - Hầu hết list API hỗ trợ `limit`, `offset`, filter, và full‑text `q`.
-- Full‑text index: Character, Event, Location, Faction, Timeline, Arc, Chapter, Scene, Item, Project, Overview.
+- Full‑text index: Character, Event, Location, Faction, Timeline, TimelineAxis, TimelineEra, TimelineSegment, TimelineMarker, TimelineStateChange, Arc, Chapter, Scene, Item, Project, Overview.
 
 ## Multi‑database Neo4j
 - `POST /projects` tạo DB mới.

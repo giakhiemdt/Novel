@@ -22,6 +22,7 @@ import { mapSystemRoutes } from "../modules/map-system/map-system.routes";
 import { specialAbilityRoutes } from "../modules/special-ability/special-ability.routes";
 import { schemaRoutes } from "../modules/schema/schema.routes";
 import { timelineStructureRoutes } from "../modules/timeline-structure/timeline-structure.routes";
+import { timelineStateChangeRoutes } from "../modules/timeline-state-change/timeline-state-change.routes";
 import { healthRoutes } from "./health.routes";
 
 export type RouteConfig = {
@@ -51,6 +52,7 @@ export const routes: RouteConfig[] = [
   ...schemaRoutes,
   ...timelineRoutes,
   ...timelineStructureRoutes,
+  ...timelineStateChangeRoutes,
   ...locationRoutes,
   ...factionRoutes,
   ...eventRoutes,
