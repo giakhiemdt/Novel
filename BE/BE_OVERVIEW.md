@@ -36,6 +36,7 @@ Backend quản lý dữ liệu tiểu thuyết dài hạn (worldbuilding + cấu
 - **Overview**: tổng quan thế giới.
 - **Character**: nhân vật.
 - **Timeline**: dòng thời gian.
+- **TimelineAxis / TimelineEra / TimelineSegment / TimelineMarker / TimelineStateChange**: lớp nền cho timeline-first (phase migration).
 - **Location**: địa điểm.
 - **Faction**: phe phái.
 - **Event**: sự kiện.
@@ -45,6 +46,7 @@ Backend quản lý dữ liệu tiểu thuyết dài hạn (worldbuilding + cấu
 
 ## Quan hệ (Relationships)
 - **Timeline**: `PREVIOUS` / `NEXT` giữa các timeline.
+- **Timeline-first foundation**: `HAS_ERA`, `HAS_SEGMENT`, `HAS_MARKER`, `HAS_EVENT`, `CAUSES_CHANGE`, `APPLIES_TO`, `BRANCHES_FROM`, `RETURNS_TO`, `PARALLEL_WITH`.
 - **Location**: `CONTAINS` giữa vị trí (có `sinceYear`, `untilYear`, `note`).
 - **Event**: `OCCURS_IN` (Location), `OCCURS_ON` (Timeline), `PARTICIPATES_IN` (Character).
 - **Arc/Chapter/Scene**: `ARC_HAS_CHAPTER`, `CHAPTER_HAS_SCENE`.
@@ -81,6 +83,7 @@ Backend quản lý dữ liệu tiểu thuyết dài hạn (worldbuilding + cấu
 - `POST /timelines/link`
 - `POST /timelines/unlink`
 - `POST /timelines/relink`
+- Ghi chú migration: phase hiện tại mới tạo constraint/index cho timeline-first, chưa mở API CRUD cho Axis/Era/Segment/Marker/StateChange.
 
 ### Location
 - `GET /locations` (pagination + filter + search `q`)
