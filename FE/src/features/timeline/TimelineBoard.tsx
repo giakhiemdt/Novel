@@ -20,7 +20,6 @@ type TimelineBoardProps = {
   onLink: (currentId: string, previousId: string) => void;
   onUnlink: (currentId: string, previousId: string) => void;
   onRelink: (currentId: string, previousId: string) => void;
-  onDelete?: (item: Timeline) => void;
 };
 
 type Position = { x: number; y: number };
@@ -63,7 +62,6 @@ export const TimelineBoard = ({
   onLink,
   onUnlink,
   onRelink,
-  onDelete,
 }: TimelineBoardProps) => {
   const { t } = useI18n();
   const boardRef = useRef<HTMLDivElement>(null);
@@ -881,17 +879,6 @@ export const TimelineBoard = ({
               {(startYears[selected.id] ?? 0) + (selected.durationYears ?? 0)}
             </span>
           </div>
-          {onDelete && (
-            <div className="timeline-card__actions">
-              <button
-                type="button"
-                className="table__action table__action--danger"
-                onClick={() => onDelete(selected)}
-              >
-                {t("Delete")}
-              </button>
-            </div>
-          )}
           </div>
         )}
       </div>
