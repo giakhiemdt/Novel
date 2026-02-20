@@ -1,5 +1,6 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import { handleError } from "../../shared/errors/error-handler";
+import { emitDualWriteStateChanges } from "../../shared/utils/timeline-dual-write";
 import { locationService } from "./location.service";
 
 const getDatabaseHeader = (req: FastifyRequest): string | undefined => {
@@ -17,6 +18,17 @@ const createLocation = async (
   try {
     const dbName = getDatabaseHeader(req);
     const location = await locationService.create(req.body, dbName);
+    if (location.id) {
+      await emitDualWriteStateChanges({
+        req,
+        dbName,
+        subjectType: "location",
+        subjectId: location.id,
+        node: location,
+        mode: "create",
+        action: "location.create",
+      });
+    }
     reply.status(201).send({ data: location });
   } catch (error) {
     const handled = handleError(error);
@@ -32,6 +44,18 @@ const updateLocation = async (
     const dbName = getDatabaseHeader(req);
     const { id } = req.params as { id: string };
     const location = await locationService.update(id, req.body, dbName);
+    if (location.id) {
+      await emitDualWriteStateChanges({
+        req,
+        dbName,
+        subjectType: "location",
+        subjectId: location.id,
+        node: location,
+        mode: "update",
+        payload: req.body,
+        action: "location.update",
+      });
+    }
     reply.status(200).send({ data: location });
   } catch (error) {
     const handled = handleError(error);

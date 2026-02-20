@@ -187,6 +187,14 @@ Backend quản lý dữ liệu tiểu thuyết dài hạn (worldbuilding + cấu
 - Trả lỗi `{ message }` với status code 400/404/409/500.
 - Dùng `AppError` + `handleError`.
 
+## Timeline Dual-write
+- Khi `TIMELINE_WRITE_MODE=dual-write`, các API create/update của `Character`, `Item`, `Location`, `Event` sẽ tự ghi `TimelineStateChange` theo dạng best-effort.
+- Header cần có để ghi state change:
+  - `x-timeline-axis-id`
+  - `x-timeline-tick`
+- Header tùy chọn: `x-timeline-era-id`, `x-timeline-segment-id`, `x-timeline-marker-id`, `x-timeline-event-id`.
+- Nếu thiếu header timeline, API chính vẫn thành công và dual-write sẽ bị bỏ qua.
+
 ## Tìm kiếm & phân trang
 - Hầu hết list API hỗ trợ `limit`, `offset`, filter, và full‑text `q`.
 - Full‑text index: Character, Event, Location, Faction, Timeline, TimelineAxis, TimelineEra, TimelineSegment, TimelineMarker, TimelineStateChange, Arc, Chapter, Scene, Item, Project, Overview.

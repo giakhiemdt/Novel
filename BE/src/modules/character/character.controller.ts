@@ -1,5 +1,6 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import { handleError } from "../../shared/errors/error-handler";
+import { emitDualWriteStateChanges } from "../../shared/utils/timeline-dual-write";
 import { characterService } from "./character.service";
 
 const getDatabaseHeader = (req: FastifyRequest): string | undefined => {
@@ -17,6 +18,15 @@ const createCharacter = async (
   try {
     const dbName = getDatabaseHeader(req);
     const character = await characterService.create(req.body, dbName);
+    await emitDualWriteStateChanges({
+      req,
+      dbName,
+      subjectType: "character",
+      subjectId: character.id,
+      node: character,
+      mode: "create",
+      action: "character.create",
+    });
     reply.status(201).send({ data: character });
   } catch (error) {
     const handled = handleError(error);
@@ -32,6 +42,16 @@ const updateCharacter = async (
     const dbName = getDatabaseHeader(req);
     const { id } = req.params as { id: string };
     const character = await characterService.update(id, req.body, dbName);
+    await emitDualWriteStateChanges({
+      req,
+      dbName,
+      subjectType: "character",
+      subjectId: character.id,
+      node: character,
+      mode: "update",
+      payload: req.body,
+      action: "character.update",
+    });
     reply.status(200).send({ data: character });
   } catch (error) {
     const handled = handleError(error);
