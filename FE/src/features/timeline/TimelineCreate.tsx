@@ -20,6 +20,7 @@ import { getAllEvents } from "../event/event.api";
 import type { Event } from "../event/event.types";
 import { TimelineBoard } from "./TimelineBoard";
 import { TimelineList } from "./TimelineList";
+import { TimelineStructurePanel } from "./TimelineStructurePanel";
 import { FormSection } from "../../components/form/FormSection";
 import { MultiSelect } from "../../components/form/MultiSelect";
 import { Select } from "../../components/form/Select";
@@ -73,6 +74,7 @@ export const TimelineCreate = () => {
   const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
   const [showList, setShowList] = useState(false);
   const [showBoard, setShowBoard] = useState(false);
+  const [showTimelineFirst, setShowTimelineFirst] = useState(false);
   const [filters, setFilters] = useState({
     q: "",
     name: "",
@@ -431,6 +433,23 @@ export const TimelineCreate = () => {
               </button>
               {showBoard && <p className="header__subtitle">{t("Board")}</p>}
             </div>
+            <div className="filter-block">
+              <button
+                type="button"
+                className="filter-toggle"
+                onClick={() => setShowTimelineFirst((prev) => !prev)}
+                aria-expanded={showTimelineFirst}
+              >
+                <span className="filter-toggle__label">
+                  {showTimelineFirst
+                    ? t("Hide timeline-first")
+                    : t("Show timeline-first")}
+                </span>
+              </button>
+              {showTimelineFirst && (
+                <p className="header__subtitle">{t("Timeline-first panel")}</p>
+              )}
+            </div>
           </>
         }
         list={
@@ -478,6 +497,8 @@ export const TimelineCreate = () => {
           )}
         </>
       )}
+
+      <TimelineStructurePanel open={showTimelineFirst} />
 
       {isFormOpen && (
         <div className="timeline-modal__backdrop" onClick={closeForm}>
