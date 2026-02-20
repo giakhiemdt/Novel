@@ -112,6 +112,7 @@ Backend quản lý dữ liệu tiểu thuyết dài hạn (worldbuilding + cấu
 - `DELETE /timeline-state-changes/:id`
 - `GET /timeline-state-changes/snapshot` (query `axisId` + `tick`)
 - `GET /timeline-state-changes/projection` (project trạng thái thực thể tại `axisId` + `tick`)
+- `GET /timeline-state-changes/diff` (so sánh 2 mốc `fromTick` và `toTick` cho một thực thể)
 - `GET /timeline-state-changes/history` (replay lịch sử thay đổi cho `axisId` + `subjectType` + `subjectId`)
 
 ### Location

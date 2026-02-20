@@ -180,6 +180,39 @@ const getStateProjection = async (
   }
 };
 
+const getStateDiff = async (
+  req: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> => {
+  const dbName = getDatabaseHeader(req);
+  try {
+    const result = await timelineStateChangeService.getDiff(dbName, req.query);
+    auditTimelineOperation({
+      action: "timeline-state-change.diff",
+      method: req.method,
+      path: req.url,
+      requestId: req.id,
+      dbName,
+      result: "success",
+      statusCode: 200,
+    });
+    reply.status(200).send(result);
+  } catch (error) {
+    const handled = handleError(error);
+    auditTimelineOperation({
+      action: "timeline-state-change.diff",
+      method: req.method,
+      path: req.url,
+      requestId: req.id,
+      dbName,
+      result: "error",
+      statusCode: handled.statusCode,
+      detail: handled.message,
+    });
+    reply.status(handled.statusCode).send({ message: handled.message });
+  }
+};
+
 const getStateHistory = async (
   req: FastifyRequest,
   reply: FastifyReply
@@ -255,6 +288,7 @@ export const timelineStateChangeController = {
   getAllStateChanges,
   getStateSnapshot,
   getStateProjection,
+  getStateDiff,
   getStateHistory,
   deleteStateChange,
 };

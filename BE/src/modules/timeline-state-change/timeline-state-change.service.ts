@@ -13,10 +13,13 @@ import {
   updateTimelineStateChange,
 } from "./timeline-state-change.repo";
 import {
+  TimelineDiffQuery,
   TIMELINE_STATE_CHANGE_STATUSES,
   TimelineHistoryQuery,
   TimelineProjectionQuery,
   TimelineStateProjectionField,
+  TimelineStateDiffField,
+  TimelineStateDiffResult,
   TimelineStateProjectionSubject,
   TimelineStateHistoryEntry,
   TIMELINE_SUBJECT_TYPES,
@@ -315,6 +318,44 @@ const parseSnapshotQuery = (query: unknown): TimelineSnapshotQuery => {
 const parseProjectionQuery = (query: unknown): TimelineProjectionQuery =>
   parseSnapshotQuery(query);
 
+const parseDiffQuery = (query: unknown): TimelineDiffQuery => {
+  if (!query || typeof query !== "object") {
+    throw new AppError(
+      "axisId, subjectType, subjectId, fromTick, and toTick are required",
+      400
+    );
+  }
+  const data = query as Record<string, unknown>;
+  const axisId = assertRequiredString(data.axisId, "axisId");
+  const subjectType = assertOptionalEnum(
+    data.subjectType,
+    TIMELINE_SUBJECT_TYPES,
+    "subjectType"
+  );
+  const subjectId = assertRequiredString(data.subjectId, "subjectId");
+  if (!subjectType) {
+    throw new AppError("subjectType is required", 400);
+  }
+  const fromTick = parseOptionalQueryNumber(data.fromTick, "fromTick");
+  const toTick = parseOptionalQueryNumber(data.toTick, "toTick");
+  if (fromTick === undefined) {
+    throw new AppError("fromTick is required", 400);
+  }
+  if (toTick === undefined) {
+    throw new AppError("toTick is required", 400);
+  }
+  if (toTick < fromTick) {
+    throw new AppError("toTick must be >= fromTick", 400);
+  }
+  return {
+    axisId,
+    subjectType,
+    subjectId,
+    fromTick,
+    toTick,
+  };
+};
+
 const parseHistoryQuery = (query: unknown): TimelineHistoryQuery => {
   if (!query || typeof query !== "object") {
     throw new AppError("axisId, subjectType, and subjectId are required", 400);
@@ -501,6 +542,58 @@ const buildProjectionFromSnapshot = (
   }
 
   return Array.from(grouped.values());
+};
+
+const buildStateFromSnapshot = (
+  snapshot: TimelineStateChangeNode[]
+): Record<string, unknown> => {
+  const state: Record<string, unknown> = {};
+  for (const change of snapshot) {
+    const normalizedChangeType = (change.changeType ?? "").trim().toLowerCase();
+    const isRemoval = removalChangeTypes.has(normalizedChangeType);
+    if (isRemoval) {
+      removeFieldByPath(state, change.fieldPath);
+      continue;
+    }
+    const parsedValue = parseSerializedValue(change.newValue);
+    setFieldValueByPath(state, change.fieldPath, parsedValue ?? null);
+  }
+  return state;
+};
+
+const buildFieldValueMapFromSnapshot = (
+  snapshot: TimelineStateChangeNode[]
+): Map<string, unknown> => {
+  const values = new Map<string, unknown>();
+  for (const change of snapshot) {
+    const normalizedChangeType = (change.changeType ?? "").trim().toLowerCase();
+    const isRemoval = removalChangeTypes.has(normalizedChangeType);
+    if (isRemoval) {
+      values.delete(change.fieldPath);
+      continue;
+    }
+    values.set(change.fieldPath, parseSerializedValue(change.newValue) ?? null);
+  }
+  return values;
+};
+
+const areValuesEqual = (left: unknown, right: unknown): boolean => {
+  try {
+    return JSON.stringify(left) === JSON.stringify(right);
+  } catch {
+    return left === right;
+  }
+};
+
+const createDiffField = (
+  fieldPath: string,
+  fromValue: unknown,
+  toValue: unknown
+): TimelineStateDiffField => {
+  const data: Record<string, unknown> = { fieldPath };
+  addIfDefined(data, "fromValue", fromValue);
+  addIfDefined(data, "toValue", toValue);
+  return data as TimelineStateDiffField;
 };
 
 const buildHistoryFromChanges = (
@@ -699,6 +792,107 @@ export const timelineStateChangeService = {
         ...parsedQuery,
         subjectCount: projected.length,
         fieldCount: snapshot.length,
+      },
+    };
+  },
+
+  getDiff: async (
+    dbName: unknown,
+    query: unknown
+  ): Promise<{
+    data: TimelineStateDiffResult;
+    meta: TimelineDiffQuery & {
+      addedCount: number;
+      removedCount: number;
+      updatedCount: number;
+      changed: boolean;
+    };
+  }> => {
+    const database = assertDatabaseName(dbName);
+    const parsedQuery = parseDiffQuery(query);
+    const axisExists = await checkTimelineAxisExists(database, parsedQuery.axisId);
+    if (!axisExists) {
+      throw new AppError("axis not found", 404);
+    }
+    const subjectExists = await checkSubjectExists(
+      database,
+      parsedQuery.subjectType,
+      parsedQuery.subjectId
+    );
+    if (!subjectExists) {
+      throw new AppError("subject not found", 404);
+    }
+
+    const [fromSnapshot, toSnapshot] = await Promise.all([
+      getTimelineStateSnapshot(database, {
+        axisId: parsedQuery.axisId,
+        tick: parsedQuery.fromTick,
+        subjectType: parsedQuery.subjectType,
+        subjectId: parsedQuery.subjectId,
+      }),
+      getTimelineStateSnapshot(database, {
+        axisId: parsedQuery.axisId,
+        tick: parsedQuery.toTick,
+        subjectType: parsedQuery.subjectType,
+        subjectId: parsedQuery.subjectId,
+      }),
+    ]);
+
+    const fromState = buildStateFromSnapshot(fromSnapshot);
+    const toState = buildStateFromSnapshot(toSnapshot);
+    const fromValues = buildFieldValueMapFromSnapshot(fromSnapshot);
+    const toValues = buildFieldValueMapFromSnapshot(toSnapshot);
+
+    const allFields = Array.from(
+      new Set([...fromValues.keys(), ...toValues.keys()])
+    ).sort((left, right) => left.localeCompare(right));
+
+    const addedFields: TimelineStateDiffField[] = [];
+    const removedFields: TimelineStateDiffField[] = [];
+    const updatedFields: TimelineStateDiffField[] = [];
+
+    for (const fieldPath of allFields) {
+      const hasFrom = fromValues.has(fieldPath);
+      const hasTo = toValues.has(fieldPath);
+      const fromValue = fromValues.get(fieldPath);
+      const toValue = toValues.get(fieldPath);
+
+      if (!hasFrom && hasTo) {
+        addedFields.push(createDiffField(fieldPath, undefined, toValue));
+        continue;
+      }
+      if (hasFrom && !hasTo) {
+        removedFields.push(createDiffField(fieldPath, fromValue, undefined));
+        continue;
+      }
+      if (hasFrom && hasTo && !areValuesEqual(fromValue, toValue)) {
+        updatedFields.push(createDiffField(fieldPath, fromValue, toValue));
+      }
+    }
+
+    const result: TimelineStateDiffResult = {
+      subjectType: parsedQuery.subjectType,
+      subjectId: parsedQuery.subjectId,
+      fromTick: parsedQuery.fromTick,
+      toTick: parsedQuery.toTick,
+      fromState,
+      toState,
+      addedFields,
+      removedFields,
+      updatedFields,
+    };
+
+    return {
+      data: result,
+      meta: {
+        ...parsedQuery,
+        addedCount: addedFields.length,
+        removedCount: removedFields.length,
+        updatedCount: updatedFields.length,
+        changed:
+          addedFields.length > 0 ||
+          removedFields.length > 0 ||
+          updatedFields.length > 0,
       },
     };
   },

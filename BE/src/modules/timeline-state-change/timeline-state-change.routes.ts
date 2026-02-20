@@ -201,6 +201,96 @@ export const timelineStateChangeRoutes: RouteConfig[] = [
   },
   {
     method: "GET",
+    path: "/timeline-state-changes/diff",
+    handler: timelineStateChangeController.getStateDiff,
+    schema: {
+      tags: ["Timeline State Change"],
+      summary: "Diff subject state between two ticks",
+      querystring: {
+        type: "object",
+        required: ["axisId", "subjectType", "subjectId", "fromTick", "toTick"],
+        properties: {
+          axisId: { type: "string" },
+          subjectType: { type: "string", enum: [...TIMELINE_SUBJECT_TYPES] },
+          subjectId: { type: "string" },
+          fromTick: { type: "number" },
+          toTick: { type: "number" },
+        },
+      },
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                subjectType: {
+                  type: "string",
+                  enum: [...TIMELINE_SUBJECT_TYPES],
+                },
+                subjectId: { type: "string" },
+                fromTick: { type: "number" },
+                toTick: { type: "number" },
+                fromState: { type: "object", additionalProperties: true },
+                toState: { type: "object", additionalProperties: true },
+                addedFields: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      fieldPath: { type: "string" },
+                      fromValue: {},
+                      toValue: {},
+                    },
+                  },
+                },
+                removedFields: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      fieldPath: { type: "string" },
+                      fromValue: {},
+                      toValue: {},
+                    },
+                  },
+                },
+                updatedFields: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      fieldPath: { type: "string" },
+                      fromValue: {},
+                      toValue: {},
+                    },
+                  },
+                },
+              },
+            },
+            meta: {
+              type: "object",
+              properties: {
+                axisId: { type: "string" },
+                subjectType: { type: "string", enum: [...TIMELINE_SUBJECT_TYPES] },
+                subjectId: { type: "string" },
+                fromTick: { type: "number" },
+                toTick: { type: "number" },
+                addedCount: { type: "number" },
+                removedCount: { type: "number" },
+                updatedCount: { type: "number" },
+                changed: { type: "boolean" },
+              },
+            },
+          },
+        },
+        400: errorSchema,
+        404: errorSchema,
+      },
+    },
+  },
+  {
+    method: "GET",
     path: "/timeline-state-changes/history",
     handler: timelineStateChangeController.getStateHistory,
     schema: {

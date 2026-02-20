@@ -89,6 +89,14 @@ export type TimelineSnapshotQuery = {
 
 export type TimelineProjectionQuery = TimelineSnapshotQuery;
 
+export type TimelineDiffQuery = {
+  axisId: string;
+  subjectType: TimelineSubjectType;
+  subjectId: string;
+  fromTick: number;
+  toTick: number;
+};
+
 export type TimelineHistoryQuery = {
   axisId: string;
   subjectType: TimelineSubjectType;
@@ -130,4 +138,22 @@ export type TimelineStateHistoryEntry = {
   eventId?: string;
   updatedAt: string;
   stateAfter: Record<string, unknown>;
+};
+
+export type TimelineStateDiffField = {
+  fieldPath: string;
+  fromValue?: unknown;
+  toValue?: unknown;
+};
+
+export type TimelineStateDiffResult = {
+  subjectType: TimelineSubjectType;
+  subjectId: string;
+  fromTick: number;
+  toTick: number;
+  fromState: Record<string, unknown>;
+  toState: Record<string, unknown>;
+  addedFields: TimelineStateDiffField[];
+  removedFields: TimelineStateDiffField[];
+  updatedFields: TimelineStateDiffField[];
 };
