@@ -15,6 +15,10 @@ export const Settings = () => {
   );
 
   const handleLanguageChange = (value: string) => {
+    if (value === "vn") {
+      setLanguage("vi");
+      return;
+    }
     if (value === "en" || value === "vi") {
       setLanguage(value);
     }
@@ -43,7 +47,7 @@ export const Settings = () => {
             onChange={handleLanguageChange}
             options={[
               { label: "English", value: "en" },
-              { label: "Vietnamese", value: "vi" },
+              { label: "Tiếng Việt", value: "vi" },
             ]}
           />
           <Select
