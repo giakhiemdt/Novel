@@ -27,6 +27,13 @@ import type {
 } from "./timeline-structure.types";
 
 const AXIS_TYPES = ["main", "parallel", "branch", "loop"] as const;
+const AXIS_TYPE_LABELS: Record<(typeof AXIS_TYPES)[number], string> = {
+  main: "Main",
+  parallel: "Parallel",
+  branch: "Branch",
+  loop: "Loop",
+};
+
 const SUBJECT_TYPES = [
   "character",
   "item",
@@ -38,6 +45,17 @@ const SUBJECT_TYPES = [
   "timelineSegment",
   "timelineMarker",
 ] as const;
+const SUBJECT_TYPE_LABELS: Record<(typeof SUBJECT_TYPES)[number], string> = {
+  character: "Character",
+  item: "Item",
+  location: "Location",
+  event: "Event",
+  timeline: "Timeline",
+  timelineAxis: "Timeline Axis",
+  timelineEra: "Timeline Era",
+  timelineSegment: "Timeline Segment",
+  timelineMarker: "Timeline Marker",
+};
 
 const formatJson = (value: unknown): string => JSON.stringify(value, null, 2);
 
@@ -283,7 +301,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
 
   const handleCreateAxis = async () => {
     if (!axisName.trim()) {
-      notify("Axis name is required", "error");
+      notify(t("Axis name is required"), "error");
       return;
     }
     try {
@@ -294,7 +312,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       });
       setAxisName("");
       setAxisCode("");
-      notify("Axis created", "success");
+      notify(t("Axis created"), "success");
       await refreshData();
     } catch (error) {
       notify((error as Error).message, "error");
@@ -303,11 +321,11 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
 
   const handleCreateEra = async () => {
     if (!selectedAxisId) {
-      notify("Select an axis first", "error");
+      notify(t("Select an axis first"), "error");
       return;
     }
     if (!eraName.trim()) {
-      notify("Era name is required", "error");
+      notify(t("Era name is required"), "error");
       return;
     }
     try {
@@ -318,7 +336,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       });
       setEraName("");
       setEraCode("");
-      notify("Era created", "success");
+      notify(t("Era created"), "success");
       await refreshData();
     } catch (error) {
       notify((error as Error).message, "error");
@@ -327,11 +345,11 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
 
   const handleCreateSegment = async () => {
     if (!selectedEraId) {
-      notify("Select an era first", "error");
+      notify(t("Select an era first"), "error");
       return;
     }
     if (!segmentName.trim()) {
-      notify("Segment name is required", "error");
+      notify(t("Segment name is required"), "error");
       return;
     }
     try {
@@ -342,7 +360,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       });
       setSegmentName("");
       setSegmentCode("");
-      notify("Segment created", "success");
+      notify(t("Segment created"), "success");
       await refreshData();
     } catch (error) {
       notify((error as Error).message, "error");
@@ -351,16 +369,16 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
 
   const handleCreateMarker = async () => {
     if (!selectedSegmentId) {
-      notify("Select a segment first", "error");
+      notify(t("Select a segment first"), "error");
       return;
     }
     if (!markerLabel.trim()) {
-      notify("Marker label is required", "error");
+      notify(t("Marker label is required"), "error");
       return;
     }
     const parsedTick = Number(markerTick);
     if (!Number.isFinite(parsedTick)) {
-      notify("Tick must be a number", "error");
+      notify(t("Tick must be a number"), "error");
       return;
     }
     try {
@@ -373,7 +391,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       setMarkerLabel("");
       setMarkerType("");
       setMarkerTick("");
-      notify("Marker created", "success");
+      notify(t("Marker created"), "success");
       await refreshData();
     } catch (error) {
       notify((error as Error).message, "error");
@@ -382,12 +400,12 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
 
   const runSnapshot = async () => {
     if (!selectedAxisId) {
-      notify("Select an axis first", "error");
+      notify(t("Select an axis first"), "error");
       return;
     }
     const parsedTick = Number(tick);
     if (!Number.isFinite(parsedTick)) {
-      notify("Tick must be a number", "error");
+      notify(t("Tick must be a number"), "error");
       return;
     }
     try {
@@ -405,12 +423,12 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
 
   const runProjection = async () => {
     if (!selectedAxisId) {
-      notify("Select an axis first", "error");
+      notify(t("Select an axis first"), "error");
       return;
     }
     const parsedTick = Number(tick);
     if (!Number.isFinite(parsedTick)) {
-      notify("Tick must be a number", "error");
+      notify(t("Tick must be a number"), "error");
       return;
     }
     try {
@@ -428,17 +446,17 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
 
   const runDiff = async () => {
     if (!selectedAxisId) {
-      notify("Select an axis first", "error");
+      notify(t("Select an axis first"), "error");
       return;
     }
     if (!subjectId.trim()) {
-      notify("Subject ID is required for diff", "error");
+      notify(t("Subject ID is required for diff"), "error");
       return;
     }
     const parsedFromTick = Number(fromTick);
     const parsedToTick = Number(toTick);
     if (!Number.isFinite(parsedFromTick) || !Number.isFinite(parsedToTick)) {
-      notify("fromTick and toTick must be numbers", "error");
+      notify(t("fromTick and toTick must be numbers"), "error");
       return;
     }
     try {
@@ -457,11 +475,11 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
 
   const runHistory = async () => {
     if (!selectedAxisId) {
-      notify("Select an axis first", "error");
+      notify(t("Select an axis first"), "error");
       return;
     }
     if (!subjectId.trim()) {
-      notify("Subject ID is required for history", "error");
+      notify(t("Subject ID is required for history"), "error");
       return;
     }
     const parsedFromTick = Number(fromTick);
@@ -531,7 +549,10 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
           onChange={(value) =>
             setAxisType((value as (typeof AXIS_TYPES)[number]) || "main")
           }
-          options={AXIS_TYPES.map((value) => ({ value, label: value }))}
+          options={AXIS_TYPES.map((value) => ({
+            value,
+            label: AXIS_TYPE_LABELS[value],
+          }))}
           placeholder="Select type"
         />
         <div className="form-field">
@@ -604,7 +625,10 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
           onChange={(value) =>
             setSubjectType((value as (typeof SUBJECT_TYPES)[number]) || "character")
           }
-          options={SUBJECT_TYPES.map((value) => ({ value, label: value }))}
+          options={SUBJECT_TYPES.map((value) => ({
+            value,
+            label: SUBJECT_TYPE_LABELS[value],
+          }))}
           placeholder="Select subject type"
         />
         <TextInput label="Subject ID" value={subjectId} onChange={setSubjectId} />
