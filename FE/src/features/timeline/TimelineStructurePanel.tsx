@@ -168,6 +168,37 @@ const sortSegments = (left: TimelineSegment, right: TimelineSegment): number =>
 const sortMarkers = (left: TimelineMarker, right: TimelineMarker): number =>
   left.tick - right.tick || compareText(left.label, right.label);
 
+const buildEffectiveAxisParentMap = (axes: TimelineAxis[]): Map<string, string> => {
+  const map = new Map<string, string>();
+  if (!axes.length) {
+    return map;
+  }
+
+  const axisById = new Map<string, TimelineAxis>();
+  axes.forEach((axis) => {
+    axisById.set(axis.id, axis);
+  });
+
+  const mainAxis = axes.find((axis) => axis.axisType === "main");
+  const fallbackParentId = mainAxis?.id;
+
+  axes.forEach((axis) => {
+    if (axis.axisType !== "branch" && axis.axisType !== "loop") {
+      return;
+    }
+    const parentAxisId = axis.parentAxisId;
+    if (parentAxisId && parentAxisId !== axis.id && axisById.has(parentAxisId)) {
+      map.set(axis.id, parentAxisId);
+      return;
+    }
+    if (fallbackParentId && fallbackParentId !== axis.id) {
+      map.set(axis.id, fallbackParentId);
+    }
+  });
+
+  return map;
+};
+
 const getNodeKey = (
   nodeType: "axis" | "era" | "segment" | "marker",
   id: string
@@ -270,6 +301,11 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
     });
     return map;
   }, [axes]);
+
+  const effectiveAxisParentById = useMemo(
+    () => buildEffectiveAxisParentMap(axes),
+    [axes]
+  );
 
   const axisParentOptions = useMemo(
     () =>
@@ -816,7 +852,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       name: axis.name,
       code: axis.code ?? "",
       axisType: axis.axisType,
-      parentAxisId: axis.parentAxisId ?? "",
+      parentAxisId: axis.parentAxisId ?? effectiveAxisParentById.get(axis.id) ?? "",
       description: axis.description ?? "",
       sortOrder: toInputValue(axis.sortOrder),
       startTick: toInputValue(axis.startTick),
@@ -1507,7 +1543,11 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
             </div>
             <span className="tree-row__meta">{t(AXIS_TYPE_LABELS[node.axisType])}</span>
             <span className="tree-row__meta">
-              {node.parentAxisId ? axisNameById.get(node.parentAxisId) ?? node.parentAxisId : "-"}
+              {(() => {
+                const parentAxisId =
+                  node.parentAxisId ?? effectiveAxisParentById.get(node.id);
+                return parentAxisId ? axisNameById.get(parentAxisId) ?? parentAxisId : "-";
+              })()}
             </span>
             <span className="tree-row__meta">{formatTickRange(node.startTick, node.endTick)}</span>
             <span className="tree-row__meta">

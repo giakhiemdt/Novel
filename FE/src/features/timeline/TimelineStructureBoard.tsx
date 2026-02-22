@@ -238,6 +238,39 @@ type AxisRow = {
   depth: number;
 };
 
+const normalizeAxesForHierarchy = (axes: TimelineAxis[]): TimelineAxis[] => {
+  if (!axes.length) {
+    return [];
+  }
+
+  const axisById = new Map<string, TimelineAxis>();
+  axes.forEach((axis) => {
+    axisById.set(axis.id, axis);
+  });
+
+  const mainAxis = axes.find((axis) => axis.axisType === "main");
+  const fallbackParentId = mainAxis?.id;
+
+  return axes.map((axis) => {
+    if (axis.axisType !== "branch" && axis.axisType !== "loop") {
+      return axis;
+    }
+
+    const currentParentId = axis.parentAxisId;
+    const hasValidParent =
+      !!currentParentId && currentParentId !== axis.id && axisById.has(currentParentId);
+    if (hasValidParent) {
+      return axis;
+    }
+
+    if (fallbackParentId && fallbackParentId !== axis.id) {
+      return { ...axis, parentAxisId: fallbackParentId };
+    }
+
+    return axis;
+  });
+};
+
 const buildAxisRows = (axes: TimelineAxis[]): AxisRow[] => {
   if (!axes.length) {
     return [];
@@ -508,6 +541,8 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     return map;
   }, [axes]);
 
+  const normalizedAxes = useMemo(() => normalizeAxesForHierarchy(axes), [axes]);
+
   const eraById = useMemo(() => {
     const map = new Map<string, TimelineEra>();
     eras.forEach((era) => {
@@ -518,10 +553,10 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
 
   const filteredAxes = useMemo(
     () =>
-      axes.filter((axis) =>
+      normalizedAxes.filter((axis) =>
         visibleAxisTypes.includes(axis.axisType as AxisType)
       ),
-    [axes, visibleAxisTypes]
+    [normalizedAxes, visibleAxisTypes]
   );
 
   const axisLayout = useMemo(
@@ -605,7 +640,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     }
 
     if (selectedNode.kind === "axis") {
-      const axis = axes.find((item) => item.id === selectedNode.id);
+      const axis = normalizedAxes.find((item) => item.id === selectedNode.id);
       if (!axis) {
         return null;
       }
@@ -695,10 +730,10 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
   }, [
     axisDurationById,
     axisNameById,
-    axes,
     eraById,
     eraDurationById,
     eras,
+    normalizedAxes,
     segmentDurationById,
     segments,
     selectedNode,
