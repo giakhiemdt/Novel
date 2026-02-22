@@ -105,6 +105,7 @@ type AxisEditState = {
   name: string;
   code: string;
   axisType: (typeof AXIS_TYPES)[number];
+  parentAxisId: string;
   description: string;
   sortOrder: string;
   startTick: string;
@@ -211,6 +212,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
   const [axisName, setAxisName] = useState("");
   const [axisCode, setAxisCode] = useState("");
   const [axisType, setAxisType] = useState<(typeof AXIS_TYPES)[number]>("main");
+  const [axisParentId, setAxisParentId] = useState("");
 
   const [eraName, setEraName] = useState("");
   const [eraCode, setEraCode] = useState("");
@@ -268,6 +270,15 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
     });
     return map;
   }, [axes]);
+
+  const axisParentOptions = useMemo(
+    () =>
+      [...axes].sort(sortAxes).map((axis) => ({
+        value: axis.id,
+        label: axis.name,
+      })),
+    [axes]
+  );
 
   const eraNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -408,6 +419,30 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
     }
   }, [axisType, createMode, firstAvailableCreateAxisType, hasMainAxis]);
 
+  useEffect(() => {
+    if (createMode !== "axis") {
+      return;
+    }
+    const requiresParent = axisType === "branch" || axisType === "loop";
+    if (!requiresParent) {
+      if (axisParentId) {
+        setAxisParentId("");
+      }
+      return;
+    }
+    const hasCurrentParent = axisParentId && axes.some((axis) => axis.id === axisParentId);
+    if (hasCurrentParent) {
+      return;
+    }
+    const fallbackParentId =
+      (selectedAxisId && axes.some((axis) => axis.id === selectedAxisId)
+        ? selectedAxisId
+        : axisParentOptions[0]?.value) ?? "";
+    if (fallbackParentId && fallbackParentId !== axisParentId) {
+      setAxisParentId(fallbackParentId);
+    }
+  }, [axisParentId, axisParentOptions, axisType, axes, createMode, selectedAxisId]);
+
   const timelineTree = useMemo<TimelineTreeAxisNode[]>(() => {
     const markersBySegment = new Map<string, TimelineTreeMarkerNode[]>();
     [...markers].sort(sortMarkers).forEach((marker) => {
@@ -512,11 +547,17 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       notify(t("Axis name is required"), "error");
       return;
     }
+    const requiresParent = axisType === "branch" || axisType === "loop";
+    if (requiresParent && !axisParentId) {
+      notify(t("Select an axis first"), "error");
+      return;
+    }
     try {
       const created = await createTimelineAxis({
         name: axisName.trim(),
         code: axisCode.trim() || undefined,
         axisType,
+        parentAxisId: requiresParent ? axisParentId : undefined,
       });
       notify(t("Axis created"), "success");
       await refreshData();
@@ -526,6 +567,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       setSelectedNodeKey(getNodeKey("axis", created.id));
       setAxisName("");
       setAxisCode("");
+      setAxisParentId("");
     } catch (error) {
       notify((error as Error).message, "error");
     }
@@ -774,6 +816,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       name: axis.name,
       code: axis.code ?? "",
       axisType: axis.axisType,
+      parentAxisId: axis.parentAxisId ?? "",
       description: axis.description ?? "",
       sortOrder: toInputValue(axis.sortOrder),
       startTick: toInputValue(axis.startTick),
@@ -865,6 +908,12 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
     try {
       setSavingEdit(true);
       if (editNode.nodeType === "axis") {
+        const requiresParent = editNode.axisType === "branch" || editNode.axisType === "loop";
+        if (requiresParent && !editNode.parentAxisId.trim()) {
+          notify(t("Select an axis first"), "error");
+          setSavingEdit(false);
+          return;
+        }
         const sortOrder = parseOptionalNumber(editNode.sortOrder, "Sort order");
         const startTick = parseOptionalNumber(editNode.startTick, "Start tick");
         const endTick = parseOptionalNumber(editNode.endTick, "End tick");
@@ -876,6 +925,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
           name: trimmedName,
           code: editNode.code.trim() || undefined,
           axisType: editNode.axisType,
+          parentAxisId: requiresParent ? editNode.parentAxisId.trim() : undefined,
           description: editNode.description.trim() || undefined,
           sortOrder,
           startTick,
@@ -1456,7 +1506,9 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
               ) : null}
             </div>
             <span className="tree-row__meta">{t(AXIS_TYPE_LABELS[node.axisType])}</span>
-            <span className="tree-row__meta">-</span>
+            <span className="tree-row__meta">
+              {node.parentAxisId ? axisNameById.get(node.parentAxisId) ?? node.parentAxisId : "-"}
+            </span>
             <span className="tree-row__meta">{formatTickRange(node.startTick, node.endTick)}</span>
             <span className="tree-row__meta">
               {node.status === "archived" ? t("Archived") : t("Active")}
@@ -1589,6 +1641,15 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
               options={createAxisTypeOptions}
               placeholder="Select type"
             />
+            {axisType === "branch" || axisType === "loop" ? (
+              <Select
+                label="Parent axis"
+                value={axisParentId}
+                onChange={(value) => setAxisParentId(value)}
+                options={axisParentOptions}
+                placeholder="Select axis"
+              />
+            ) : null}
           </>
         ) : null}
 
@@ -1887,15 +1948,20 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
                     label="Axis type"
                     value={editNode.axisType}
                     onChange={(value) =>
-                      setEditNode((prev) =>
-                        prev && prev.nodeType === "axis"
-                          ? {
-                              ...prev,
-                              axisType:
-                                (value as (typeof AXIS_TYPES)[number]) || prev.axisType,
-                            }
-                          : prev
-                      )
+                      setEditNode((prev) => {
+                        if (!prev || prev.nodeType !== "axis") {
+                          return prev;
+                        }
+                        const nextAxisType =
+                          (value as (typeof AXIS_TYPES)[number]) || prev.axisType;
+                        const requiresParent =
+                          nextAxisType === "branch" || nextAxisType === "loop";
+                        return {
+                          ...prev,
+                          axisType: nextAxisType,
+                          parentAxisId: requiresParent ? prev.parentAxisId : "",
+                        };
+                      })
                     }
                     options={AXIS_TYPES.filter(
                       (value) =>
@@ -1916,6 +1982,28 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
                     </p>
                   </div>
                 )}
+                {editNode.nodeType === "axis" &&
+                (editNode.axisType === "branch" || editNode.axisType === "loop") ? (
+                  <Select
+                    label="Parent axis"
+                    value={editNode.parentAxisId}
+                    onChange={(value) =>
+                      setEditNode((prev) =>
+                        prev && prev.nodeType === "axis"
+                          ? { ...prev, parentAxisId: value }
+                          : prev
+                      )
+                    }
+                    options={[...axes]
+                      .filter((axis) => axis.id !== editNode.id)
+                      .sort(sortAxes)
+                      .map((axis) => ({
+                        value: axis.id,
+                        label: axis.name,
+                      }))}
+                    placeholder="Select axis"
+                  />
+                ) : null}
                 <Select
                   label="Status"
                   value={editNode.status}

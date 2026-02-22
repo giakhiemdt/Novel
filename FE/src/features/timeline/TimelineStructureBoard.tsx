@@ -50,6 +50,9 @@ type AxisLayout = {
   start: number;
   end: number;
   duration: number;
+  depth: number;
+  axisX: number;
+  axisWidth: number;
   y: number;
   eras: EraLayout[];
 };
@@ -106,6 +109,8 @@ const AXIS_TYPE_POLICIES: Record<AxisType, string> = {
 
 const AXIS_X = 190;
 const AXIS_WIDTH = 1320;
+const AXIS_INDENT_STEP = 52;
+const AXIS_MIN_WIDTH = 940;
 const TOP_PADDING = 44;
 const ROW_HEIGHT = 220;
 const AXIS_BAR_HEIGHT = 20;
@@ -177,9 +182,15 @@ const sortSegments = (a: TimelineSegment, b: TimelineSegment) => {
 const hasValidRange = (start: unknown, end: unknown) =>
   isFiniteNumber(start) && isFiniteNumber(end) && end > start;
 
-const mapTickToX = (tick: number, start: number, end: number) => {
+const mapTickToX = (
+  tick: number,
+  start: number,
+  end: number,
+  axisX = AXIS_X,
+  axisWidth = AXIS_WIDTH
+) => {
   const ratio = clamp((tick - start) / Math.max(end - start, 1), 0, 1);
-  return AXIS_X + ratio * AXIS_WIDTH;
+  return axisX + ratio * axisWidth;
 };
 
 const getDurationFromRange = (
@@ -222,6 +233,65 @@ const setAlignedDragImage = (event: DragEvent<HTMLElement>) => {
   event.dataTransfer.setDragImage(event.currentTarget, offsetX, offsetY);
 };
 
+type AxisRow = {
+  axis: TimelineAxis;
+  depth: number;
+};
+
+const buildAxisRows = (axes: TimelineAxis[]): AxisRow[] => {
+  if (!axes.length) {
+    return [];
+  }
+
+  const axisById = new Map<string, TimelineAxis>();
+  axes.forEach((axis) => {
+    axisById.set(axis.id, axis);
+  });
+
+  const childrenByParentId = new Map<string, TimelineAxis[]>();
+  const rootAxes: TimelineAxis[] = [];
+
+  axes.forEach((axis) => {
+    const parentAxisId = axis.parentAxisId;
+    if (parentAxisId && axisById.has(parentAxisId)) {
+      const list = childrenByParentId.get(parentAxisId) ?? [];
+      list.push(axis);
+      childrenByParentId.set(parentAxisId, list);
+      return;
+    }
+    rootAxes.push(axis);
+  });
+
+  const rows: AxisRow[] = [];
+  const visited = new Set<string>();
+
+  const visit = (axis: TimelineAxis, depth: number) => {
+    if (visited.has(axis.id)) {
+      return;
+    }
+    visited.add(axis.id);
+    rows.push({ axis, depth });
+
+    const children = [...(childrenByParentId.get(axis.id) ?? [])].sort(sortAxes);
+    children.forEach((child) => {
+      visit(child, depth + 1);
+    });
+  };
+
+  [...rootAxes].sort(sortAxes).forEach((axis) => {
+    visit(axis, 0);
+  });
+
+  [...axes]
+    .filter((axis) => !visited.has(axis.id))
+    .sort(sortAxes)
+    .forEach((axis) => {
+      visit(axis, 0);
+    });
+
+  return rows;
+};
+
 const buildLayout = (
   axes: TimelineAxis[],
   eras: TimelineEra[],
@@ -241,7 +311,7 @@ const buildLayout = (
     segmentsByEra.set(segment.eraId, list);
   });
 
-  return [...axes].sort(sortAxes).map((axis, axisIndex) => {
+  return buildAxisRows(axes).map(({ axis, depth }, axisIndex) => {
     const axisEras = [...(erasByAxis.get(axis.id) ?? [])].sort(sortEras);
 
     const eraDefinitions = axisEras.map((era) => {
@@ -269,6 +339,8 @@ const buildLayout = (
     const axisDuration = Math.max(durationFromEras || fallbackAxisDuration, 1);
     const axisStart = 0;
     const axisEnd = axisStart + axisDuration;
+    const axisX = AXIS_X + depth * AXIS_INDENT_STEP;
+    const axisWidth = Math.max(AXIS_WIDTH - depth * AXIS_INDENT_STEP, AXIS_MIN_WIDTH);
 
     let eraCursor = axisStart;
     const eraLayouts: EraLayout[] = eraDefinitions.map((item) => {
@@ -276,8 +348,8 @@ const buildLayout = (
       const eraEnd = eraStart + item.duration;
       eraCursor = eraEnd;
 
-      const eraX = mapTickToX(eraStart, axisStart, axisEnd);
-      const eraEndX = mapTickToX(eraEnd, axisStart, axisEnd);
+      const eraX = mapTickToX(eraStart, axisStart, axisEnd, axisX, axisWidth);
+      const eraEndX = mapTickToX(eraEnd, axisStart, axisEnd, axisX, axisWidth);
       const eraWidth = Math.max(MIN_BAR_WIDTH, eraEndX - eraX);
 
       let segmentCursor = eraStart;
@@ -286,8 +358,20 @@ const buildLayout = (
         const segmentEnd = segmentStart + segmentItem.duration;
         segmentCursor = segmentEnd;
 
-        const segmentX = mapTickToX(segmentStart, axisStart, axisEnd);
-        const segmentEndX = mapTickToX(segmentEnd, axisStart, axisEnd);
+        const segmentX = mapTickToX(
+          segmentStart,
+          axisStart,
+          axisEnd,
+          axisX,
+          axisWidth
+        );
+        const segmentEndX = mapTickToX(
+          segmentEnd,
+          axisStart,
+          axisEnd,
+          axisX,
+          axisWidth
+        );
 
         return {
           segment: segmentItem.segment,
@@ -317,6 +401,9 @@ const buildLayout = (
       start: axisStart,
       end: axisEnd,
       duration: axisDuration,
+      depth,
+      axisX,
+      axisWidth,
       y: TOP_PADDING + axisIndex * ROW_HEIGHT + AXIS_BAR_Y,
       eras: eraLayouts,
     };
@@ -491,11 +578,11 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
         return [];
       }
 
-      const fromX = AXIS_X + AXIS_WIDTH;
+      const fromX = parent.axisX + parent.axisWidth;
       const fromY = parent.y + AXIS_BAR_HEIGHT / 2;
-      const toX = AXIS_X + AXIS_WIDTH;
+      const toX = item.axisX + item.axisWidth;
       const toY = item.y + AXIS_BAR_HEIGHT / 2;
-      const controlX = fromX + controlXOffset;
+      const controlX = Math.max(fromX, toX) + controlXOffset;
       const path = `M ${fromX} ${fromY} C ${controlX} ${fromY}, ${controlX} ${toY}, ${toX} ${toY}`;
 
       return [
@@ -619,10 +706,14 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
   ]);
 
   const canvasSize = useMemo(() => {
-    const width = AXIS_X + AXIS_WIDTH + 240;
+    const maxRightEdge = axisLayout.reduce(
+      (max, axisNode) => Math.max(max, axisNode.axisX + axisNode.axisWidth),
+      AXIS_X + AXIS_WIDTH
+    );
+    const width = maxRightEdge + 240;
     const height = Math.max(TOP_PADDING + axisLayout.length * ROW_HEIGHT + 60, 420);
     return { width, height };
-  }, [axisLayout.length]);
+  }, [axisLayout]);
 
   const toggleAxisTypeFilter = (axisType: AxisType) => {
     setVisibleAxisTypes((prev) => {
@@ -865,7 +956,11 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     const minY = TOP_PADDING - 26;
     const maxY =
       axisLayout[axisLayout.length - 1]!.y + ROW_HEIGHT - AXIS_BAR_Y + 18;
-    const maxX = AXIS_X + AXIS_WIDTH + 80;
+    const maxX =
+      axisLayout.reduce(
+        (max, axisNode) => Math.max(max, axisNode.axisX + axisNode.axisWidth),
+        AXIS_X + AXIS_WIDTH
+      ) + 80;
 
     return {
       x: minX,
@@ -1053,13 +1148,13 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
               {axisLayout.map((axisNode) => (
                 <g key={`mini-${axisNode.axis.id}`}>
                   <rect
-                    x={MINIMAP_PADDING + (AXIS_X - contentBounds.x) * minimapScale}
+                    x={MINIMAP_PADDING + (axisNode.axisX - contentBounds.x) * minimapScale}
                     y={
                       MINIMAP_HEADER_HEIGHT +
                       MINIMAP_PADDING +
                       (axisNode.y - contentBounds.y) * minimapScale
                     }
-                    width={AXIS_WIDTH * minimapScale}
+                    width={axisNode.axisWidth * minimapScale}
                     height={Math.max(2, AXIS_BAR_HEIGHT * minimapScale)}
                     className="graph-board-minimap__node"
                   />
@@ -1172,7 +1267,11 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
             <div key={axisNode.axis.id}>
               <div
                 className="timeline-structure-axis-label"
-                style={{ transform: `translate(24px, ${axisNode.y - 2}px)` }}
+                style={{
+                  transform: `translate(${24 + axisNode.depth * AXIS_INDENT_STEP}px, ${
+                    axisNode.y - 2
+                  }px)`,
+                }}
               >
                 <div className="timeline-structure-axis-label__title">
                   <strong>{axisNode.axis.name}</strong>
@@ -1206,8 +1305,8 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                   .filter(Boolean)
                   .join(" ")}
                 style={{
-                  width: AXIS_WIDTH,
-                  transform: `translate(${AXIS_X}px, ${axisNode.y}px)`,
+                  width: axisNode.axisWidth,
+                  transform: `translate(${axisNode.axisX}px, ${axisNode.y}px)`,
                 }}
                 onClick={(event) => {
                   event.stopPropagation();

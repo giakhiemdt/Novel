@@ -563,6 +563,8 @@ export const timelineStructureService = {
     const database = assertDatabaseName(dbName);
     const validated = validateAxisPayload(payload);
     const axisType = validated.axisType ?? "main";
+    const requiresParentAxis = axisType === "branch" || axisType === "loop";
+    const parentAxisId = validated.parentAxisId;
 
     if (axisType === "main") {
       const mainAxisCount = await countMainTimelineAxes(database);
@@ -571,12 +573,19 @@ export const timelineStructureService = {
       }
     }
 
+    if (requiresParentAxis && !parentAxisId) {
+      throw new AppError("parent axis is required for branch and loop axes", 400);
+    }
+    if (!requiresParentAxis && parentAxisId) {
+      throw new AppError("only branch and loop axes can have parent axis", 400);
+    }
+
     const nodeId = validated.id ?? generateId();
-    if (validated.parentAxisId) {
-      if (validated.parentAxisId === nodeId) {
+    if (parentAxisId) {
+      if (parentAxisId === nodeId) {
         throw new AppError("parentAxisId must be different from id", 400);
       }
-      const parentExists = await checkTimelineAxisExists(database, validated.parentAxisId);
+      const parentExists = await checkTimelineAxisExists(database, parentAxisId);
       if (!parentExists) {
         throw new AppError("parent axis not found", 404);
       }
@@ -603,6 +612,8 @@ export const timelineStructureService = {
     const normalizedId = assertRequiredString(id, "id");
     const validated = validateAxisPayload(payload);
     const axisType = validated.axisType ?? "main";
+    const requiresParentAxis = axisType === "branch" || axisType === "loop";
+    const parentAxisId = validated.parentAxisId;
 
     if (axisType === "main") {
       const mainAxisCount = await countMainTimelineAxes(database, normalizedId);
@@ -611,11 +622,18 @@ export const timelineStructureService = {
       }
     }
 
-    if (validated.parentAxisId) {
-      if (validated.parentAxisId === normalizedId) {
+    if (requiresParentAxis && !parentAxisId) {
+      throw new AppError("parent axis is required for branch and loop axes", 400);
+    }
+    if (!requiresParentAxis && parentAxisId) {
+      throw new AppError("only branch and loop axes can have parent axis", 400);
+    }
+
+    if (parentAxisId) {
+      if (parentAxisId === normalizedId) {
         throw new AppError("parentAxisId must be different from id", 400);
       }
-      const parentExists = await checkTimelineAxisExists(database, validated.parentAxisId);
+      const parentExists = await checkTimelineAxisExists(database, parentAxisId);
       if (!parentExists) {
         throw new AppError("parent axis not found", 404);
       }
