@@ -47,5 +47,32 @@ export const relinkTimeline = (payload: TimelineLinkPayload) =>
     withDatabaseHeader()
   );
 
+export type LegacyTimelineMigrationPayload = {
+  deleteLegacy?: boolean;
+};
+
+export type LegacyTimelineMigrationResult = {
+  axisId: string;
+  eraId: string;
+  timelinesFound: number;
+  segmentsCreated: number;
+  segmentsTotal: number;
+  legacyEventLinksFound: number;
+  markersCreated: number;
+  markersTotal: number;
+  worldRulesUpdated: number;
+  unresolvedLegacyEventLinks: number;
+  deletedOccursOnRelations: number;
+  deletedTimelines: number;
+  deletedLegacyTimelineNodes: boolean;
+};
+
+export const migrateLegacyTimelines = (payload?: LegacyTimelineMigrationPayload) =>
+  api.post<LegacyTimelineMigrationResult>(
+    endpoints.timelineMigrateLegacy,
+    payload ?? {},
+    withDatabaseHeader()
+  );
+
 export const deleteTimeline = (id: string) =>
   api.delete<void>(`${endpoints.timelines}/${id}`, withDatabaseHeader());

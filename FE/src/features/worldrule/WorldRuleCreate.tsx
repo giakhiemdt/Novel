@@ -15,8 +15,8 @@ import { useProjectChange } from "../../hooks/useProjectChange";
 import { useI18n } from "../../i18n/I18nProvider";
 import { getAllLocations } from "../location/location.api";
 import type { Location } from "../location/location.types";
-import { getAllTimelines } from "../timeline/timeline.api";
-import type { Timeline } from "../timeline/timeline.types";
+import { getTimelineSegmentsPage } from "../timeline/timeline-structure.api";
+import type { TimelineSegment } from "../timeline/timeline-structure.types";
 import {
   createWorldRule,
   deleteWorldRule,
@@ -80,7 +80,7 @@ export const WorldRuleCreate = () => {
   const { values, setField, reset } = useForm<WorldRuleFormState>(initialState);
   const [items, setItems] = useState<WorldRule[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
-  const [timelines, setTimelines] = useState<Timeline[]>([]);
+  const [segments, setSegments] = useState<TimelineSegment[]>([]);
   const [relatedRuleCodeOptions, setRelatedRuleCodeOptions] = useState<
     { value: string; label: string }[]
   >([]);
@@ -113,9 +113,9 @@ export const WorldRuleCreate = () => {
   const timelineNameById = useMemo(
     () =>
       Object.fromEntries(
-        timelines.map((timeline) => [timeline.id, timeline.name])
+        segments.map((segment) => [segment.id, segment.name])
       ) as Record<string, string>,
-    [timelines]
+    [segments]
   );
 
   const addSelection = (current: string[], itemId: string) => {
@@ -183,10 +183,10 @@ export const WorldRuleCreate = () => {
     }
   }, [notify]);
 
-  const loadTimelines = useCallback(async () => {
+  const loadSegments = useCallback(async () => {
     try {
-      const data = await getAllTimelines();
-      setTimelines(data ?? []);
+      const response = await getTimelineSegmentsPage({ limit: 500, offset: 0 });
+      setSegments(response?.data ?? []);
     } catch (err) {
       notify((err as Error).message, "error");
     }
@@ -244,9 +244,9 @@ export const WorldRuleCreate = () => {
 
   useEffect(() => {
     void loadLocations();
-    void loadTimelines();
+    void loadSegments();
     void loadRelatedRuleCodeOptions();
-  }, [loadLocations, loadTimelines, loadRelatedRuleCodeOptions]);
+  }, [loadLocations, loadSegments, loadRelatedRuleCodeOptions]);
 
   useEffect(() => {
     if (!showList) {
@@ -259,7 +259,7 @@ export const WorldRuleCreate = () => {
     setPage(1);
     setRefreshKey((prev) => prev + 1);
     void loadLocations();
-    void loadTimelines();
+    void loadSegments();
     void loadRelatedRuleCodeOptions();
   });
 
@@ -756,14 +756,14 @@ export const WorldRuleCreate = () => {
                       : prev
                   )
                 }
-                options={timelines
-                  .filter((timeline) => !editValues.timelineIds.includes(timeline.id))
-                  .map((timeline) => ({
-                    value: timeline.id,
-                    label: timeline.name,
+                options={segments
+                  .filter((segment) => !editValues.timelineIds.includes(segment.id))
+                  .map((segment) => ({
+                    value: segment.id,
+                    label: segment.name,
                   }))}
-                placeholder={timelines.length > 0 ? "Select timeline" : "No timelines yet."}
-                disabled={timelines.length === 0}
+                placeholder={segments.length > 0 ? "Select segment" : "No segments yet."}
+                disabled={segments.length === 0}
               />
               {editValues.timelineIds.length > 0 ? (
                 <div className="pill-list">
@@ -1030,14 +1030,14 @@ export const WorldRuleCreate = () => {
                 onChange={(value) =>
                   setField("timelineIds", addSelection(values.timelineIds, value))
                 }
-                options={timelines
-                  .filter((timeline) => !values.timelineIds.includes(timeline.id))
-                  .map((timeline) => ({
-                    value: timeline.id,
-                    label: timeline.name,
+                options={segments
+                  .filter((segment) => !values.timelineIds.includes(segment.id))
+                  .map((segment) => ({
+                    value: segment.id,
+                    label: segment.name,
                   }))}
-                placeholder={timelines.length > 0 ? "Select timeline" : "No timelines yet."}
-                disabled={timelines.length === 0}
+                placeholder={segments.length > 0 ? "Select segment" : "No segments yet."}
+                disabled={segments.length === 0}
               />
               {values.timelineIds.length > 0 ? (
                 <div className="pill-list">

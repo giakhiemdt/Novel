@@ -3,16 +3,18 @@ import { generateId } from "../../shared/utils/generate-id";
 import {
   createEvent,
   createEventWithLocation,
+  deleteLegacyEventTimelineLinks,
   deleteEvent,
   deleteEventParticipants,
   deleteEventLocation,
-  deleteEventTimeline,
   getEventCount,
   getCharacterIds,
+  getLegacySegmentByTimelineId,
   getLocationName,
-  getTimelineName,
   getEvents,
-  upsertEventTimeline,
+  linkEventToTimelineMarker,
+  unlinkEventMarkers,
+  upsertEventMarkerInSegment,
   updateEvent,
   updateEventParticipants,
   updateEventWithLocation,
@@ -282,6 +284,9 @@ const validateEventPayload = (payload: unknown): EventInput => {
     assertOptionalString(data.locationId, "locationId")
   );
   addIfDefined(result, "location", assertOptionalString(data.location, "location"));
+  addIfDefined(result, "segmentId", assertOptionalString(data.segmentId, "segmentId"));
+  const markerId = assertOptionalString(data.markerId, "markerId");
+  addIfDefined(result, "markerId", markerId);
   const timelineId = assertOptionalString(data.timelineId, "timelineId");
   if (timelineId !== undefined) {
     const timelineYear = assertRequiredNumber(data.timelineYear, "timelineYear");
@@ -306,6 +311,7 @@ const validateEventPayload = (payload: unknown): EventInput => {
       throw new AppError("durationValue must be > 0", 400);
     }
     addIfDefined(result, "timelineId", timelineId);
+    addIfDefined(result, "segmentId", timelineId);
     addIfDefined(result, "timelineYear", timelineYear);
     addIfDefined(result, "timelineMonth", timelineMonth);
     addIfDefined(result, "timelineDay", timelineDay);
@@ -388,6 +394,16 @@ const parseEventListQuery = (query: unknown): EventListQuery => {
   addIfDefined(result, "q", parseOptionalQueryString(data.q, "q"));
   addIfDefined(
     result,
+    "segmentId",
+    parseOptionalQueryString(data.segmentId, "segmentId")
+  );
+  addIfDefined(
+    result,
+    "markerId",
+    parseOptionalQueryString(data.markerId, "markerId")
+  );
+  addIfDefined(
+    result,
     "timelineId",
     parseOptionalQueryString(data.timelineId, "timelineId")
   );
@@ -428,6 +444,151 @@ const syncParticipants = async (
   await updateEventParticipants(database, eventId, participants);
 };
 
+const assignMarkerFields = (
+  event: EventNode,
+  marker: {
+    markerId: string;
+    markerLabel?: string;
+    markerTick?: number;
+    segmentId?: string;
+    segmentName?: string;
+  }
+) => {
+  event.markerId = marker.markerId;
+  if (marker.markerLabel !== undefined) {
+    event.markerLabel = marker.markerLabel;
+  } else {
+    delete event.markerLabel;
+  }
+  if (marker.markerTick !== undefined) {
+    event.markerTick = marker.markerTick;
+    event.timelineYear = marker.markerTick;
+  } else {
+    delete event.markerTick;
+    delete event.timelineYear;
+  }
+  if (marker.segmentId !== undefined) {
+    event.segmentId = marker.segmentId;
+    event.timelineId = marker.segmentId;
+  } else {
+    delete event.segmentId;
+    delete event.timelineId;
+  }
+  if (marker.segmentName !== undefined) {
+    event.segmentName = marker.segmentName;
+    event.timelineName = marker.segmentName;
+  } else {
+    delete event.segmentName;
+    delete event.timelineName;
+  }
+};
+
+const clearMarkerFields = (event: EventNode) => {
+  delete event.markerId;
+  delete event.markerLabel;
+  delete event.markerTick;
+  delete event.segmentId;
+  delete event.segmentName;
+  delete event.timelineId;
+  delete event.timelineName;
+  delete event.timelineYear;
+};
+
+const syncEventMarker = async (
+  database: string,
+  event: EventNode,
+  validated: EventInput
+): Promise<void> => {
+  if (validated.markerId) {
+    const context = await linkEventToTimelineMarker(database, event.id, validated.markerId);
+    if (!context) {
+      throw new AppError("timeline marker not found", 404);
+    }
+    assignMarkerFields(event, context);
+    await deleteLegacyEventTimelineLinks(database, event.id);
+    if (validated.durationValue !== undefined) {
+      event.durationValue = validated.durationValue;
+    }
+    if (validated.durationUnit !== undefined) {
+      event.durationUnit = validated.durationUnit;
+    }
+    return;
+  }
+
+  if (validated.timelineId && validated.timelineYear !== undefined) {
+    const segment = await getLegacySegmentByTimelineId(database, validated.timelineId);
+    if (!segment) {
+      throw new AppError(
+        "legacy timeline is not migrated to timeline segment",
+        409
+      );
+    }
+    const markerPayload: {
+      eventId: string;
+      segmentId: string;
+      tick: number;
+      label: string;
+      description?: string;
+      markerType?: string;
+    } = {
+      eventId: event.id,
+      segmentId: segment.segmentId,
+      tick: validated.timelineYear,
+      label: event.name,
+      markerType: "event",
+    };
+    if (event.summary !== undefined) {
+      markerPayload.description = event.summary;
+    }
+    const marker = await upsertEventMarkerInSegment(database, markerPayload);
+    if (!marker) {
+      throw new AppError("timeline segment not found", 404);
+    }
+    assignMarkerFields(event, marker);
+    await deleteLegacyEventTimelineLinks(database, event.id);
+    if (validated.durationValue !== undefined) {
+      event.durationValue = validated.durationValue;
+    }
+    if (validated.durationUnit !== undefined) {
+      event.durationUnit = validated.durationUnit;
+    }
+    return;
+  }
+
+  if (validated.segmentId && validated.timelineYear !== undefined) {
+    const markerPayload: {
+      eventId: string;
+      segmentId: string;
+      tick: number;
+      label: string;
+      description?: string;
+      markerType?: string;
+    } = {
+      eventId: event.id,
+      segmentId: validated.segmentId,
+      tick: validated.timelineYear,
+      label: event.name,
+      markerType: "event",
+    };
+    if (event.summary !== undefined) {
+      markerPayload.description = event.summary;
+    }
+    const marker = await upsertEventMarkerInSegment(database, markerPayload);
+    if (!marker) {
+      throw new AppError("timeline segment not found", 404);
+    }
+    assignMarkerFields(event, marker);
+    await deleteLegacyEventTimelineLinks(database, event.id);
+    return;
+  }
+
+  await unlinkEventMarkers(database, event.id);
+  await deleteLegacyEventTimelineLinks(database, event.id);
+  clearMarkerFields(event);
+  delete event.durationValue;
+  delete event.durationUnit;
+};
+
 export const eventService = {
   create: async (payload: unknown, dbName: unknown): Promise<EventNode> => {
     const database = assertDatabaseName(dbName);
@@ -447,56 +608,12 @@ export const eventService = {
         ...created.event,
         ...(created.locationName ? { locationName: created.locationName } : {}),
       };
-      if (validated.timelineId && validated.timelineYear !== undefined) {
-        const timelineName = await getTimelineName(database, validated.timelineId);
-        if (!timelineName) {
-          throw new AppError("timeline not found", 404);
-        }
-        await upsertEventTimeline(
-          database,
-          event.id,
-          validated.timelineId,
-          validated.timelineYear,
-          validated.durationValue!,
-          validated.durationUnit!
-        );
-        event.timelineId = validated.timelineId;
-        event.timelineName = timelineName;
-        event.timelineYear = validated.timelineYear;
-        if (validated.durationValue !== undefined) {
-          event.durationValue = validated.durationValue;
-        }
-        if (validated.durationUnit !== undefined) {
-          event.durationUnit = validated.durationUnit;
-        }
-      }
+      await syncEventMarker(database, event, validated);
       await syncParticipants(database, event.id, validated.participants);
       return event;
     }
     const created = await createEvent(node, database);
-    if (validated.timelineId && validated.timelineYear !== undefined) {
-      const timelineName = await getTimelineName(database, validated.timelineId);
-      if (!timelineName) {
-        throw new AppError("timeline not found", 404);
-      }
-      await upsertEventTimeline(
-        database,
-        created.id,
-        validated.timelineId,
-        validated.timelineYear,
-        validated.durationValue!,
-        validated.durationUnit!
-      );
-      created.timelineId = validated.timelineId;
-      created.timelineName = timelineName;
-      created.timelineYear = validated.timelineYear;
-      if (validated.durationValue !== undefined) {
-        created.durationValue = validated.durationValue;
-      }
-      if (validated.durationUnit !== undefined) {
-        created.durationUnit = validated.durationUnit;
-      }
-    }
+    await syncEventMarker(database, created, validated);
     await syncParticipants(database, created.id, validated.participants);
     return created;
   },
@@ -541,36 +658,7 @@ export const eventService = {
     if (!updated) {
       throw new AppError("event not found", 404);
     }
-    if (validated.timelineId && validated.timelineYear !== undefined) {
-      const timelineName = await getTimelineName(database, validated.timelineId);
-      if (!timelineName) {
-        throw new AppError("timeline not found", 404);
-      }
-      await upsertEventTimeline(
-        database,
-        updated.id,
-        validated.timelineId,
-        validated.timelineYear,
-        validated.durationValue!,
-        validated.durationUnit!
-      );
-      updated.timelineId = validated.timelineId;
-      updated.timelineName = timelineName;
-      updated.timelineYear = validated.timelineYear;
-      if (validated.durationValue !== undefined) {
-        updated.durationValue = validated.durationValue;
-      }
-      if (validated.durationUnit !== undefined) {
-        updated.durationUnit = validated.durationUnit;
-      }
-    } else {
-      await deleteEventTimeline(database, updated.id);
-      delete updated.timelineId;
-      delete updated.timelineName;
-      delete updated.timelineYear;
-      delete updated.durationValue;
-      delete updated.durationUnit;
-    }
+    await syncEventMarker(database, updated, validated);
     await syncParticipants(database, updated.id, validated.participants);
     return updated;
   },

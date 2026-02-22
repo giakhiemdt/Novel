@@ -10,11 +10,17 @@ import {
   deleteTimeline,
   getTimelineCount,
   getTimelines,
+  migrateLegacyTimelinesToTimelineFirst,
   linkTimeline,
   unlinkTimeline,
   updateTimeline,
 } from "./timeline.repo";
-import { TimelineInput, TimelineListQuery, TimelineNode } from "./timeline.types";
+import {
+  LegacyTimelineMigrationResult,
+  TimelineInput,
+  TimelineListQuery,
+  TimelineNode,
+} from "./timeline.types";
 
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
@@ -335,6 +341,20 @@ const parseTimelineListQuery = (query: unknown): TimelineListQuery => {
   return result;
 };
 
+const parseTimelineMigrationPayload = (
+  payload: unknown
+): { deleteLegacy: boolean } => {
+  if (payload === undefined || payload === null) {
+    return { deleteLegacy: true };
+  }
+  if (typeof payload !== "object") {
+    throw new AppError("payload must be an object", 400);
+  }
+  const data = payload as Record<string, unknown>;
+  const deleteLegacy = assertOptionalBoolean(data.deleteLegacy, "deleteLegacy");
+  return { deleteLegacy: deleteLegacy ?? true };
+};
+
 export const timelineService = {
   create: async (
     payload: unknown,
@@ -546,6 +566,16 @@ export const timelineService = {
       }
       throw new AppError(message, 500);
     }
+  },
+  migrateLegacyToTimelineFirst: async (
+    payload: unknown,
+    dbName: unknown
+  ): Promise<LegacyTimelineMigrationResult> => {
+    const database = assertDatabaseName(dbName);
+    const parsed = parseTimelineMigrationPayload(payload);
+    return migrateLegacyTimelinesToTimelineFirst(database, {
+      deleteLegacy: parsed.deleteLegacy,
+    });
   },
   delete: async (id: string, dbName: unknown): Promise<void> => {
     const database = assertDatabaseName(dbName);

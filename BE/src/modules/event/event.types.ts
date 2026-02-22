@@ -6,6 +6,11 @@ export type EventInput = {
   scope?: string;
   locationId?: string;
   location?: string;
+  markerId?: string;
+  markerLabel?: string;
+  markerTick?: number;
+  segmentId?: string;
+  segmentName?: string;
   timelineId?: string;
   timelineName?: string;
   timelineYear?: number;
@@ -43,6 +48,8 @@ export type EventListQuery = {
   limit?: number;
   offset?: number;
   q?: string;
+  segmentId?: string;
+  markerId?: string;
   timelineId?: string;
   locationId?: string;
   characterId?: string;

@@ -10,20 +10,31 @@ import {
 } from "./conflict.types";
 
 const OVERLAP_QUERY = `
-MATCH (e1:${nodeLabels.event})-[r1:${relationTypes.occursOn}]->(t:${nodeLabels.timeline})<-[:${relationTypes.occursOn}]-(e2:${nodeLabels.event})
-WHERE id(e1) < id(e2)
-WITH e1, e2, t,
-  r1.year AS startYear1,
-  CASE r1.durationUnit WHEN 'YEAR' THEN r1.year + r1.durationValue - 1 ELSE r1.year END AS endYear1
-MATCH (e2)-[r2:${relationTypes.occursOn}]->(t)
-WITH e1, e2, t,
-  startYear1 AS s1,
-  endYear1 AS e1y,
-  r2.year AS s2,
-  CASE r2.durationUnit WHEN 'YEAR' THEN r2.year + r2.durationValue - 1 ELSE r2.year END AS e2y
+MATCH (m1:${nodeLabels.timelineMarker})<-[:${relationTypes.timelineHasMarker}]-(s:${nodeLabels.timelineSegment})
+WHERE m1.eventRefId IS NOT NULL
+MATCH (e1:${nodeLabels.event} {id: m1.eventRefId})
+MATCH (m2:${nodeLabels.timelineMarker})<-[:${relationTypes.timelineHasMarker}]-(s)
+WHERE m2.eventRefId IS NOT NULL AND m1.id < m2.id
+MATCH (e2:${nodeLabels.event} {id: m2.eventRefId})
+WITH
+  e1,
+  e2,
+  s,
+  coalesce(m1.tick, 0) AS s1,
+  coalesce(m2.tick, 0) AS s2,
+  CASE
+    WHEN coalesce(e1.durationUnit, "YEAR") = "YEAR"
+    THEN coalesce(m1.tick, 0) + coalesce(e1.durationValue, 1) - 1
+    ELSE coalesce(m1.tick, 0)
+  END AS e1y,
+  CASE
+    WHEN coalesce(e2.durationUnit, "YEAR") = "YEAR"
+    THEN coalesce(m2.tick, 0) + coalesce(e2.durationValue, 1) - 1
+    ELSE coalesce(m2.tick, 0)
+  END AS e2y
 WHERE s1 IS NOT NULL AND s2 IS NOT NULL AND e1y >= s2 AND e2y >= s1
-RETURN t, e1, e2, s1, e1y, s2, e2y
-ORDER BY t.name, s1, s2
+RETURN s, e1, e2, s1, e1y, s2, e2y
+ORDER BY s.name, s1, s2
 `;
 
 const SCENES_WITHOUT_CHAPTER = `
@@ -53,12 +64,12 @@ export const getEventOverlaps = async (
   try {
     const result = await session.run(OVERLAP_QUERY);
     return result.records.map((record) => {
-      const timeline = record.get("t");
+      const segment = record.get("s");
       const e1 = record.get("e1");
       const e2 = record.get("e2");
       return {
-        timelineId: timeline?.properties?.id ?? undefined,
-        timelineName: timeline?.properties?.name ?? undefined,
+        timelineId: segment?.properties?.id ?? undefined,
+        timelineName: segment?.properties?.name ?? undefined,
         eventA: {
           id: e1?.properties?.id ?? "",
           name: e1?.properties?.name ?? "",

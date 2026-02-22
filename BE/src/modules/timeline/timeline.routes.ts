@@ -121,6 +121,50 @@ export const timelineRoutes: RouteConfig[] = [
     },
   },
   {
+    method: "POST",
+    path: "/timelines/migrate-legacy",
+    handler: timelineController.migrateLegacyTimelines,
+    schema: {
+      tags: ["Timeline"],
+      summary: "Migrate legacy timelines to timeline-first structure",
+      body: {
+        type: "object",
+        properties: {
+          deleteLegacy: { type: "boolean" },
+        },
+      },
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            data: {
+              type: "object",
+              properties: {
+                axisId: { type: "string" },
+                eraId: { type: "string" },
+                timelinesFound: { type: "number" },
+                segmentsCreated: { type: "number" },
+                segmentsTotal: { type: "number" },
+                legacyEventLinksFound: { type: "number" },
+                markersCreated: { type: "number" },
+                markersTotal: { type: "number" },
+                worldRulesUpdated: { type: "number" },
+                unresolvedLegacyEventLinks: { type: "number" },
+                deletedOccursOnRelations: { type: "number" },
+                deletedTimelines: { type: "number" },
+                deletedLegacyTimelineNodes: { type: "boolean" },
+              },
+            },
+          },
+        },
+        400: {
+          type: "object",
+          properties: { message: { type: "string" } },
+        },
+      },
+    },
+  },
+  {
     method: "DELETE",
     path: "/timelines/:id",
     handler: timelineController.deleteTimeline,

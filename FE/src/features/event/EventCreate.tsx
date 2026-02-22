@@ -16,13 +16,19 @@ import { useI18n } from "../../i18n/I18nProvider";
 import { createEvent, deleteEvent, getEventsPage, updateEvent } from "./event.api";
 import { getAllLocations } from "../location/location.api";
 import { getAllCharacters } from "../character/character.api";
-import { getAllTimelines } from "../timeline/timeline.api";
+import {
+  getTimelineMarkersPage,
+  getTimelineSegmentsPage,
+} from "../timeline/timeline-structure.api";
 import { EventList } from "./EventList";
 import { validateEvent } from "./event.schema";
 import type { Event, EventParticipant, EventPayload } from "./event.types";
 import type { Location } from "../location/location.types";
 import type { Character } from "../character/character.types";
-import type { Timeline } from "../timeline/timeline.types";
+import type {
+  TimelineMarker,
+  TimelineSegment,
+} from "../timeline/timeline-structure.types";
 
 const initialState = {
   name: "",
@@ -30,10 +36,8 @@ const initialState = {
   typeDetail: "",
   scope: "",
   locationId: "",
-  timelineId: "",
-  timelineYear: "",
-  durationValue: "",
-  durationUnit: "",
+  segmentId: "",
+  markerId: "",
   summary: "",
   description: "",
   participants: [] as EventParticipantForm[],
@@ -212,7 +216,8 @@ export const EventCreate = () => {
   const [items, setItems] = useState<Event[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [characters, setCharacters] = useState<Character[]>([]);
-  const [timelines, setTimelines] = useState<Timeline[]>([]);
+  const [segments, setSegments] = useState<TimelineSegment[]>([]);
+  const [markers, setMarkers] = useState<TimelineMarker[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<Event | null>(null);
   const [editValues, setEditValues] = useState<EventFormState | null>(null);
@@ -229,20 +234,27 @@ export const EventCreate = () => {
     name: "",
     tag: "",
     type: "",
-    timelineId: "",
+    segmentId: "",
+    markerId: "",
     locationId: "",
     characterId: "",
   });
   const [refreshKey, setRefreshKey] = useState(0);
   const { notify } = useToast();
 
-  const selectedTimeline = values.timelineId
-    ? timelines.find((timeline) => timeline.id === values.timelineId)
-    : undefined;
-  const selectedEditTimeline =
-    editValues && editValues.timelineId
-      ? timelines.find((timeline) => timeline.id === editValues.timelineId)
-      : undefined;
+  const segmentNameById = Object.fromEntries(
+    segments.map((segment) => [segment.id, segment.name])
+  ) as Record<string, string>;
+
+  const markerOptions = (segmentId: string) =>
+    markers
+      .filter((marker) => !segmentId || marker.segmentId === segmentId)
+      .map((marker) => ({
+        value: marker.id,
+        label: `${marker.label} · ${
+          segmentNameById[marker.segmentId] ?? marker.segmentId
+        } · #${marker.tick}`,
+      }));
 
   const loadItems = useCallback(async () => {
     try {
@@ -288,14 +300,18 @@ export const EventCreate = () => {
     }
   }, [getAllCharacters]);
 
-  const loadTimelines = useCallback(async () => {
+  const loadTimelineStructure = useCallback(async () => {
     try {
-      const data = await getAllTimelines();
-      setTimelines(data ?? []);
+      const [segmentResponse, markerResponse] = await Promise.all([
+        getTimelineSegmentsPage({ limit: 500, offset: 0 }),
+        getTimelineMarkersPage({ limit: 1000, offset: 0 }),
+      ]);
+      setSegments(segmentResponse?.data ?? []);
+      setMarkers(markerResponse?.data ?? []);
     } catch (err) {
       notify((err as Error).message, "error");
     }
-  }, [getAllTimelines]);
+  }, [notify]);
 
   useEffect(() => {
     if (!showList) {
@@ -307,15 +323,15 @@ export const EventCreate = () => {
   useEffect(() => {
     void loadLocations();
     void loadCharacters();
-    void loadTimelines();
-  }, [loadLocations, loadCharacters, loadTimelines]);
+    void loadTimelineStructure();
+  }, [loadLocations, loadCharacters, loadTimelineStructure]);
 
   useProjectChange(() => {
     setPage(1);
     setRefreshKey((prev) => prev + 1);
     void loadLocations();
     void loadCharacters();
-    void loadTimelines();
+    void loadTimelineStructure();
   });
 
   const handleFilterChange = (
@@ -324,7 +340,8 @@ export const EventCreate = () => {
       | "name"
       | "tag"
       | "type"
-      | "timelineId"
+      | "segmentId"
+      | "markerId"
       | "locationId"
       | "characterId",
     value: string
@@ -340,7 +357,8 @@ export const EventCreate = () => {
       name: "",
       tag: "",
       type: "",
-      timelineId: "",
+      segmentId: "",
+      markerId: "",
       locationId: "",
       characterId: "",
     });
@@ -352,11 +370,8 @@ export const EventCreate = () => {
     typeDetail: item.typeDetail ?? "",
     scope: item.scope ?? "",
     locationId: item.locationId ?? "",
-    timelineId: item.timelineId ?? "",
-    timelineYear: item.timelineYear !== undefined ? String(item.timelineYear) : "",
-    durationValue:
-      item.durationValue !== undefined ? String(item.durationValue) : "",
-    durationUnit: item.durationUnit ?? "",
+    segmentId: item.segmentId ?? item.timelineId ?? "",
+    markerId: item.markerId ?? "",
     summary: item.summary ?? "",
     description: item.description ?? "",
     participants: (item.participants ?? []).map((participant) => ({
@@ -376,12 +391,8 @@ export const EventCreate = () => {
       typeDetail: values.typeDetail || undefined,
       scope: values.scope || undefined,
       locationId: values.locationId || undefined,
-      timelineId: values.timelineId || undefined,
-      timelineYear:
-        values.timelineYear === "" ? undefined : Number(values.timelineYear),
-      durationValue:
-        values.durationValue === "" ? undefined : Number(values.durationValue),
-      durationUnit: values.durationUnit || undefined,
+      markerId: values.markerId || undefined,
+      segmentId: values.segmentId || undefined,
       summary: values.summary || undefined,
       description: values.description || undefined,
     participants: values.participants.map((participant) => ({
@@ -406,16 +417,22 @@ export const EventCreate = () => {
     return null;
   };
 
-  const validateTimeline = (form: EventFormState) => {
-    if (!form.timelineId) {
+  const validateMarkerSelection = (form: EventFormState) => {
+    if (!form.segmentId && !form.markerId) {
       return null;
     }
-    if (
-      form.timelineYear === "" ||
-      form.durationValue === "" ||
-      form.durationUnit === ""
-    ) {
-      return t("Timeline year and duration are required.");
+    if (form.segmentId && !form.markerId) {
+      return t("Please select a marker for the selected segment.");
+    }
+    if (!form.markerId) {
+      return null;
+    }
+    const marker = markers.find((item) => item.id === form.markerId);
+    if (!marker) {
+      return t("Selected marker is not available.");
+    }
+    if (form.segmentId && marker.segmentId !== form.segmentId) {
+      return t("Selected marker does not belong to the selected segment.");
     }
     return null;
   };
@@ -488,12 +505,11 @@ export const EventCreate = () => {
       notify(participantError, "error");
       return;
     }
-    const timelineError = validateTimeline(values);
-    if (timelineError) {
-      notify(timelineError, "error");
+    const markerError = validateMarkerSelection(values);
+    if (markerError) {
+      notify(markerError, "error");
       return;
     }
-
     try {
       await createEvent(payload);
       notify(t("Event created successfully."), "success");
@@ -526,9 +542,9 @@ export const EventCreate = () => {
       notify(participantError, "error");
       return;
     }
-    const timelineError = validateTimeline(editValues);
-    if (timelineError) {
-      notify(timelineError, "error");
+    const markerError = validateMarkerSelection(editValues);
+    if (markerError) {
+      notify(markerError, "error");
       return;
     }
     setIsSavingEdit(true);
@@ -539,14 +555,8 @@ export const EventCreate = () => {
         typeDetail: editValues.typeDetail || undefined,
         scope: editValues.scope || undefined,
         locationId: editValues.locationId || undefined,
-        timelineId: editValues.timelineId || undefined,
-        timelineYear:
-          editValues.timelineYear === "" ? undefined : Number(editValues.timelineYear),
-        durationValue:
-          editValues.durationValue === ""
-            ? undefined
-            : Number(editValues.durationValue),
-        durationUnit: editValues.durationUnit || undefined,
+        markerId: editValues.markerId || undefined,
+        segmentId: editValues.segmentId || undefined,
         summary: editValues.summary || undefined,
         description: editValues.description || undefined,
         participants: editValues.participants.map((participant) => ({
@@ -621,13 +631,33 @@ export const EventCreate = () => {
                 onChange={(value) => handleFilterChange("type", value)}
               />
               <Select
-                label="Timeline"
-                value={filters.timelineId}
-                onChange={(value) => handleFilterChange("timelineId", value)}
-                options={timelines.map((timeline) => ({
-                  value: timeline.id,
-                  label: timeline.name,
+                label="Segment"
+                value={filters.segmentId}
+                onChange={(value) => {
+                  handleFilterChange("segmentId", value);
+                  if (!value) {
+                    handleFilterChange("markerId", "");
+                  } else if (
+                    filters.markerId &&
+                    !markers.some(
+                      (marker) =>
+                        marker.id === filters.markerId && marker.segmentId === value
+                    )
+                  ) {
+                    handleFilterChange("markerId", "");
+                  }
+                }}
+                options={segments.map((segment) => ({
+                  value: segment.id,
+                  label: segment.name,
                 }))}
+                placeholder="All"
+              />
+              <Select
+                label="Marker"
+                value={filters.markerId}
+                onChange={(value) => handleFilterChange("markerId", value)}
+                options={markerOptions(filters.segmentId)}
                 placeholder="All"
               />
               <Select
@@ -755,94 +785,45 @@ export const EventCreate = () => {
             </div>
             <div className="form-field--wide">
               <Select
-                label="Timeline"
-                value={editValues.timelineId}
+                label="Segment"
+                value={editValues.segmentId}
                 onChange={(value) =>
                   setEditValues((prev) =>
                     prev
                       ? {
                           ...prev,
-                          timelineId: value,
-                          timelineYear: value ? prev.timelineYear || "0" : "",
-                          durationValue: value ? prev.durationValue : "",
-                          durationUnit: value ? prev.durationUnit : "",
+                          segmentId: value,
+                          markerId: value
+                            ? prev.markerId &&
+                              markers.some(
+                                (marker) =>
+                                  marker.id === prev.markerId && marker.segmentId === value
+                              )
+                              ? prev.markerId
+                              : ""
+                            : "",
                         }
                       : prev
                   )
                 }
-                options={timelines.map((timeline) => ({
-                  label: timeline.name,
-                  value: timeline.id ?? "",
+                options={segments.map((segment) => ({
+                  label: segment.name,
+                  value: segment.id ?? "",
                 }))}
-                placeholder="Select timeline"
+                placeholder="Select segment"
               />
             </div>
-            {editValues.timelineId && (
-              <>
-                <div className="form-field--wide">
-                  <label>{t("Timeline Year")}</label>
-                  <div className="range-field">
-                    <input
-                      className="range"
-                      type="range"
-                      min={0}
-                      max={selectedEditTimeline?.durationYears ?? 0}
-                      value={editValues.timelineYear || "0"}
-                      onChange={(event) =>
-                        setEditValues((prev) =>
-                          prev ? { ...prev, timelineYear: event.target.value } : prev
-                        )
-                      }
-                    />
-                    <input
-                      className="input range-input"
-                      type="number"
-                      min={0}
-                      max={selectedEditTimeline?.durationYears ?? 0}
-                      value={editValues.timelineYear || "0"}
-                      onChange={(event) => {
-                        const next = event.target.value;
-                        setEditValues((prev) =>
-                          prev ? { ...prev, timelineYear: next } : prev
-                        );
-                      }}
-                    />
-                  </div>
-                </div>
-                <div className="form-field--narrow form-field--compact">
-                  <label>{t("Duration")}</label>
-                  <div className="duration-inline">
-                    <input
-                      className="input duration-input"
-                      type="number"
-                      value={editValues.durationValue}
-                      onChange={(event) =>
-                        setEditValues((prev) =>
-                          prev ? { ...prev, durationValue: event.target.value } : prev
-                        )
-                      }
-                      min={1}
-                      required
-                    />
-                    <select
-                      className="select duration-unit"
-                      value={editValues.durationUnit}
-                      onChange={(event) =>
-                        setEditValues((prev) =>
-                          prev ? { ...prev, durationUnit: event.target.value } : prev
-                        )
-                      }
-                      required
-                    >
-                      <option value="">{t("Duration Unit")}</option>
-                      <option value="DAY">{t("DAY")}</option>
-                      <option value="MONTH">{t("MONTH")}</option>
-                      <option value="YEAR">{t("YEAR")}</option>
-                    </select>
-                  </div>
-                </div>
-              </>
-            )}
+            <div className="form-field--wide">
+              <Select
+                label="Marker"
+                value={editValues.markerId}
+                onChange={(value) =>
+                  setEditValues((prev) => (prev ? { ...prev, markerId: value } : prev))
+                }
+                options={markerOptions(editValues.segmentId)}
+                placeholder="Select marker"
+              />
+            </div>
             <div className="form-field--wide">
               <label>{t("Participants")}</label>
               <div className="participant-picker">
@@ -1107,82 +1088,35 @@ export const EventCreate = () => {
             </div>
             <div className="form-field--wide">
               <Select
-                label="Timeline"
-                value={values.timelineId}
+                label="Segment"
+                value={values.segmentId}
                 onChange={(value) => {
-                  setField("timelineId", value);
-                  if (!value) {
-                    setField("timelineYear", "");
-                    setField("durationValue", "");
-                    setField("durationUnit", "");
-                  } else if (values.timelineYear === "") {
-                    setField("timelineYear", "0");
+                  setField("segmentId", value);
+                  if (
+                    !value ||
+                    !markers.some(
+                      (marker) => marker.id === values.markerId && marker.segmentId === value
+                    )
+                  ) {
+                    setField("markerId", "");
                   }
                 }}
-                options={timelines.map((timeline) => ({
-                  label: timeline.name,
-                  value: timeline.id ?? "",
+                options={segments.map((segment) => ({
+                  label: segment.name,
+                  value: segment.id ?? "",
                 }))}
-                placeholder="Select timeline"
+                placeholder="Select segment"
               />
             </div>
-            {values.timelineId && (
-              <>
-                <div className="form-field--wide">
-                  <label>{t("Timeline Year")}</label>
-                  <div className="range-field">
-                    <input
-                      className="range"
-                      type="range"
-                      min={0}
-                      max={selectedTimeline?.durationYears ?? 0}
-                      value={values.timelineYear || "0"}
-                      onChange={(event) =>
-                        setField("timelineYear", event.target.value)
-                      }
-                    />
-                    <input
-                      className="input range-input"
-                      type="number"
-                      min={0}
-                      max={selectedTimeline?.durationYears ?? 0}
-                      value={values.timelineYear || "0"}
-                      onChange={(event) =>
-                        setField("timelineYear", event.target.value)
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="form-field--narrow form-field--compact">
-                  <label>{t("Duration")}</label>
-                  <div className="duration-inline">
-                    <input
-                      className="input duration-input"
-                      type="number"
-                      value={values.durationValue}
-                      onChange={(event) =>
-                        setField("durationValue", event.target.value)
-                      }
-                      min={1}
-                      required
-                    />
-                    <select
-                      className="select duration-unit"
-                      value={values.durationUnit}
-                      onChange={(event) =>
-                        setField("durationUnit", event.target.value)
-                      }
-                      required
-                    >
-                      <option value="">{t("Duration Unit")}</option>
-                      <option value="DAY">{t("DAY")}</option>
-                      <option value="MONTH">{t("MONTH")}</option>
-                      <option value="YEAR">{t("YEAR")}</option>
-                    </select>
-                  </div>
-                </div>
-              </>
-            )}
+            <div className="form-field--wide">
+              <Select
+                label="Marker"
+                value={values.markerId}
+                onChange={(value) => setField("markerId", value)}
+                options={markerOptions(values.segmentId)}
+                placeholder="Select marker"
+              />
+            </div>
             <div className="form-field--wide">
               <label>{t("Participants")}</label>
               <div className="participant-picker">

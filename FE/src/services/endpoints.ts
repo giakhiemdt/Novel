@@ -10,6 +10,7 @@ export const endpoints = {
   specialAbilities: "/special-abilities",
   schemas: "/schemas",
   timelines: "/timelines",
+  timelineMigrateLegacy: "/timelines/migrate-legacy",
   timelineLink: "/timelines/link",
   timelineUnlink: "/timelines/unlink",
   timelineRelink: "/timelines/relink",

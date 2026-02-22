@@ -3,8 +3,13 @@ import { getSessionForDatabase } from "../../database";
 import { nodeLabels } from "../../shared/constants/node-labels";
 import { relationTypes } from "../../shared/constants/relation-types";
 import { buildParams } from "../../shared/utils/build-params";
+import { generateId } from "../../shared/utils/generate-id";
 import { mapNode } from "../../shared/utils/map-node";
-import { TimelineListQuery, TimelineNode } from "./timeline.types";
+import {
+  LegacyTimelineMigrationResult,
+  TimelineListQuery,
+  TimelineNode,
+} from "./timeline.types";
 
 const CREATE_TIMELINE = `
 CREATE (t:${nodeLabels.timeline} {
@@ -185,6 +190,153 @@ MATCH (t:${nodeLabels.timeline} {id: $id})
 WITH t
 DETACH DELETE t
 RETURN 1 AS deleted
+`;
+
+const ENSURE_LEGACY_MIGRATION_AXIS_ERA = `
+MERGE (a:${nodeLabels.timelineAxis} {code: $axisCode})
+ON CREATE SET
+  a.id = $axisId,
+  a.name = $axisName,
+  a.axisType = "parallel",
+  a.description = $axisDescription,
+  a.status = "active",
+  a.createdAt = $now,
+  a.updatedAt = $now
+ON MATCH SET
+  a.updatedAt = $now
+MERGE (e:${nodeLabels.timelineEra} {code: $eraCode})
+ON CREATE SET
+  e.id = $eraId,
+  e.axisId = a.id,
+  e.name = $eraName,
+  e.summary = $eraSummary,
+  e.order = 0,
+  e.status = "active",
+  e.createdAt = $now,
+  e.updatedAt = $now
+ON MATCH SET
+  e.axisId = a.id,
+  e.updatedAt = $now
+MERGE (a)-[:${relationTypes.timelineHasEra}]->(e)
+RETURN a.id AS axisId, e.id AS eraId
+`;
+
+const COUNT_LEGACY_TIMELINES = `
+MATCH (t:${nodeLabels.timeline})
+RETURN count(t) AS total
+`;
+
+const COUNT_LEGACY_EVENT_LINKS = `
+MATCH (:${nodeLabels.event})-[r:${relationTypes.occursOn}]->(:${nodeLabels.timeline})
+RETURN count(r) AS total
+`;
+
+const COUNT_MIGRATED_SEGMENTS = `
+MATCH (s:${nodeLabels.timelineSegment})
+WHERE s.legacyTimelineId IS NOT NULL
+RETURN count(s) AS total
+`;
+
+const COUNT_MIGRATED_MARKERS = `
+MATCH (m:${nodeLabels.timelineMarker})
+WHERE m.legacyEventId IS NOT NULL
+RETURN count(m) AS total
+`;
+
+const MIGRATE_LEGACY_TIMELINES_TO_SEGMENTS = `
+MATCH (t:${nodeLabels.timeline})
+WITH t ORDER BY coalesce(t.createdAt, "") ASC, t.name ASC
+WITH collect(t) AS timelines
+UNWIND range(0, size(timelines) - 1) AS idx
+WITH timelines[idx] AS t, idx
+MATCH (e:${nodeLabels.timelineEra} {id: $eraId})
+MERGE (s:${nodeLabels.timelineSegment} {legacyTimelineId: t.id})
+ON CREATE SET
+  s.id = "legacy-segment-" + t.id,
+  s.createdAt = $now,
+  s.status = "active"
+SET
+  s.axisId = $axisId,
+  s.eraId = $eraId,
+  s.name = coalesce(t.name, "Legacy timeline"),
+  s.code = t.code,
+  s.summary = t.summary,
+  s.description = t.description,
+  s.order = idx,
+  s.startTick = 0,
+  s.endTick = coalesce(t.durationYears, 0),
+  s.notes = t.notes,
+  s.tags = coalesce(t.tags, []),
+  s.updatedAt = $now
+MERGE (e)-[:${relationTypes.timelineHasSegment}]->(s)
+RETURN count(t) AS migrated
+`;
+
+const MIGRATE_LEGACY_EVENT_LINKS_TO_MARKERS = `
+MATCH (ev:${nodeLabels.event})-[on:${relationTypes.occursOn}]->(t:${nodeLabels.timeline})
+MATCH (s:${nodeLabels.timelineSegment} {legacyTimelineId: t.id})
+MERGE (m:${nodeLabels.timelineMarker} {legacyEventId: ev.id})
+ON CREATE SET
+  m.id = "legacy-marker-" + ev.id,
+  m.createdAt = $now,
+  m.status = "active"
+SET
+  m.axisId = s.axisId,
+  m.eraId = s.eraId,
+  m.segmentId = s.id,
+  m.label = coalesce(ev.name, t.name, "Legacy marker"),
+  m.tick = coalesce(on.year, 0),
+  m.markerType = "event",
+  m.description = coalesce(ev.summary, m.description),
+  m.eventRefId = ev.id,
+  m.updatedAt = $now
+WITH s, m
+OPTIONAL MATCH (other:${nodeLabels.timelineSegment})-[oldRel:${relationTypes.timelineHasMarker}]->(m)
+WHERE other.id <> s.id
+DELETE oldRel
+WITH s, m
+MERGE (s)-[:${relationTypes.timelineHasMarker}]->(m)
+RETURN count(on) AS migrated
+`;
+
+const MIGRATE_WORLD_RULE_TIMELINE_IDS = `
+MATCH (r:${nodeLabels.worldRule})
+WITH r, coalesce(r.timelineIds, []) AS timelineIds
+WITH
+  r,
+  timelineIds,
+  [timelineId IN timelineIds |
+    coalesce(
+      head([(s:${nodeLabels.timelineSegment} {legacyTimelineId: timelineId}) | s.id]),
+      timelineId
+    )
+  ] AS mapped
+WHERE mapped <> timelineIds
+SET r.timelineIds = mapped,
+    r.updatedAt = $now
+RETURN count(r) AS updated
+`;
+
+const COUNT_UNRESOLVED_LEGACY_EVENT_LINKS = `
+MATCH (ev:${nodeLabels.event})-[:${relationTypes.occursOn}]->(:${nodeLabels.timeline})
+WHERE NOT EXISTS {
+  MATCH (m:${nodeLabels.timelineMarker} {eventRefId: ev.id})
+}
+RETURN count(ev) AS total
+`;
+
+const DELETE_LEGACY_OCCURS_ON = `
+MATCH (:${nodeLabels.event})-[r:${relationTypes.occursOn}]->(:${nodeLabels.timeline})
+DELETE r
+RETURN count(r) AS deleted
+`;
+
+const DELETE_ALL_LEGACY_TIMELINES = `
+MATCH (t:${nodeLabels.timeline})
+WITH collect(t) AS timelines
+UNWIND timelines AS t
+DETACH DELETE t
+RETURN size(timelines) AS deleted
 `;
 
 export const createTimeline = async (
@@ -419,6 +571,99 @@ export const deleteTimeline = async (
   try {
     const result = await session.run(DELETE_TIMELINE, { id });
     return result.records.length > 0;
+  } finally {
+    await session.close();
+  }
+};
+
+const getNumber = (value: unknown): number => {
+  if (neo4j.isInt(value)) {
+    return value.toNumber();
+  }
+  return typeof value === "number" ? value : 0;
+};
+
+export const migrateLegacyTimelinesToTimelineFirst = async (
+  database: string,
+  options?: { deleteLegacy?: boolean }
+): Promise<LegacyTimelineMigrationResult> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  const deleteLegacy = options?.deleteLegacy ?? true;
+  try {
+    return await session.executeWrite(async (tx) => {
+      const now = new Date().toISOString();
+      const ensured = await tx.run(ENSURE_LEGACY_MIGRATION_AXIS_ERA, {
+        axisCode: "__legacy_timeline_axis__",
+        axisId: generateId(),
+        axisName: "Legacy timeline axis",
+        axisDescription: "Auto-generated axis for migrated legacy timeline nodes.",
+        eraCode: "__legacy_timeline_era__",
+        eraId: generateId(),
+        eraName: "Legacy timeline era",
+        eraSummary: "Auto-generated era that stores converted legacy timeline segments.",
+        now,
+      });
+      const axisId = ensured.records[0]?.get("axisId") as string;
+      const eraId = ensured.records[0]?.get("eraId") as string;
+
+      const legacyTimelinesBefore = await tx.run(COUNT_LEGACY_TIMELINES);
+      const segmentsBefore = await tx.run(COUNT_MIGRATED_SEGMENTS);
+      const markersBefore = await tx.run(COUNT_MIGRATED_MARKERS);
+      const legacyLinksBefore = await tx.run(COUNT_LEGACY_EVENT_LINKS);
+
+      await tx.run(MIGRATE_LEGACY_TIMELINES_TO_SEGMENTS, { axisId, eraId, now });
+      await tx.run(MIGRATE_LEGACY_EVENT_LINKS_TO_MARKERS, { now });
+      const worldRulesUpdatedResult = await tx.run(MIGRATE_WORLD_RULE_TIMELINE_IDS, {
+        now,
+      });
+
+      const segmentsAfter = await tx.run(COUNT_MIGRATED_SEGMENTS);
+      const markersAfter = await tx.run(COUNT_MIGRATED_MARKERS);
+      const unresolvedAfter = await tx.run(COUNT_UNRESOLVED_LEGACY_EVENT_LINKS);
+
+      const timelinesFound = getNumber(legacyTimelinesBefore.records[0]?.get("total"));
+      const legacyEventLinksFound = getNumber(legacyLinksBefore.records[0]?.get("total"));
+      const segmentsTotal = getNumber(segmentsAfter.records[0]?.get("total"));
+      const markersTotal = getNumber(markersAfter.records[0]?.get("total"));
+      const unresolvedLegacyEventLinks = getNumber(
+        unresolvedAfter.records[0]?.get("total")
+      );
+      const segmentsCreated =
+        segmentsTotal - getNumber(segmentsBefore.records[0]?.get("total"));
+      const markersCreated =
+        markersTotal - getNumber(markersBefore.records[0]?.get("total"));
+      const worldRulesUpdated = getNumber(worldRulesUpdatedResult.records[0]?.get("updated"));
+
+      let deletedOccursOnRelations = 0;
+      let deletedTimelines = 0;
+      let deletedLegacyTimelineNodes = false;
+
+      if (deleteLegacy && unresolvedLegacyEventLinks === 0) {
+        const deletedOccursOnResult = await tx.run(DELETE_LEGACY_OCCURS_ON);
+        const deletedTimelinesResult = await tx.run(DELETE_ALL_LEGACY_TIMELINES);
+        deletedOccursOnRelations = getNumber(
+          deletedOccursOnResult.records[0]?.get("deleted")
+        );
+        deletedTimelines = getNumber(deletedTimelinesResult.records[0]?.get("deleted"));
+        deletedLegacyTimelineNodes = true;
+      }
+
+      return {
+        axisId,
+        eraId,
+        timelinesFound,
+        segmentsCreated: Math.max(0, segmentsCreated),
+        segmentsTotal,
+        legacyEventLinksFound,
+        markersCreated: Math.max(0, markersCreated),
+        markersTotal,
+        worldRulesUpdated,
+        unresolvedLegacyEventLinks,
+        deletedOccursOnRelations,
+        deletedTimelines,
+        deletedLegacyTimelineNodes,
+      };
+    });
   } finally {
     await session.close();
   }

@@ -42,3 +42,19 @@ export type TimelineListQuery = {
   isOngoing?: boolean;
   total?: number;
 };
+
+export type LegacyTimelineMigrationResult = {
+  axisId: string;
+  eraId: string;
+  timelinesFound: number;
+  segmentsCreated: number;
+  segmentsTotal: number;
+  legacyEventLinksFound: number;
+  markersCreated: number;
+  markersTotal: number;
+  worldRulesUpdated: number;
+  unresolvedLegacyEventLinks: number;
+  deletedOccursOnRelations: number;
+  deletedTimelines: number;
+  deletedLegacyTimelineNodes: boolean;
+};

@@ -118,6 +118,38 @@ export const timelineController = {
   createTimeline,
   updateTimeline,
   getAllTimelines,
+  migrateLegacyTimelines: async (
+    req: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> => {
+    const dbName = getDatabaseHeader(req);
+    try {
+      const result = await timelineService.migrateLegacyToTimelineFirst(req.body, dbName);
+      auditTimelineOperation({
+        action: "timeline.migrate-legacy",
+        method: req.method,
+        path: req.url,
+        requestId: req.id,
+        dbName,
+        result: "success",
+        statusCode: 200,
+      });
+      reply.status(200).send({ data: result });
+    } catch (error) {
+      const handled = handleError(error);
+      auditTimelineOperation({
+        action: "timeline.migrate-legacy",
+        method: req.method,
+        path: req.url,
+        requestId: req.id,
+        dbName,
+        result: "error",
+        statusCode: handled.statusCode,
+        detail: handled.message,
+      });
+      reply.status(handled.statusCode).send({ message: handled.message });
+    }
+  },
   linkTimeline: async (
     req: FastifyRequest,
     reply: FastifyReply

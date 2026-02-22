@@ -193,14 +193,16 @@ LIMIT toInteger($limit)
 const GET_EVENTS_BY_ITEM = `
 MATCH (i:${nodeLabels.item} {id: $itemId})-[:${relationTypes.itemAppearsIn}]->(e:${nodeLabels.event})
 OPTIONAL MATCH (e)-[:${relationTypes.occursIn}]->(l:${nodeLabels.location})
+OPTIONAL MATCH (m:${nodeLabels.timelineMarker} {eventRefId: e.id})
+OPTIONAL MATCH (s:${nodeLabels.timelineSegment} {id: m.segmentId})
 OPTIONAL MATCH (e)-[:${relationTypes.occursOn}]->(t:${nodeLabels.timeline})
 WHERE
   ($name IS NULL OR toLower(e.name) CONTAINS toLower($name))
   AND ($tag IS NULL OR $tag IN coalesce(e.tags, []))
   AND ($type IS NULL OR e.type = $type)
-  AND ($timelineId IS NULL OR t.id = $timelineId)
+  AND ($timelineId IS NULL OR s.id = $timelineId OR t.id = $timelineId)
   AND ($locationId IS NULL OR l.id = $locationId OR e.locationId = $locationId)
-RETURN e
+RETURN e, m, s, t
 ORDER BY e.createdAt DESC
 SKIP toInteger($offset)
 LIMIT toInteger($limit)
@@ -211,14 +213,16 @@ CALL db.index.fulltext.queryNodes("event_search", $q) YIELD node, score
 WITH node AS e, score
 MATCH (i:${nodeLabels.item} {id: $itemId})-[:${relationTypes.itemAppearsIn}]->(e)
 OPTIONAL MATCH (e)-[:${relationTypes.occursIn}]->(l:${nodeLabels.location})
+OPTIONAL MATCH (m:${nodeLabels.timelineMarker} {eventRefId: e.id})
+OPTIONAL MATCH (s:${nodeLabels.timelineSegment} {id: m.segmentId})
 OPTIONAL MATCH (e)-[:${relationTypes.occursOn}]->(t:${nodeLabels.timeline})
 WHERE
   ($name IS NULL OR toLower(e.name) CONTAINS toLower($name))
   AND ($tag IS NULL OR $tag IN coalesce(e.tags, []))
   AND ($type IS NULL OR e.type = $type)
-  AND ($timelineId IS NULL OR t.id = $timelineId)
+  AND ($timelineId IS NULL OR s.id = $timelineId OR t.id = $timelineId)
   AND ($locationId IS NULL OR l.id = $locationId OR e.locationId = $locationId)
-RETURN e
+RETURN e, m, s, t
 ORDER BY score DESC, e.createdAt DESC
 SKIP toInteger($offset)
 LIMIT toInteger($limit)
@@ -496,7 +500,20 @@ export const getEventsByItem = async (
     });
     return result.records.map((record) => {
       const node = record.get("e");
-      return mapNode(node?.properties ?? {}) as Record<string, unknown>;
+      const marker = record.get("m");
+      const segment = record.get("s");
+      const timeline = record.get("t");
+      return {
+        ...(mapNode(node?.properties ?? {}) as Record<string, unknown>),
+        markerId: marker?.properties?.id ?? undefined,
+        markerLabel: marker?.properties?.label ?? undefined,
+        markerTick: marker?.properties?.tick ?? undefined,
+        segmentId: segment?.properties?.id ?? undefined,
+        segmentName: segment?.properties?.name ?? undefined,
+        timelineId: segment?.properties?.id ?? timeline?.properties?.id ?? undefined,
+        timelineName:
+          segment?.properties?.name ?? timeline?.properties?.name ?? undefined,
+      };
     });
   } finally {
     await session.close();

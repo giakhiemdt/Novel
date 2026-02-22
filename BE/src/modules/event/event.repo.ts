@@ -125,10 +125,13 @@ DELETE r
 const GET_EVENTS = `
 MATCH (e:${nodeLabels.event})
 OPTIONAL MATCH (e)-[:${relationTypes.occursIn}]->(l:${nodeLabels.location})
+OPTIONAL MATCH (m:${nodeLabels.timelineMarker} {eventRefId: e.id})
+OPTIONAL MATCH (s:${nodeLabels.timelineSegment} {id: m.segmentId})
 OPTIONAL MATCH (e)-[on:${relationTypes.occursOn}]->(t:${nodeLabels.timeline})
-WITH e, l, t, on
+WITH e, l, m, s, t, on
 WHERE
-  ($timelineId IS NULL OR t.id = $timelineId)
+  ($segmentId IS NULL OR s.id = $segmentId OR t.id = $segmentId)
+  AND ($markerId IS NULL OR m.id = $markerId)
   AND ($locationId IS NULL OR l.id = $locationId OR e.locationId = $locationId)
   AND ($characterId IS NULL OR EXISTS {
     MATCH (c:${nodeLabels.character} {id: $characterId})-[:${relationTypes.participatesIn}]->(e)
@@ -137,7 +140,7 @@ WHERE
   AND ($name IS NULL OR toLower(e.name) CONTAINS toLower($name))
   AND ($type IS NULL OR e.type = $type)
 OPTIONAL MATCH (c:${nodeLabels.character})-[r:${relationTypes.participatesIn}]->(e)
-RETURN e, l, t, on, collect({
+RETURN e, l, m, s, t, on, collect({
   characterId: c.id,
   characterName: c.name,
   role: r.role,
@@ -146,7 +149,7 @@ RETURN e, l, t, on, collect({
   statusChange: r.statusChange,
   note: r.note
 }) AS participants
-ORDER BY e.createdAt DESC
+ORDER BY coalesce(m.tick, on.year, 0) DESC, e.createdAt DESC
 SKIP toInteger($offset)
 LIMIT toInteger($limit)
 `;
@@ -155,10 +158,13 @@ const GET_EVENTS_BY_SEARCH = `
 CALL db.index.fulltext.queryNodes("event_search", $q) YIELD node, score
 WITH node AS e, score
 OPTIONAL MATCH (e)-[:${relationTypes.occursIn}]->(l:${nodeLabels.location})
+OPTIONAL MATCH (m:${nodeLabels.timelineMarker} {eventRefId: e.id})
+OPTIONAL MATCH (s:${nodeLabels.timelineSegment} {id: m.segmentId})
 OPTIONAL MATCH (e)-[on:${relationTypes.occursOn}]->(t:${nodeLabels.timeline})
-WITH e, l, t, on, score
+WITH e, l, m, s, t, on, score
 WHERE
-  ($timelineId IS NULL OR t.id = $timelineId)
+  ($segmentId IS NULL OR s.id = $segmentId OR t.id = $segmentId)
+  AND ($markerId IS NULL OR m.id = $markerId)
   AND ($locationId IS NULL OR l.id = $locationId OR e.locationId = $locationId)
   AND ($characterId IS NULL OR EXISTS {
     MATCH (c:${nodeLabels.character} {id: $characterId})-[:${relationTypes.participatesIn}]->(e)
@@ -167,7 +173,7 @@ WHERE
   AND ($name IS NULL OR toLower(e.name) CONTAINS toLower($name))
   AND ($type IS NULL OR e.type = $type)
 OPTIONAL MATCH (c:${nodeLabels.character})-[r:${relationTypes.participatesIn}]->(e)
-RETURN e, l, t, on, collect({
+RETURN e, l, m, s, t, on, collect({
   characterId: c.id,
   characterName: c.name,
   role: r.role,
@@ -184,10 +190,13 @@ LIMIT toInteger($limit)
 const COUNT_EVENTS = `
 MATCH (e:${nodeLabels.event})
 OPTIONAL MATCH (e)-[:${relationTypes.occursIn}]->(l:${nodeLabels.location})
+OPTIONAL MATCH (m:${nodeLabels.timelineMarker} {eventRefId: e.id})
+OPTIONAL MATCH (s:${nodeLabels.timelineSegment} {id: m.segmentId})
 OPTIONAL MATCH (e)-[on:${relationTypes.occursOn}]->(t:${nodeLabels.timeline})
-WITH e, l, t, on
+WITH e, l, m, s, t, on
 WHERE
-  ($timelineId IS NULL OR t.id = $timelineId)
+  ($segmentId IS NULL OR s.id = $segmentId OR t.id = $segmentId)
+  AND ($markerId IS NULL OR m.id = $markerId)
   AND ($locationId IS NULL OR l.id = $locationId OR e.locationId = $locationId)
   AND ($characterId IS NULL OR EXISTS {
     MATCH (c:${nodeLabels.character} {id: $characterId})-[:${relationTypes.participatesIn}]->(e)
@@ -202,10 +211,13 @@ const COUNT_EVENTS_BY_SEARCH = `
 CALL db.index.fulltext.queryNodes("event_search", $q) YIELD node, score
 WITH node AS e, score
 OPTIONAL MATCH (e)-[:${relationTypes.occursIn}]->(l:${nodeLabels.location})
+OPTIONAL MATCH (m:${nodeLabels.timelineMarker} {eventRefId: e.id})
+OPTIONAL MATCH (s:${nodeLabels.timelineSegment} {id: m.segmentId})
 OPTIONAL MATCH (e)-[on:${relationTypes.occursOn}]->(t:${nodeLabels.timeline})
-WITH e, l, t, on, score
+WITH e, l, m, s, t, on, score
 WHERE
-  ($timelineId IS NULL OR t.id = $timelineId)
+  ($segmentId IS NULL OR s.id = $segmentId OR t.id = $segmentId)
+  AND ($markerId IS NULL OR m.id = $markerId)
   AND ($locationId IS NULL OR l.id = $locationId OR e.locationId = $locationId)
   AND ($characterId IS NULL OR EXISTS {
     MATCH (c:${nodeLabels.character} {id: $characterId})-[:${relationTypes.participatesIn}]->(e)
@@ -236,11 +248,6 @@ const EVENT_PARAMS = [
 
 const EVENT_UPDATE_PARAMS = EVENT_PARAMS.filter((key) => key !== "createdAt");
 
-const GET_TIMELINE_NAME = `
-MATCH (t:${nodeLabels.timeline} {id: $timelineId})
-RETURN t.name AS name
-`;
-
 const GET_LOCATION_NAME = `
 MATCH (l:${nodeLabels.location} {id: $locationId})
 RETURN l.name AS name
@@ -253,20 +260,62 @@ DETACH DELETE e
 RETURN 1 AS deleted
 `;
 
-const UPSERT_OCCURS_ON = `
-MATCH (e:${nodeLabels.event} {id: $eventId})
-MATCH (t:${nodeLabels.timeline} {id: $timelineId})
-MERGE (e)-[r:${relationTypes.occursOn}]->(t)
-SET
-  r.year = $timelineYear,
-  r.durationValue = $durationValue,
-  r.durationUnit = $durationUnit
-RETURN t, r
+const GET_TIMELINE_MARKER_CONTEXT = `
+MATCH (m:${nodeLabels.timelineMarker} {id: $markerId})
+OPTIONAL MATCH (s:${nodeLabels.timelineSegment} {id: m.segmentId})
+RETURN m, s
 `;
 
-const DELETE_OCCURS_ON = `
+const LINK_EVENT_TO_MARKER = `
+MATCH (m:${nodeLabels.timelineMarker} {id: $markerId})
+OPTIONAL MATCH (other:${nodeLabels.timelineMarker} {eventRefId: $eventId})
+WHERE other.id <> m.id
+SET other.eventRefId = null, other.updatedAt = $now
+SET m.eventRefId = $eventId, m.updatedAt = $now
+RETURN m
+`;
+
+const UNLINK_EVENT_MARKERS = `
+MATCH (m:${nodeLabels.timelineMarker} {eventRefId: $eventId})
+SET m.eventRefId = null, m.updatedAt = $now
+RETURN count(m) AS cleared
+`;
+
+const DELETE_LEGACY_OCCURS_ON_FOR_EVENT = `
 MATCH (e:${nodeLabels.event} {id: $eventId})-[r:${relationTypes.occursOn}]->(:${nodeLabels.timeline})
 DELETE r
+RETURN count(r) AS deleted
+`;
+
+const GET_LEGACY_SEGMENT_BY_TIMELINE_ID = `
+MATCH (s:${nodeLabels.timelineSegment} {legacyTimelineId: $timelineId})
+RETURN s
+LIMIT 1
+`;
+
+const UPSERT_EVENT_MARKER_IN_SEGMENT = `
+MATCH (s:${nodeLabels.timelineSegment} {id: $segmentId})
+MERGE (m:${nodeLabels.timelineMarker} {eventRefId: $eventId})
+ON CREATE SET
+  m.id = $id,
+  m.createdAt = $now,
+  m.status = "active"
+SET
+  m.axisId = s.axisId,
+  m.eraId = s.eraId,
+  m.segmentId = s.id,
+  m.label = $label,
+  m.tick = $tick,
+  m.markerType = coalesce($markerType, m.markerType, "event"),
+  m.description = $description,
+  m.updatedAt = $now
+WITH s, m
+OPTIONAL MATCH (other:${nodeLabels.timelineSegment})-[oldRel:${relationTypes.timelineHasMarker}]->(m)
+WHERE other.id <> s.id
+DELETE oldRel
+WITH s, m
+MERGE (s)-[:${relationTypes.timelineHasMarker}]->(m)
+RETURN m, s
 `;
 
 export const createEvent = async (
@@ -390,7 +439,8 @@ export const getEventCount = async (
     const statement = query.q ? COUNT_EVENTS_BY_SEARCH : COUNT_EVENTS;
     const result = await session.run(statement, {
       q: query.q ?? "",
-      timelineId: query.timelineId ?? null,
+      segmentId: query.segmentId ?? query.timelineId ?? null,
+      markerId: query.markerId ?? null,
       locationId: query.locationId ?? null,
       characterId: query.characterId ?? null,
       tag: query.tag ?? null,
@@ -407,41 +457,82 @@ export const getEventCount = async (
   }
 };
 
-export const upsertEventTimeline = async (
+export type EventMarkerContext = {
+  markerId: string;
+  markerLabel?: string;
+  markerTick?: number;
+  segmentId?: string;
+  segmentName?: string;
+};
+
+const mapMarkerContext = (
+  markerNode: Record<string, unknown> | undefined,
+  segmentNode: Record<string, unknown> | undefined
+): EventMarkerContext => {
+  const context: EventMarkerContext = {
+    markerId: (markerNode?.id as string) ?? "",
+  };
+  const markerLabel = markerNode?.label as string | undefined;
+  const markerTick = markerNode?.tick as number | undefined;
+  const segmentId =
+    (segmentNode?.id as string | undefined) ??
+    (markerNode?.segmentId as string | undefined);
+  const segmentName = segmentNode?.name as string | undefined;
+  if (markerLabel !== undefined) {
+    context.markerLabel = markerLabel;
+  }
+  if (markerTick !== undefined) {
+    context.markerTick = markerTick;
+  }
+  if (segmentId !== undefined) {
+    context.segmentId = segmentId;
+  }
+  if (segmentName !== undefined) {
+    context.segmentName = segmentName;
+  }
+  return context;
+};
+
+export const getTimelineMarkerContext = async (
   database: string,
-  eventId: string,
-  timelineId: string,
-  timelineYear: number,
-  durationValue: number,
-  durationUnit: string
-): Promise<{ timelineName: string } | null> => {
-  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  markerId: string
+): Promise<EventMarkerContext | null> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
-    const result = await session.run(UPSERT_OCCURS_ON, {
-      eventId,
-      timelineId,
-      timelineYear,
-      durationValue,
-      durationUnit,
-    });
+    const result = await session.run(GET_TIMELINE_MARKER_CONTEXT, { markerId });
     const record = result.records[0];
     if (!record) {
       return null;
     }
-    const timeline = record.get("t");
-    return { timelineName: timeline?.properties?.name ?? "" };
+    const marker = record.get("m");
+    const segment = record.get("s");
+    return mapMarkerContext(marker?.properties, segment?.properties);
   } finally {
     await session.close();
   }
 };
 
-export const deleteEventTimeline = async (
+export const linkEventToTimelineMarker = async (
   database: string,
-  eventId: string
-): Promise<void> => {
+  eventId: string,
+  markerId: string
+): Promise<EventMarkerContext | null> => {
   const session = getSessionForDatabase(database, neo4j.session.WRITE);
   try {
-    await session.run(DELETE_OCCURS_ON, { eventId });
+    const now = new Date().toISOString();
+    const result = await session.run(LINK_EVENT_TO_MARKER, { eventId, markerId, now });
+    const markerRecord = result.records[0]?.get("m");
+    if (!markerRecord) {
+      return null;
+    }
+    const contextResult = await session.run(GET_TIMELINE_MARKER_CONTEXT, { markerId });
+    const record = contextResult.records[0];
+    if (!record) {
+      return null;
+    }
+    const marker = record.get("m");
+    const segment = record.get("s");
+    return mapMarkerContext(marker?.properties, segment?.properties);
   } finally {
     await session.close();
   }
@@ -463,14 +554,81 @@ export const getCharacterIds = async (
   }
 };
 
-export const getTimelineName = async (
+export const unlinkEventMarkers = async (
+  database: string,
+  eventId: string
+): Promise<void> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    const now = new Date().toISOString();
+    await session.run(UNLINK_EVENT_MARKERS, { eventId, now });
+  } finally {
+    await session.close();
+  }
+};
+
+export const deleteLegacyEventTimelineLinks = async (
+  database: string,
+  eventId: string
+): Promise<void> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    await session.run(DELETE_LEGACY_OCCURS_ON_FOR_EVENT, { eventId });
+  } finally {
+    await session.close();
+  }
+};
+
+export const getLegacySegmentByTimelineId = async (
   database: string,
   timelineId: string
-): Promise<string | null> => {
+): Promise<{ segmentId: string; segmentName?: string } | null> => {
   const session = getSessionForDatabase(database, neo4j.session.READ);
   try {
-    const result = await session.run(GET_TIMELINE_NAME, { timelineId });
-    return (result.records[0]?.get("name") as string | undefined) ?? null;
+    const result = await session.run(GET_LEGACY_SEGMENT_BY_TIMELINE_ID, { timelineId });
+    const segment = result.records[0]?.get("s");
+    if (!segment) {
+      return null;
+    }
+    const mapped: { segmentId: string; segmentName?: string } = {
+      segmentId: segment.properties?.id as string,
+    };
+    const segmentName = segment.properties?.name as string | undefined;
+    if (segmentName !== undefined) {
+      mapped.segmentName = segmentName;
+    }
+    return mapped;
+  } finally {
+    await session.close();
+  }
+};
+
+export const upsertEventMarkerInSegment = async (
+  database: string,
+  params: {
+    eventId: string;
+    segmentId: string;
+    tick: number;
+    label: string;
+    description?: string;
+    markerType?: string;
+  }
+): Promise<EventMarkerContext | null> => {
+  const session = getSessionForDatabase(database, neo4j.session.WRITE);
+  try {
+    const now = new Date().toISOString();
+    const result = await session.run(UPSERT_EVENT_MARKER_IN_SEGMENT, {
+      ...params,
+      id: `legacy-marker-${params.eventId}`,
+      now,
+    });
+    const record = result.records[0];
+    if (!record) {
+      return null;
+    }
+    const marker = record.get("m");
+    const segment = record.get("s");
+    return mapMarkerContext(marker?.properties, segment?.properties);
   } finally {
     await session.close();
   }
@@ -556,7 +714,8 @@ export const getEvents = async (
     const statement = query.q ? GET_EVENTS_BY_SEARCH : GET_EVENTS;
     const result = await session.run(statement, {
       q: query.q ?? "",
-      timelineId: query.timelineId ?? null,
+      segmentId: query.segmentId ?? query.timelineId ?? null,
+      markerId: query.markerId ?? null,
       locationId: query.locationId ?? null,
       characterId: query.characterId ?? null,
       tag: query.tag ?? null,
@@ -568,18 +727,27 @@ export const getEvents = async (
     return result.records.map((record) => {
       const node = record.get("e");
       const location = record.get("l");
+      const marker = record.get("m");
+      const segment = record.get("s");
       const timeline = record.get("t");
       const occursOn = record.get("on");
       const participants = (record.get("participants") as Array<
         Record<string, unknown> | null
       >)?.filter((item) => item && item.characterId);
+      const markerTick = marker?.properties?.tick;
+      const fallbackTick = occursOn?.properties?.year;
       return {
         ...(mapNode(node?.properties ?? {}) as EventNode),
         locationId: location?.properties?.id ?? node?.properties?.locationId,
         locationName: location?.properties?.name,
-        timelineId: timeline?.properties?.id ?? undefined,
-        timelineName: timeline?.properties?.name ?? undefined,
-        timelineYear: occursOn?.properties?.year ?? undefined,
+        markerId: marker?.properties?.id ?? undefined,
+        markerLabel: marker?.properties?.label ?? undefined,
+        markerTick: markerTick ?? undefined,
+        segmentId: segment?.properties?.id ?? undefined,
+        segmentName: segment?.properties?.name ?? undefined,
+        timelineId: segment?.properties?.id ?? timeline?.properties?.id ?? undefined,
+        timelineName: segment?.properties?.name ?? timeline?.properties?.name ?? undefined,
+        timelineYear: markerTick ?? fallbackTick ?? undefined,
         durationValue: occursOn?.properties?.durationValue ?? undefined,
         durationUnit: occursOn?.properties?.durationUnit ?? undefined,
         participants,

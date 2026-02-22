@@ -6,6 +6,11 @@ export type EventPayload = {
   scope?: string;
   locationId?: string;
   location?: string;
+  markerId?: string;
+  markerLabel?: string;
+  markerTick?: number;
+  segmentId?: string;
+  segmentName?: string;
   timelineId?: string;
   timelineName?: string;
   timelineYear?: number;

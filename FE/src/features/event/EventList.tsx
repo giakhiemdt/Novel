@@ -81,13 +81,18 @@ export const EventList = ({ items, onSelect, onEdit, onDelete }: EventListProps)
           size: "wide",
         },
         {
-          label: t("Timeline"),
-          value: item.timelineName ?? item.timelineId ?? "-",
+          label: t("Segment"),
+          value: item.segmentName ?? item.timelineName ?? item.segmentId ?? item.timelineId ?? "-",
           size: "wide",
         },
         {
-          label: t("Event Year"),
-          value: item.timelineYear ?? "-",
+          label: t("Marker"),
+          value: item.markerLabel ?? item.markerId ?? "-",
+          size: "wide",
+        },
+        {
+          label: t("Marker Tick"),
+          value: item.markerTick ?? item.timelineYear ?? "-",
           size: "narrow",
         },
         {
@@ -128,8 +133,8 @@ export const EventList = ({ items, onSelect, onEdit, onDelete }: EventListProps)
             <th>{t("Type")}</th>
             <th>{t("Type Detail")}</th>
             <th>{t("Scope")}</th>
-            <th>{t("Timeline")}</th>
-            <th>{t("Event Year")}</th>
+            <th>{t("Segment")}</th>
+            <th>{t("Marker Tick")}</th>
             <th>{t("Duration")}</th>
             <th>{t("Actions")}</th>
           </tr>
@@ -155,8 +160,14 @@ export const EventList = ({ items, onSelect, onEdit, onDelete }: EventListProps)
               <td>{item.type ? t(item.type) : "-"}</td>
               <td>{item.typeDetail ? t(item.typeDetail) : "-"}</td>
               <td>{item.scope ? t(item.scope) : "-"}</td>
-              <td>{item.timelineName ?? item.timelineId ?? "-"}</td>
-              <td>{item.timelineYear ?? "-"}</td>
+              <td>
+                {item.segmentName ??
+                  item.timelineName ??
+                  item.segmentId ??
+                  item.timelineId ??
+                  "-"}
+              </td>
+              <td>{item.markerTick ?? item.timelineYear ?? "-"}</td>
               <td>
                 {item.durationValue !== undefined
                   ? `${item.durationValue} ${

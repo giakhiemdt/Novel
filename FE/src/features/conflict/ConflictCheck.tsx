@@ -55,7 +55,7 @@ export const ConflictCheck = () => {
           <table className="table table--clean">
             <thead>
               <tr>
-                <th>{t("Timeline")}</th>
+                <th>{t("Segment")}</th>
                 <th>{t("Event A")}</th>
                 <th>{t("Event B")}</th>
                 <th>{t("Period")}</th>

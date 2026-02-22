@@ -12,6 +12,8 @@ export type EventListQuery = {
   limit?: number;
   offset?: number;
   q?: string;
+  segmentId?: string;
+  markerId?: string;
   timelineId?: string;
   locationId?: string;
   characterId?: string;
