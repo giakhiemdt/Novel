@@ -23,6 +23,7 @@ import {
   getTimelineStateSnapshot,
   updateTimelineAxis,
   updateTimelineEra,
+  updateTimelineMarker,
   updateTimelineSegment,
 } from "./timeline-structure.api";
 import type {
@@ -84,6 +85,13 @@ type TimelineStructurePanelProps = {
 
 type CreateMode = "axis" | "era" | "segment" | "marker";
 type EditableNodeType = "axis" | "era" | "segment";
+type DraggableNodeType = "era" | "segment" | "marker";
+type DropTargetType = "axis" | "era" | "segment";
+
+type DragNodeState = {
+  nodeType: DraggableNodeType;
+  id: string;
+} | null;
 
 type DetailNodeState =
   | { nodeType: "axis"; node: TimelineAxis }
@@ -134,6 +142,13 @@ type SegmentEditState = {
 };
 
 type EditNodeState = AxisEditState | EraEditState | SegmentEditState | null;
+
+const CREATE_MODE_LABELS: Record<CreateMode, string> = {
+  axis: "Axis",
+  era: "Era",
+  segment: "Segment",
+  marker: "Marker",
+};
 
 const formatJson = (value: unknown): string => JSON.stringify(value, null, 2);
 
@@ -190,6 +205,8 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
   const [detailNode, setDetailNode] = useState<DetailNodeState>(null);
   const [editNode, setEditNode] = useState<EditNodeState>(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [draggingNode, setDraggingNode] = useState<DragNodeState>(null);
+  const [dragOverNodeKey, setDragOverNodeKey] = useState("");
 
   const [axisName, setAxisName] = useState("");
   const [axisCode, setAxisCode] = useState("");
@@ -416,18 +433,6 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
     return labels.join(" > ");
   }, [selectedAxis, selectedEra, selectedSegment]);
 
-  const resetCreateFields = () => {
-    setAxisName("");
-    setAxisCode("");
-    setEraName("");
-    setEraCode("");
-    setSegmentName("");
-    setSegmentCode("");
-    setMarkerLabel("");
-    setMarkerType("");
-    setMarkerTick("");
-  };
-
   const selectAxisNode = useCallback(
     (axisId: string) => {
       const nextEra = [...eras]
@@ -476,39 +481,6 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
     setCollapsed((prev) => ({ ...prev, [nodeKey]: !prev[nodeKey] }));
   };
 
-  const prepareCreateAxis = () => {
-    setCreateMode("axis");
-    resetCreateFields();
-  };
-
-  const prepareCreateEra = (axisId?: string) => {
-    if (axisId) {
-      selectAxisNode(axisId);
-    }
-    setCreateMode("era");
-    setEraName("");
-    setEraCode("");
-  };
-
-  const prepareCreateSegment = (era?: TimelineEra) => {
-    if (era) {
-      selectEraNode(era);
-    }
-    setCreateMode("segment");
-    setSegmentName("");
-    setSegmentCode("");
-  };
-
-  const prepareCreateMarker = (segment?: TimelineSegment) => {
-    if (segment) {
-      selectSegmentNode(segment);
-    }
-    setCreateMode("marker");
-    setMarkerLabel("");
-    setMarkerType("");
-    setMarkerTick("");
-  };
-
   const handleCreateAxis = async () => {
     if (!axisName.trim()) {
       notify(t("Axis name is required"), "error");
@@ -526,7 +498,6 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       setSelectedEraId("");
       setSelectedSegmentId("");
       setSelectedNodeKey(getNodeKey("axis", created.id));
-      setCreateMode("era");
       setAxisName("");
       setAxisCode("");
     } catch (error) {
@@ -535,7 +506,11 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
   };
 
   const handleCreateEra = async () => {
-    if (!selectedAxisId) {
+    const targetAxisId =
+      (selectedAxisId && axes.some((axis) => axis.id === selectedAxisId)
+        ? selectedAxisId
+        : [...axes].sort(sortAxes)[0]?.id) ?? "";
+    if (!targetAxisId) {
       notify(t("Select an axis first"), "error");
       return;
     }
@@ -545,7 +520,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
     }
     try {
       const created = await createTimelineEra({
-        axisId: selectedAxisId,
+        axisId: targetAxisId,
         name: eraName.trim(),
         code: eraCode.trim() || undefined,
       });
@@ -555,7 +530,6 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       setSelectedEraId(created.id);
       setSelectedSegmentId("");
       setSelectedNodeKey(getNodeKey("era", created.id));
-      setCreateMode("segment");
       setEraName("");
       setEraCode("");
     } catch (error) {
@@ -564,7 +538,11 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
   };
 
   const handleCreateSegment = async () => {
-    if (!selectedEraId) {
+    const targetEraId =
+      (selectedEraId && eras.some((era) => era.id === selectedEraId)
+        ? selectedEraId
+        : [...eras].sort(sortEras)[0]?.id) ?? "";
+    if (!targetEraId) {
       notify(t("Select an era first"), "error");
       return;
     }
@@ -574,7 +552,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
     }
     try {
       const created = await createTimelineSegment({
-        eraId: selectedEraId,
+        eraId: targetEraId,
         name: segmentName.trim(),
         code: segmentCode.trim() || undefined,
       });
@@ -584,7 +562,6 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       setSelectedEraId(created.eraId);
       setSelectedSegmentId(created.id);
       setSelectedNodeKey(getNodeKey("segment", created.id));
-      setCreateMode("marker");
       setSegmentName("");
       setSegmentCode("");
     } catch (error) {
@@ -593,7 +570,12 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
   };
 
   const handleCreateMarker = async () => {
-    if (!selectedSegmentId) {
+    const targetSegmentId =
+      (selectedSegmentId &&
+      segments.some((segment) => segment.id === selectedSegmentId)
+        ? selectedSegmentId
+        : [...segments].sort(sortSegments)[0]?.id) ?? "";
+    if (!targetSegmentId) {
       notify(t("Select a segment first"), "error");
       return;
     }
@@ -608,7 +590,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
     }
     try {
       const created = await createTimelineMarker({
-        segmentId: selectedSegmentId,
+        segmentId: targetSegmentId,
         label: markerLabel.trim(),
         tick: parsedTick,
         markerType: markerType.trim() || undefined,
@@ -641,6 +623,107 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       return;
     }
     await handleCreateMarker();
+  };
+
+  const clearDragState = () => {
+    setDraggingNode(null);
+    setDragOverNodeKey("");
+  };
+
+  const canDropOnTarget = (targetType: DropTargetType, targetId: string): boolean => {
+    if (!draggingNode) {
+      return false;
+    }
+    if (draggingNode.nodeType === "era" && targetType === "axis") {
+      const era = eras.find((item) => item.id === draggingNode.id);
+      return Boolean(era && era.axisId !== targetId);
+    }
+    if (draggingNode.nodeType === "segment" && targetType === "era") {
+      const segment = segments.find((item) => item.id === draggingNode.id);
+      return Boolean(segment && segment.eraId !== targetId);
+    }
+    if (draggingNode.nodeType === "marker" && targetType === "segment") {
+      const marker = markers.find((item) => item.id === draggingNode.id);
+      return Boolean(marker && marker.segmentId !== targetId);
+    }
+    return false;
+  };
+
+  const handleDropToTarget = async (targetType: DropTargetType, targetId: string) => {
+    if (!draggingNode || !canDropOnTarget(targetType, targetId)) {
+      clearDragState();
+      return;
+    }
+
+    try {
+      if (draggingNode.nodeType === "era" && targetType === "axis") {
+        const era = eras.find((item) => item.id === draggingNode.id);
+        if (!era) {
+          clearDragState();
+          return;
+        }
+        await updateTimelineEra(era.id, {
+          axisId: targetId,
+          name: era.name,
+          code: era.code,
+          summary: era.summary,
+          description: era.description,
+          order: era.order,
+          startTick: era.startTick,
+          endTick: era.endTick,
+          status: era.status,
+          notes: era.notes,
+          tags: era.tags,
+        });
+      }
+
+      if (draggingNode.nodeType === "segment" && targetType === "era") {
+        const segment = segments.find((item) => item.id === draggingNode.id);
+        if (!segment) {
+          clearDragState();
+          return;
+        }
+        await updateTimelineSegment(segment.id, {
+          eraId: targetId,
+          name: segment.name,
+          code: segment.code,
+          summary: segment.summary,
+          description: segment.description,
+          order: segment.order,
+          startTick: segment.startTick,
+          endTick: segment.endTick,
+          status: segment.status,
+          notes: segment.notes,
+          tags: segment.tags,
+        });
+      }
+
+      if (draggingNode.nodeType === "marker" && targetType === "segment") {
+        const marker = markers.find((item) => item.id === draggingNode.id);
+        if (!marker) {
+          clearDragState();
+          return;
+        }
+        await updateTimelineMarker(marker.id, {
+          segmentId: targetId,
+          label: marker.label,
+          tick: marker.tick,
+          markerType: marker.markerType,
+          description: marker.description,
+          eventRefId: marker.eventRefId,
+          status: marker.status,
+          notes: marker.notes,
+          tags: marker.tags,
+        });
+      }
+
+      notify(t("Node moved successfully."), "success");
+      await refreshData();
+    } catch (error) {
+      notify((error as Error).message, "error");
+    } finally {
+      clearDragState();
+    }
   };
 
   const openDetail = (
@@ -982,6 +1065,12 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
               ? "inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 50%, transparent)"
               : undefined,
           }}
+          draggable
+          onDragStart={(event) => {
+            event.dataTransfer.setData("text/plain", node.id);
+            setDraggingNode({ nodeType: "marker", id: node.id });
+          }}
+          onDragEnd={clearDragState}
           onClick={() => selectMarkerNode(node)}
           role="button"
           tabIndex={0}
@@ -1031,16 +1120,43 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
     const isCollapsed = collapsed[nodeKey];
     const isSelected = selectedNodeKey === nodeKey;
     const hasChildren = node.markers.length > 0;
+    const isDragOver = dragOverNodeKey === nodeKey;
 
     return (
       <div key={nodeKey} className="tree-item">
         <div
-          className="tree-row"
+          className={`tree-row${isDragOver ? " tree-row--drag-over" : ""}`}
           style={{
             paddingLeft: `${depth * 20 + 12}px`,
             boxShadow: isSelected
               ? "inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 50%, transparent)"
               : undefined,
+          }}
+          draggable
+          onDragStart={(event) => {
+            event.dataTransfer.setData("text/plain", node.id);
+            setDraggingNode({ nodeType: "segment", id: node.id });
+          }}
+          onDragEnd={clearDragState}
+          onDragOver={(event) => {
+            if (canDropOnTarget("segment", node.id)) {
+              event.preventDefault();
+              if (dragOverNodeKey !== nodeKey) {
+                setDragOverNodeKey(nodeKey);
+              }
+            }
+          }}
+          onDragLeave={() => {
+            if (dragOverNodeKey === nodeKey) {
+              setDragOverNodeKey("");
+            }
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (canDropOnTarget("segment", node.id)) {
+              void handleDropToTarget("segment", node.id);
+            }
           }}
           onClick={() => selectSegmentNode(node)}
           role="button"
@@ -1109,16 +1225,6 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
             >
               {t("Delete")}
             </button>
-            <button
-              type="button"
-              className="table__action table__action--ghost"
-              onClick={(event) => {
-                event.stopPropagation();
-                prepareCreateMarker(node);
-              }}
-            >
-              {t("Add marker")}
-            </button>
           </div>
         </div>
 
@@ -1136,16 +1242,43 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
     const isCollapsed = collapsed[nodeKey];
     const isSelected = selectedNodeKey === nodeKey;
     const hasChildren = node.segments.length > 0;
+    const isDragOver = dragOverNodeKey === nodeKey;
 
     return (
       <div key={nodeKey} className="tree-item">
         <div
-          className="tree-row"
+          className={`tree-row${isDragOver ? " tree-row--drag-over" : ""}`}
           style={{
             paddingLeft: `${depth * 20 + 12}px`,
             boxShadow: isSelected
               ? "inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 50%, transparent)"
               : undefined,
+          }}
+          draggable
+          onDragStart={(event) => {
+            event.dataTransfer.setData("text/plain", node.id);
+            setDraggingNode({ nodeType: "era", id: node.id });
+          }}
+          onDragEnd={clearDragState}
+          onDragOver={(event) => {
+            if (canDropOnTarget("era", node.id)) {
+              event.preventDefault();
+              if (dragOverNodeKey !== nodeKey) {
+                setDragOverNodeKey(nodeKey);
+              }
+            }
+          }}
+          onDragLeave={() => {
+            if (dragOverNodeKey === nodeKey) {
+              setDragOverNodeKey("");
+            }
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (canDropOnTarget("era", node.id)) {
+              void handleDropToTarget("era", node.id);
+            }
           }}
           onClick={() => selectEraNode(node)}
           role="button"
@@ -1216,16 +1349,6 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
             >
               {t("Delete")}
             </button>
-            <button
-              type="button"
-              className="table__action table__action--ghost"
-              onClick={(event) => {
-                event.stopPropagation();
-                prepareCreateSegment(node);
-              }}
-            >
-              {t("Add segment")}
-            </button>
           </div>
         </div>
 
@@ -1243,16 +1366,37 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
     const isCollapsed = collapsed[nodeKey];
     const isSelected = selectedNodeKey === nodeKey;
     const hasChildren = node.eras.length > 0;
+    const isDragOver = dragOverNodeKey === nodeKey;
 
     return (
       <div key={nodeKey} className="tree-item">
         <div
-          className="tree-row"
+          className={`tree-row${isDragOver ? " tree-row--drag-over" : ""}`}
           style={{
             paddingLeft: `${depth * 20 + 12}px`,
             boxShadow: isSelected
               ? "inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 50%, transparent)"
               : undefined,
+          }}
+          onDragOver={(event) => {
+            if (canDropOnTarget("axis", node.id)) {
+              event.preventDefault();
+              if (dragOverNodeKey !== nodeKey) {
+                setDragOverNodeKey(nodeKey);
+              }
+            }
+          }}
+          onDragLeave={() => {
+            if (dragOverNodeKey === nodeKey) {
+              setDragOverNodeKey("");
+            }
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (canDropOnTarget("axis", node.id)) {
+              void handleDropToTarget("axis", node.id);
+            }
           }}
           onClick={() => selectAxisNode(node.id)}
           role="button"
@@ -1323,16 +1467,6 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
             >
               {t("Delete")}
             </button>
-            <button
-              type="button"
-              className="table__action table__action--ghost"
-              onClick={(event) => {
-                event.stopPropagation();
-                prepareCreateEra(node.id);
-              }}
-            >
-              {t("Add era")}
-            </button>
           </div>
         </div>
 
@@ -1345,23 +1479,14 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
     );
   };
 
-  const createButtonLabel =
-    createMode === "axis"
-      ? "Create axis"
-      : createMode === "era"
-        ? "Create era"
-        : createMode === "segment"
-          ? "Create segment"
-          : "Create marker";
-
   const createDisabled =
     createMode === "axis"
       ? false
       : createMode === "era"
-        ? !selectedAxisId
+        ? axes.length === 0
         : createMode === "segment"
-          ? !selectedEraId
-          : !selectedSegmentId;
+          ? eras.length === 0
+          : segments.length === 0;
 
   if (!open) {
     return null;
@@ -1375,30 +1500,6 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       >
         <div className="form-field form-field--wide">
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Button variant="ghost" onClick={prepareCreateAxis}>
-              Create root axis
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => prepareCreateEra()}
-              disabled={!selectedAxisId}
-            >
-              Add era
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => prepareCreateSegment()}
-              disabled={!selectedEraId}
-            >
-              Add segment
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => prepareCreateMarker()}
-              disabled={!selectedSegmentId}
-            >
-              Add marker
-            </Button>
             <Button variant="ghost" onClick={() => void refreshData()} disabled={loading}>
               {loading ? "Loading..." : "Reload timeline-first data"}
             </Button>
@@ -1434,8 +1535,19 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
 
       <FormSection
         title="Quick create"
-        description="Select a node in the tree to create child nodes."
+        description="Create one node at a time, then drag and drop to re-parent."
       >
+        <Select
+          label="Node type"
+          value={createMode}
+          onChange={(value) => setCreateMode((value as CreateMode) || "axis")}
+          options={(Object.keys(CREATE_MODE_LABELS) as CreateMode[]).map((value) => ({
+            value,
+            label: CREATE_MODE_LABELS[value],
+          }))}
+          placeholder="Select type"
+        />
+
         {createMode === "axis" ? (
           <>
             <TextInput label="Axis name" value={axisName} onChange={setAxisName} required />
@@ -1457,10 +1569,6 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
 
         {createMode === "era" ? (
           <>
-            <div className="form-field">
-              <label>{t("Parent axis")}</label>
-              <p className="header__subtitle">{selectedAxis?.name ?? t("No axis selected.")}</p>
-            </div>
             <TextInput label="Era name" value={eraName} onChange={setEraName} required />
             <TextInput label="Era code" value={eraCode} onChange={setEraCode} />
           </>
@@ -1468,10 +1576,6 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
 
         {createMode === "segment" ? (
           <>
-            <div className="form-field">
-              <label>{t("Parent era")}</label>
-              <p className="header__subtitle">{selectedEra?.name ?? t("No era selected.")}</p>
-            </div>
             <TextInput
               label="Segment name"
               value={segmentName}
@@ -1484,12 +1588,6 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
 
         {createMode === "marker" ? (
           <>
-            <div className="form-field">
-              <label>{t("Parent segment")}</label>
-              <p className="header__subtitle">
-                {selectedSegment?.name ?? t("No segment selected.")}
-              </p>
-            </div>
             <TextInput
               label="Marker label"
               value={markerLabel}
@@ -1510,8 +1608,13 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
         <div className="form-field">
           <label>{t("Action")}</label>
           <Button onClick={() => void handleCreateByMode()} disabled={createDisabled}>
-            {createButtonLabel}
+            {t("Add node")}
           </Button>
+        </div>
+        <div className="form-field form-field--wide">
+          <p className="header__subtitle">
+            {t("Drag an era onto an axis, segment onto an era, and marker onto a segment to re-parent.")}
+          </p>
         </div>
       </FormSection>
 
