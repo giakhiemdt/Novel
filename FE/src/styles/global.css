@@ -1442,7 +1442,7 @@ h3 {
   padding: 0 10px;
   text-align: left;
   color: var(--color-ink);
-  cursor: pointer;
+  cursor: default;
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
@@ -1482,10 +1482,6 @@ h3 {
   border-radius: 7px;
   border-color: color-mix(in srgb, var(--color-success) 56%, transparent);
   background: color-mix(in srgb, var(--color-success) 14%, var(--timeline-board-bg));
-}
-
-.timeline-structure-node:hover {
-  border-color: var(--border-strong);
 }
 
 .graph-board-toolbar {

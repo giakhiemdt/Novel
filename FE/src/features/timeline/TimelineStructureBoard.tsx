@@ -18,6 +18,7 @@ type SegmentLayout = {
   segment: TimelineSegment;
   start: number;
   end: number;
+  duration: number;
   x: number;
   width: number;
   y: number;
@@ -27,6 +28,7 @@ type EraLayout = {
   era: TimelineEra;
   start: number;
   end: number;
+  duration: number;
   x: number;
   width: number;
   y: number;
@@ -37,18 +39,9 @@ type AxisLayout = {
   axis: TimelineAxis;
   start: number;
   end: number;
+  duration: number;
   y: number;
   eras: EraLayout[];
-};
-
-type SelectedNode = {
-  kind: "axis" | "era" | "segment";
-  name: string;
-  code?: string;
-  start: number;
-  end: number;
-  axisName?: string;
-  eraName?: string;
 };
 
 const AXIS_X = 190;
@@ -128,6 +121,17 @@ const mapTickToX = (tick: number, start: number, end: number) => {
   return AXIS_X + ratio * AXIS_WIDTH;
 };
 
+const getDurationFromRange = (
+  start: number | undefined,
+  end: number | undefined,
+  fallback = 1
+) => {
+  if (hasValidRange(start, end)) {
+    return Math.max((end as number) - (start as number), 1);
+  }
+  return Math.max(fallback, 1);
+};
+
 const buildLayout = (
   axes: TimelineAxis[],
   eras: TimelineEra[],
@@ -149,69 +153,57 @@ const buildLayout = (
 
   return [...axes].sort(sortAxes).map((axis, axisIndex) => {
     const axisEras = [...(erasByAxis.get(axis.id) ?? [])].sort(sortEras);
-    const childStarts: number[] = [];
-    const childEnds: number[] = [];
 
-    axisEras.forEach((era) => {
-      if (isFiniteNumber(era.startTick)) {
-        childStarts.push(era.startTick);
-      }
-      if (isFiniteNumber(era.endTick)) {
-        childEnds.push(era.endTick);
-      }
-      const eraSegments = segmentsByEra.get(era.id) ?? [];
-      eraSegments.forEach((segment) => {
-        if (isFiniteNumber(segment.startTick)) {
-          childStarts.push(segment.startTick);
-        }
-        if (isFiniteNumber(segment.endTick)) {
-          childEnds.push(segment.endTick);
-        }
-      });
+    const eraDefinitions = axisEras.map((era) => {
+      const eraSegments = [...(segmentsByEra.get(era.id) ?? [])].sort(sortSegments);
+      const segmentDefinitions = eraSegments.map((segment) => ({
+        segment,
+        duration: getDurationFromRange(segment.startTick, segment.endTick, 1),
+      }));
+
+      const durationFromSegments = segmentDefinitions.reduce(
+        (sum, item) => sum + item.duration,
+        0
+      );
+      const fallbackDuration = getDurationFromRange(era.startTick, era.endTick, 1);
+
+      return {
+        era,
+        duration: Math.max(durationFromSegments || fallbackDuration, 1),
+        segments: segmentDefinitions,
+      };
     });
 
-    const axisStart = isFiniteNumber(axis.startTick)
-      ? axis.startTick
-      : childStarts.length > 0
-      ? Math.min(...childStarts)
-      : 0;
-    const derivedEnd = childEnds.length > 0 ? Math.max(...childEnds) : axisStart + 100;
-    const axisEndBase = isFiniteNumber(axis.endTick) ? axis.endTick : derivedEnd;
-    const axisEnd = axisEndBase > axisStart ? axisEndBase : axisStart + 100;
+    const durationFromEras = eraDefinitions.reduce((sum, item) => sum + item.duration, 0);
+    const fallbackAxisDuration = getDurationFromRange(axis.startTick, axis.endTick, 100);
+    const axisDuration = Math.max(durationFromEras || fallbackAxisDuration, 1);
+    const axisStart = 0;
+    const axisEnd = axisStart + axisDuration;
 
-    const eraSlot = Math.max((axisEnd - axisStart) / Math.max(axisEras.length, 1), 1);
-
-    const eraLayouts: EraLayout[] = axisEras.map((era, eraIndex) => {
-      let eraStart = axisStart + eraIndex * eraSlot;
-      let eraEnd = eraStart + eraSlot * 0.95;
-      if (hasValidRange(era.startTick, era.endTick)) {
-        eraStart = clamp(era.startTick as number, axisStart, axisEnd - 1);
-        eraEnd = clamp(era.endTick as number, eraStart + 1, axisEnd);
-      }
+    let eraCursor = axisStart;
+    const eraLayouts: EraLayout[] = eraDefinitions.map((item) => {
+      const eraStart = eraCursor;
+      const eraEnd = eraStart + item.duration;
+      eraCursor = eraEnd;
 
       const eraX = mapTickToX(eraStart, axisStart, axisEnd);
       const eraEndX = mapTickToX(eraEnd, axisStart, axisEnd);
       const eraWidth = Math.max(MIN_BAR_WIDTH, eraEndX - eraX);
 
-      const eraSegments = [...(segmentsByEra.get(era.id) ?? [])].sort(sortSegments);
-      const segmentSlot = Math.max((eraEnd - eraStart) / Math.max(eraSegments.length, 1), 0.5);
-
-      const segmentLayouts: SegmentLayout[] = eraSegments.map((segment, segmentIndex) => {
-        let segmentStart = eraStart + segmentIndex * segmentSlot;
-        let segmentEnd = segmentStart + segmentSlot * 0.88;
-
-        if (hasValidRange(segment.startTick, segment.endTick)) {
-          segmentStart = clamp(segment.startTick as number, eraStart, eraEnd - 0.2);
-          segmentEnd = clamp(segment.endTick as number, segmentStart + 0.2, eraEnd);
-        }
+      let segmentCursor = eraStart;
+      const segmentLayouts: SegmentLayout[] = item.segments.map((segmentItem) => {
+        const segmentStart = segmentCursor;
+        const segmentEnd = segmentStart + segmentItem.duration;
+        segmentCursor = segmentEnd;
 
         const segmentX = mapTickToX(segmentStart, axisStart, axisEnd);
         const segmentEndX = mapTickToX(segmentEnd, axisStart, axisEnd);
 
         return {
-          segment,
+          segment: segmentItem.segment,
           start: segmentStart,
           end: segmentEnd,
+          duration: segmentItem.duration,
           x: segmentX,
           width: Math.max(MIN_BAR_WIDTH, segmentEndX - segmentX),
           y: TOP_PADDING + axisIndex * ROW_HEIGHT + SEGMENT_BAR_Y,
@@ -219,9 +211,10 @@ const buildLayout = (
       });
 
       return {
-        era,
+        era: item.era,
         start: eraStart,
         end: eraEnd,
+        duration: item.duration,
         x: eraX,
         width: eraWidth,
         y: TOP_PADDING + axisIndex * ROW_HEIGHT + ERA_BAR_Y,
@@ -233,6 +226,7 @@ const buildLayout = (
       axis,
       start: axisStart,
       end: axisEnd,
+      duration: axisDuration,
       y: TOP_PADDING + axisIndex * ROW_HEIGHT + AXIS_BAR_Y,
       eras: eraLayouts,
     };
@@ -247,7 +241,6 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
   const [eras, setEras] = useState<TimelineEra[]>([]);
   const [segments, setSegments] = useState<TimelineSegment[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedNode, setSelectedNode] = useState<SelectedNode | null>(null);
   const {
     scale,
     pan,
@@ -367,14 +360,10 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
 
   const handleBoardPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
-    if (target.closest(".timeline-structure-node")) {
-      return;
-    }
     if (target.closest(".graph-board-toolbar") || target.closest(".graph-board-minimap")) {
       return;
     }
     startPan(event.clientX, event.clientY);
-    setSelectedNode(null);
   };
 
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
@@ -517,102 +506,56 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
               >
                 <strong>{axisNode.axis.name}</strong>
                 <span>
-                  {Math.round(axisNode.start)} → {Math.round(axisNode.end)}
+                  0 → {Math.round(axisNode.duration)}
                 </span>
               </div>
 
-              <button
-                type="button"
+              <div
                 className="timeline-structure-node timeline-structure-node--axis"
                 style={{
                   width: AXIS_WIDTH,
                   transform: `translate(${AXIS_X}px, ${axisNode.y}px)`,
                 }}
-                onClick={() =>
-                  setSelectedNode({
-                    kind: "axis",
-                    name: axisNode.axis.name,
-                    code: axisNode.axis.code,
-                    start: axisNode.start,
-                    end: axisNode.end,
-                  })
-                }
               >
                 <span className="timeline-structure-node__title">{axisNode.axis.name}</span>
                 <span className="timeline-structure-node__range">
-                  {Math.round(axisNode.start)} - {Math.round(axisNode.end)}
+                  0 - {Math.round(axisNode.duration)}
                 </span>
-              </button>
+              </div>
 
               {axisNode.eras.map((eraNode) => (
                 <div key={eraNode.era.id}>
-                  <button
-                    type="button"
+                  <div
                     className="timeline-structure-node timeline-structure-node--era"
                     style={{
                       width: eraNode.width,
                       transform: `translate(${eraNode.x}px, ${eraNode.y}px)`,
                     }}
-                    onClick={() =>
-                      setSelectedNode({
-                        kind: "era",
-                        name: eraNode.era.name,
-                        code: eraNode.era.code,
-                        start: eraNode.start,
-                        end: eraNode.end,
-                        axisName: axisNode.axis.name,
-                      })
-                    }
                   >
                     <span className="timeline-structure-node__title">{eraNode.era.name}</span>
-                  </button>
+                    <span className="timeline-structure-node__range">
+                      0 - {Math.round(eraNode.duration)}
+                    </span>
+                  </div>
 
                   {eraNode.segments.map((segmentNode) => (
-                    <button
+                    <div
                       key={segmentNode.segment.id}
-                      type="button"
                       className="timeline-structure-node timeline-structure-node--segment"
                       style={{
                         width: segmentNode.width,
                         transform: `translate(${segmentNode.x}px, ${segmentNode.y}px)`,
                       }}
-                      onClick={() =>
-                        setSelectedNode({
-                          kind: "segment",
-                          name: segmentNode.segment.name,
-                          code: segmentNode.segment.code,
-                          start: segmentNode.start,
-                          end: segmentNode.end,
-                          axisName: axisNode.axis.name,
-                          eraName: eraNode.era.name,
-                        })
-                      }
                     >
                       <span className="timeline-structure-node__title">
                         {segmentNode.segment.name}
                       </span>
-                    </button>
+                    </div>
                   ))}
                 </div>
               ))}
             </div>
           ))}
-
-          {selectedNode ? (
-            <div className="timeline-card" style={{ transform: "translate(24px, 24px)" }}>
-              <strong>
-                {selectedNode.kind.toUpperCase()}: {selectedNode.name}
-              </strong>
-              <p>
-                {Math.round(selectedNode.start)} → {Math.round(selectedNode.end)}
-              </p>
-              <div className="timeline-card__meta">
-                {selectedNode.axisName ? <span>{selectedNode.axisName}</span> : null}
-                {selectedNode.eraName ? <span>{selectedNode.eraName}</span> : null}
-                {selectedNode.code ? <span>{selectedNode.code}</span> : null}
-              </div>
-            </div>
-          ) : null}
         </div>
       </div>
     </div>
