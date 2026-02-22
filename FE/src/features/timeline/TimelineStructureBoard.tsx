@@ -158,6 +158,16 @@ const getDurationFromRange = (
   return Math.max(fallback, 1);
 };
 
+const wait = (ms: number) =>
+  new Promise<void>((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+
+const isDeadlockError = (error: unknown) => {
+  const message = (error as Error)?.message ?? "";
+  return /deadlock/i.test(message) || /DeadlockDetected/i.test(message);
+};
+
 const buildLayout = (
   axes: TimelineAxis[],
   eras: TimelineEra[],
@@ -422,11 +432,24 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
 
       setSavingOrder(true);
       try {
-        await Promise.all(
-          updates.map(({ item, nextOrder: expectedOrder, nextAxisId }) =>
-            updateTimelineEra(item.id, buildEraPayload(item, nextAxisId, expectedOrder))
-          )
-        );
+        for (const { item, nextOrder: expectedOrder, nextAxisId } of updates) {
+          let attempt = 0;
+          while (attempt < 3) {
+            try {
+              await updateTimelineEra(
+                item.id,
+                buildEraPayload(item, nextAxisId, expectedOrder)
+              );
+              break;
+            } catch (error) {
+              attempt += 1;
+              if (!isDeadlockError(error) || attempt >= 3) {
+                throw error;
+              }
+              await wait(120 * attempt);
+            }
+          }
+        }
         notify(t("Timeline order updated."), "success");
         await loadData();
         setSelectedNode({ kind: "era", id: draggingEraId });
@@ -485,14 +508,24 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
 
       setSavingOrder(true);
       try {
-        await Promise.all(
-          updates.map(({ item, nextOrder: expectedOrder, nextEraId }) =>
-            updateTimelineSegment(
-              item.id,
-              buildSegmentPayload(item, nextEraId, expectedOrder)
-            )
-          )
-        );
+        for (const { item, nextOrder: expectedOrder, nextEraId } of updates) {
+          let attempt = 0;
+          while (attempt < 3) {
+            try {
+              await updateTimelineSegment(
+                item.id,
+                buildSegmentPayload(item, nextEraId, expectedOrder)
+              );
+              break;
+            } catch (error) {
+              attempt += 1;
+              if (!isDeadlockError(error) || attempt >= 3) {
+                throw error;
+              }
+              await wait(120 * attempt);
+            }
+          }
+        }
         notify(t("Timeline order updated."), "success");
         await loadData();
         setSelectedNode({ kind: "segment", id: draggingSegmentId });
