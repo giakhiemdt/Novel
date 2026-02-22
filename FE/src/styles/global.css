@@ -1404,6 +1404,90 @@ h3 {
   will-change: transform;
 }
 
+.timeline-structure-board-wrap {
+  margin-bottom: var(--space-4);
+}
+
+.timeline-structure-board-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.timeline-structure-board {
+  height: min(68vh, 760px);
+}
+
+.timeline-structure-axis-label {
+  position: absolute;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--text-body-xs);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.timeline-structure-axis-label strong {
+  color: var(--color-ink);
+  font-size: var(--text-body-sm);
+}
+
+.timeline-structure-node {
+  position: absolute;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 0 10px;
+  text-align: left;
+  color: var(--color-ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.timeline-structure-node__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  font-size: var(--text-body-xs);
+}
+
+.timeline-structure-node__range {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.timeline-structure-node--axis {
+  height: 20px;
+  border-color: color-mix(in srgb, var(--color-primary) 55%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 18%, var(--timeline-board-bg));
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+.timeline-structure-node--era {
+  height: 16px;
+  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--timeline-board-bg));
+}
+
+.timeline-structure-node--segment {
+  height: 12px;
+  border-radius: 7px;
+  border-color: color-mix(in srgb, var(--color-success) 56%, transparent);
+  background: color-mix(in srgb, var(--color-success) 14%, var(--timeline-board-bg));
+}
+
+.timeline-structure-node:hover {
+  border-color: var(--border-strong);
+}
+
 .graph-board-toolbar {
   position: absolute;
   top: 12px;

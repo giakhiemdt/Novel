@@ -6,6 +6,7 @@ import {
   LegacyTimelineMigrationResult,
   migrateLegacyTimelines,
 } from "./timeline.api";
+import { TimelineStructureBoard } from "./TimelineStructureBoard";
 import { TimelineStructurePanel } from "./TimelineStructurePanel";
 
 export const TimelineCreate = () => {
@@ -13,6 +14,7 @@ export const TimelineCreate = () => {
   const { notify } = useToast();
   const [isMigrating, setIsMigrating] = useState(false);
   const [result, setResult] = useState<LegacyTimelineMigrationResult | null>(null);
+  const [boardRefreshKey, setBoardRefreshKey] = useState(0);
 
   const handleMigrate = async () => {
     const confirmed = window.confirm(
@@ -28,6 +30,7 @@ export const TimelineCreate = () => {
     try {
       const migrated = await migrateLegacyTimelines({ deleteLegacy: true });
       setResult(migrated);
+      setBoardRefreshKey((prev) => prev + 1);
       notify(t("Legacy timeline migration completed."), "success");
     } catch (err) {
       notify((err as Error).message, "error");
@@ -87,6 +90,7 @@ export const TimelineCreate = () => {
         ) : null}
       </div>
 
+      <TimelineStructureBoard refreshKey={boardRefreshKey} />
       <TimelineStructurePanel open />
     </div>
   );
