@@ -119,6 +119,13 @@ MATCH (a:${nodeLabels.timelineAxis} {id: $id})
 RETURN a IS NOT NULL AS exists
 `;
 
+const COUNT_MAIN_TIMELINE_AXES = `
+MATCH (a:${nodeLabels.timelineAxis})
+WHERE a.axisType = 'main'
+  AND ($excludeId IS NULL OR a.id <> $excludeId)
+RETURN count(a) AS total
+`;
+
 const CREATE_TIMELINE_ERA = `
 MATCH (a:${nodeLabels.timelineAxis} {id: $axisId})
 CREATE (e:${nodeLabels.timelineEra} {
@@ -537,6 +544,25 @@ export const checkTimelineAxisExists = async (
   try {
     const result = await session.run(CHECK_TIMELINE_AXIS, { id: axisId });
     return (result.records[0]?.get("exists") as boolean | undefined) ?? false;
+  } finally {
+    await session.close();
+  }
+};
+
+export const countMainTimelineAxes = async (
+  database: string,
+  excludeId?: string
+): Promise<number> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const result = await session.run(COUNT_MAIN_TIMELINE_AXES, {
+      excludeId: excludeId ?? null,
+    });
+    const total = result.records[0]?.get("total");
+    if (neo4j.isInt(total)) {
+      return total.toNumber();
+    }
+    return typeof total === "number" ? total : 0;
   } finally {
     await session.close();
   }

@@ -2,6 +2,7 @@ import { AppError } from "../../shared/errors/app-error";
 import { generateId } from "../../shared/utils/generate-id";
 import {
   checkTimelineAxisExists,
+  countMainTimelineAxes,
   createTimelineAxis,
   createTimelineEra,
   createTimelineMarker,
@@ -561,6 +562,14 @@ export const timelineStructureService = {
   ): Promise<TimelineAxisNode> => {
     const database = assertDatabaseName(dbName);
     const validated = validateAxisPayload(payload);
+    const axisType = validated.axisType ?? "main";
+
+    if (axisType === "main") {
+      const mainAxisCount = await countMainTimelineAxes(database);
+      if (mainAxisCount > 0) {
+        throw new AppError("only one main axis is allowed", 409);
+      }
+    }
 
     const nodeId = validated.id ?? generateId();
     if (validated.parentAxisId) {
@@ -577,7 +586,7 @@ export const timelineStructureService = {
     const node: TimelineAxisNode = {
       ...validated,
       id: nodeId,
-      axisType: validated.axisType ?? "main",
+      axisType,
       status: validated.status ?? "active",
       createdAt: now,
       updatedAt: now,
@@ -593,6 +602,14 @@ export const timelineStructureService = {
     const database = assertDatabaseName(dbName);
     const normalizedId = assertRequiredString(id, "id");
     const validated = validateAxisPayload(payload);
+    const axisType = validated.axisType ?? "main";
+
+    if (axisType === "main") {
+      const mainAxisCount = await countMainTimelineAxes(database, normalizedId);
+      if (mainAxisCount > 0) {
+        throw new AppError("only one main axis is allowed", 409);
+      }
+    }
 
     if (validated.parentAxisId) {
       if (validated.parentAxisId === normalizedId) {
@@ -608,7 +625,7 @@ export const timelineStructureService = {
     const node: TimelineAxisNode = {
       ...validated,
       id: normalizedId,
-      axisType: validated.axisType ?? "main",
+      axisType,
       status: validated.status ?? "active",
       createdAt: now,
       updatedAt: now,

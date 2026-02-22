@@ -243,6 +243,23 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
     () => segments.find((segment) => segment.id === selectedSegmentId),
     [segments, selectedSegmentId]
   );
+  const mainAxis = useMemo(
+    () => axes.find((axis) => axis.axisType === "main"),
+    [axes]
+  );
+  const hasMainAxis = Boolean(mainAxis);
+  const firstAvailableCreateAxisType = useMemo<(typeof AXIS_TYPES)[number]>(
+    () => AXIS_TYPES.find((type) => !hasMainAxis || type !== "main") ?? "parallel",
+    [hasMainAxis]
+  );
+  const createAxisTypeOptions = useMemo(
+    () =>
+      AXIS_TYPES.filter((type) => !hasMainAxis || type !== "main").map((value) => ({
+        value,
+        label: AXIS_TYPE_LABELS[value],
+      })),
+    [hasMainAxis]
+  );
 
   const axisNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -381,6 +398,15 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
     }
     void refreshData();
   }, [open, refreshData]);
+
+  useEffect(() => {
+    if (createMode !== "axis") {
+      return;
+    }
+    if (axisType === "main" && hasMainAxis) {
+      setAxisType(firstAvailableCreateAxisType);
+    }
+  }, [axisType, createMode, firstAvailableCreateAxisType, hasMainAxis]);
 
   const timelineTree = useMemo<TimelineTreeAxisNode[]>(() => {
     const markersBySegment = new Map<string, TimelineTreeMarkerNode[]>();
@@ -1552,16 +1578,22 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
           <>
             <TextInput label="Axis name" value={axisName} onChange={setAxisName} required />
             <TextInput label="Axis code" value={axisCode} onChange={setAxisCode} />
+            {hasMainAxis ? (
+              <div className="form-field form-field--wide">
+                <p className="header__subtitle">
+                  {t("Main axis already exists. Only one main axis is allowed.")}
+                </p>
+              </div>
+            ) : null}
             <Select
               label="Axis type"
               value={axisType}
               onChange={(value) =>
-                setAxisType((value as (typeof AXIS_TYPES)[number]) || "main")
+                setAxisType(
+                  (value as (typeof AXIS_TYPES)[number]) || firstAvailableCreateAxisType
+                )
               }
-              options={AXIS_TYPES.map((value) => ({
-                value,
-                label: AXIS_TYPE_LABELS[value],
-              }))}
+              options={createAxisTypeOptions}
               placeholder="Select type"
             />
           </>
@@ -1869,7 +1901,10 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
                           : prev
                       )
                     }
-                    options={AXIS_TYPES.map((value) => ({
+                    options={AXIS_TYPES.filter(
+                      (value) =>
+                        value !== "main" || !hasMainAxis || editNode.axisType === "main"
+                    ).map((value) => ({
                       value,
                       label: AXIS_TYPE_LABELS[value],
                     }))}
