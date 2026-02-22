@@ -1,4 +1,12 @@
-import { type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type DragEvent,
+  type PointerEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { BoardViewportControls } from "../../components/common/BoardViewportControls";
 import { useToast } from "../../components/common/Toast";
 import { useBoardViewport } from "../../hooks/useBoardViewport";
@@ -7,6 +15,8 @@ import {
   getTimelineAxesPage,
   getTimelineErasPage,
   getTimelineSegmentsPage,
+  updateTimelineEra,
+  updateTimelineSegment,
 } from "./timeline-structure.api";
 import type { TimelineAxis, TimelineEra, TimelineSegment } from "./timeline-structure.types";
 
@@ -43,6 +53,22 @@ type AxisLayout = {
   y: number;
   eras: EraLayout[];
 };
+
+type SelectedBoardNode = {
+  kind: "axis" | "era" | "segment";
+  id: string;
+};
+
+type DragBoardNode = {
+  kind: "era" | "segment";
+  id: string;
+};
+
+type DropHint = {
+  kind: "era" | "segment";
+  id: string;
+  position: "before" | "after";
+} | null;
 
 const AXIS_X = 190;
 const AXIS_WIDTH = 1320;
@@ -241,6 +267,10 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
   const [eras, setEras] = useState<TimelineEra[]>([]);
   const [segments, setSegments] = useState<TimelineSegment[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedNode, setSelectedNode] = useState<SelectedBoardNode | null>(null);
+  const [dragNode, setDragNode] = useState<DragBoardNode | null>(null);
+  const [dropHint, setDropHint] = useState<DropHint>(null);
+  const [savingOrder, setSavingOrder] = useState(false);
   const {
     scale,
     pan,
@@ -318,6 +348,163 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
 
   const axisLayout = useMemo(() => buildLayout(axes, eras, segments), [axes, eras, segments]);
 
+  const buildEraPayload = (era: TimelineEra, axisId: string, order: number) => ({
+    axisId,
+    name: era.name,
+    code: era.code,
+    summary: era.summary,
+    description: era.description,
+    order,
+    startTick: era.startTick,
+    endTick: era.endTick,
+    status: era.status,
+    notes: era.notes,
+    tags: era.tags,
+  });
+
+  const buildSegmentPayload = (
+    segment: TimelineSegment,
+    eraId: string,
+    order: number
+  ) => ({
+    eraId,
+    name: segment.name,
+    code: segment.code,
+    summary: segment.summary,
+    description: segment.description,
+    order,
+    startTick: segment.startTick,
+    endTick: segment.endTick,
+    status: segment.status,
+    notes: segment.notes,
+    tags: segment.tags,
+  });
+
+  const reorderEras = useCallback(
+    async (
+      draggingEraId: string,
+      targetEraId: string,
+      position: "before" | "after"
+    ) => {
+      const draggingEra = eras.find((item) => item.id === draggingEraId);
+      const targetEra = eras.find((item) => item.id === targetEraId);
+      if (!draggingEra || !targetEra || draggingEra.id === targetEra.id) {
+        return;
+      }
+
+      const targetAxisId = targetEra.axisId;
+      const siblings = eras
+        .filter((item) => item.axisId === targetAxisId && item.id !== draggingEra.id)
+        .sort(sortEras);
+      const targetIndex = siblings.findIndex((item) => item.id === targetEra.id);
+      if (targetIndex < 0) {
+        return;
+      }
+
+      const insertIndex = position === "before" ? targetIndex : targetIndex + 1;
+      const nextOrder = [...siblings];
+      nextOrder.splice(insertIndex, 0, draggingEra);
+
+      const updates = nextOrder
+        .map((item, index) => ({
+          item,
+          nextOrder: (index + 1) * 10,
+          nextAxisId: targetAxisId,
+        }))
+        .filter(({ item, nextOrder: expectedOrder, nextAxisId }) => {
+          const currentOrder = isFiniteNumber(item.order) ? item.order : undefined;
+          return item.axisId !== nextAxisId || currentOrder !== expectedOrder;
+        });
+
+      if (!updates.length) {
+        return;
+      }
+
+      setSavingOrder(true);
+      try {
+        await Promise.all(
+          updates.map(({ item, nextOrder: expectedOrder, nextAxisId }) =>
+            updateTimelineEra(item.id, buildEraPayload(item, nextAxisId, expectedOrder))
+          )
+        );
+        notify(t("Timeline order updated."), "success");
+        await loadData();
+        setSelectedNode({ kind: "era", id: draggingEraId });
+      } catch (error) {
+        notify((error as Error).message, "error");
+      } finally {
+        setSavingOrder(false);
+      }
+    },
+    [eras, loadData, notify, t]
+  );
+
+  const reorderSegments = useCallback(
+    async (
+      draggingSegmentId: string,
+      targetSegmentId: string,
+      position: "before" | "after"
+    ) => {
+      const draggingSegment = segments.find((item) => item.id === draggingSegmentId);
+      const targetSegment = segments.find((item) => item.id === targetSegmentId);
+      if (
+        !draggingSegment ||
+        !targetSegment ||
+        draggingSegment.id === targetSegment.id
+      ) {
+        return;
+      }
+
+      const targetEraId = targetSegment.eraId;
+      const siblings = segments
+        .filter((item) => item.eraId === targetEraId && item.id !== draggingSegment.id)
+        .sort(sortSegments);
+      const targetIndex = siblings.findIndex((item) => item.id === targetSegment.id);
+      if (targetIndex < 0) {
+        return;
+      }
+
+      const insertIndex = position === "before" ? targetIndex : targetIndex + 1;
+      const nextOrder = [...siblings];
+      nextOrder.splice(insertIndex, 0, draggingSegment);
+
+      const updates = nextOrder
+        .map((item, index) => ({
+          item,
+          nextOrder: (index + 1) * 10,
+          nextEraId: targetEraId,
+        }))
+        .filter(({ item, nextOrder: expectedOrder, nextEraId }) => {
+          const currentOrder = isFiniteNumber(item.order) ? item.order : undefined;
+          return item.eraId !== nextEraId || currentOrder !== expectedOrder;
+        });
+
+      if (!updates.length) {
+        return;
+      }
+
+      setSavingOrder(true);
+      try {
+        await Promise.all(
+          updates.map(({ item, nextOrder: expectedOrder, nextEraId }) =>
+            updateTimelineSegment(
+              item.id,
+              buildSegmentPayload(item, nextEraId, expectedOrder)
+            )
+          )
+        );
+        notify(t("Timeline order updated."), "success");
+        await loadData();
+        setSelectedNode({ kind: "segment", id: draggingSegmentId });
+      } catch (error) {
+        notify((error as Error).message, "error");
+      } finally {
+        setSavingOrder(false);
+      }
+    },
+    [segments, loadData, notify, t]
+  );
+
   const contentBounds = useMemo(() => {
     if (!axisLayout.length) {
       return { x: 0, y: 0, width: 1200, height: 420 };
@@ -358,12 +545,26 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     };
   }, [pan.x, pan.y, scale, viewportSize.height, viewportSize.width]);
 
+  const resolveDropPosition = (event: DragEvent<HTMLElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return event.clientX < rect.left + rect.width / 2 ? "before" : "after";
+  };
+
+  const clearDragState = () => {
+    setDragNode(null);
+    setDropHint(null);
+  };
+
   const handleBoardPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
+    if (target.closest(".timeline-structure-node")) {
+      return;
+    }
     if (target.closest(".graph-board-toolbar") || target.closest(".graph-board-minimap")) {
       return;
     }
     startPan(event.clientX, event.clientY);
+    setSelectedNode(null);
   };
 
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
@@ -511,10 +712,22 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
               </div>
 
               <div
-                className="timeline-structure-node timeline-structure-node--axis"
+                className={[
+                  "timeline-structure-node",
+                  "timeline-structure-node--axis",
+                  selectedNode?.kind === "axis" && selectedNode.id === axisNode.axis.id
+                    ? "timeline-structure-node--selected"
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
                 style={{
                   width: AXIS_WIDTH,
                   transform: `translate(${AXIS_X}px, ${axisNode.y}px)`,
+                }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setSelectedNode({ kind: "axis", id: axisNode.axis.id });
                 }}
               >
                 <span className="timeline-structure-node__title">{axisNode.axis.name}</span>
@@ -526,10 +739,69 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
               {axisNode.eras.map((eraNode) => (
                 <div key={eraNode.era.id}>
                   <div
-                    className="timeline-structure-node timeline-structure-node--era"
+                    className={[
+                      "timeline-structure-node",
+                      "timeline-structure-node--era",
+                      selectedNode?.kind === "era" && selectedNode.id === eraNode.era.id
+                        ? "timeline-structure-node--selected"
+                        : "",
+                      dropHint?.kind === "era" && dropHint.id === eraNode.era.id
+                        ? dropHint.position === "before"
+                          ? "timeline-structure-node--drop-before"
+                          : "timeline-structure-node--drop-after"
+                        : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
                     style={{
                       width: eraNode.width,
                       transform: `translate(${eraNode.x}px, ${eraNode.y}px)`,
+                    }}
+                    draggable={!savingOrder}
+                    onDragStart={(event) => {
+                      event.stopPropagation();
+                      event.dataTransfer.setData("text/plain", eraNode.era.id);
+                      event.dataTransfer.effectAllowed = "move";
+                      setDragNode({ kind: "era", id: eraNode.era.id });
+                      setDropHint(null);
+                    }}
+                    onDragOver={(event) => {
+                      if (
+                        savingOrder ||
+                        !dragNode ||
+                        dragNode.kind !== "era" ||
+                        dragNode.id === eraNode.era.id
+                      ) {
+                        return;
+                      }
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setDropHint({
+                        kind: "era",
+                        id: eraNode.era.id,
+                        position: resolveDropPosition(event),
+                      });
+                    }}
+                    onDragLeave={() => {
+                      if (dropHint?.kind === "era" && dropHint.id === eraNode.era.id) {
+                        setDropHint(null);
+                      }
+                    }}
+                    onDrop={(event) => {
+                      if (!dragNode || dragNode.kind !== "era" || savingOrder) {
+                        clearDragState();
+                        return;
+                      }
+                      event.preventDefault();
+                      event.stopPropagation();
+                      const position = resolveDropPosition(event);
+                      void reorderEras(dragNode.id, eraNode.era.id, position);
+                      clearDragState();
+                    }}
+                    onDragEnd={clearDragState}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setSelectedNode({ kind: "era", id: eraNode.era.id });
                     }}
                   >
                     <span className="timeline-structure-node__title">{eraNode.era.name}</span>
@@ -541,10 +813,74 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                   {eraNode.segments.map((segmentNode) => (
                     <div
                       key={segmentNode.segment.id}
-                      className="timeline-structure-node timeline-structure-node--segment"
+                      className={[
+                        "timeline-structure-node",
+                        "timeline-structure-node--segment",
+                        selectedNode?.kind === "segment" &&
+                        selectedNode.id === segmentNode.segment.id
+                          ? "timeline-structure-node--selected"
+                          : "",
+                        dropHint?.kind === "segment" &&
+                        dropHint.id === segmentNode.segment.id
+                          ? dropHint.position === "before"
+                            ? "timeline-structure-node--drop-before"
+                            : "timeline-structure-node--drop-after"
+                          : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
                       style={{
                         width: segmentNode.width,
                         transform: `translate(${segmentNode.x}px, ${segmentNode.y}px)`,
+                      }}
+                      draggable={!savingOrder}
+                      onDragStart={(event) => {
+                        event.stopPropagation();
+                        event.dataTransfer.setData("text/plain", segmentNode.segment.id);
+                        event.dataTransfer.effectAllowed = "move";
+                        setDragNode({ kind: "segment", id: segmentNode.segment.id });
+                        setDropHint(null);
+                      }}
+                      onDragOver={(event) => {
+                        if (
+                          savingOrder ||
+                          !dragNode ||
+                          dragNode.kind !== "segment" ||
+                          dragNode.id === segmentNode.segment.id
+                        ) {
+                          return;
+                        }
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setDropHint({
+                          kind: "segment",
+                          id: segmentNode.segment.id,
+                          position: resolveDropPosition(event),
+                        });
+                      }}
+                      onDragLeave={() => {
+                        if (
+                          dropHint?.kind === "segment" &&
+                          dropHint.id === segmentNode.segment.id
+                        ) {
+                          setDropHint(null);
+                        }
+                      }}
+                      onDrop={(event) => {
+                        if (!dragNode || dragNode.kind !== "segment" || savingOrder) {
+                          clearDragState();
+                          return;
+                        }
+                        event.preventDefault();
+                        event.stopPropagation();
+                        const position = resolveDropPosition(event);
+                        void reorderSegments(dragNode.id, segmentNode.segment.id, position);
+                        clearDragState();
+                      }}
+                      onDragEnd={clearDragState}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setSelectedNode({ kind: "segment", id: segmentNode.segment.id });
                       }}
                     >
                       <span className="timeline-structure-node__title">

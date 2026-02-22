@@ -1442,7 +1442,7 @@ h3 {
   padding: 0 10px;
   text-align: left;
   color: var(--color-ink);
-  cursor: default;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
@@ -1475,6 +1475,7 @@ h3 {
   height: 16px;
   border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
   background: color-mix(in srgb, var(--color-accent) 14%, var(--timeline-board-bg));
+  cursor: grab;
 }
 
 .timeline-structure-node--segment {
@@ -1482,6 +1483,25 @@ h3 {
   border-radius: 7px;
   border-color: color-mix(in srgb, var(--color-success) 56%, transparent);
   background: color-mix(in srgb, var(--color-success) 14%, var(--timeline-board-bg));
+  cursor: grab;
+}
+
+.timeline-structure-node--selected {
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 34%, transparent);
+}
+
+.timeline-structure-node--drop-before {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--color-primary) 72%, transparent);
+}
+
+.timeline-structure-node--drop-after {
+  box-shadow: inset -3px 0 0 color-mix(in srgb, var(--color-primary) 72%, transparent);
+}
+
+.timeline-structure-node--era:active,
+.timeline-structure-node--segment:active {
+  cursor: grabbing;
 }
 
 .graph-board-toolbar {

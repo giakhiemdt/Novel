@@ -470,6 +470,7 @@ const vi: Dictionary = {
   "Add node": "Thêm node",
   "Drag an era onto an axis, segment onto an era, and marker onto a segment to re-parent.": "Kéo era vào axis, segment vào era và marker vào segment để đổi node cha.",
   "Node moved successfully.": "Di chuyển node thành công.",
+  "Timeline order updated.": "Đã cập nhật thứ tự timeline.",
   "Create root axis": "Tạo trục gốc",
   "Selected path": "Đường dẫn đang chọn",
   "No node selected.": "Chưa chọn node nào.",
