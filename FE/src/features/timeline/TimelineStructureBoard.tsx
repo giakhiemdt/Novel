@@ -74,12 +74,13 @@ const AXIS_X = 190;
 const AXIS_WIDTH = 1320;
 const TOP_PADDING = 44;
 const ROW_HEIGHT = 220;
-const AXIS_BAR_Y = 18;
-const ERA_BAR_Y = 70;
-const SEGMENT_BAR_Y = 92;
 const AXIS_BAR_HEIGHT = 20;
 const ERA_BAR_HEIGHT = 16;
 const SEGMENT_BAR_HEIGHT = 12;
+const LAYER_GAP = 18;
+const AXIS_BAR_Y = 18;
+const ERA_BAR_Y = AXIS_BAR_Y + AXIS_BAR_HEIGHT + LAYER_GAP;
+const SEGMENT_BAR_Y = ERA_BAR_Y + ERA_BAR_HEIGHT + LAYER_GAP;
 const MIN_BAR_WIDTH = 24;
 const MINIMAP_WIDTH = 220;
 const MINIMAP_HEIGHT = 140;
@@ -390,6 +391,36 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     tags: segment.tags,
   });
 
+  const canDropEraOnEra = useCallback(
+    (draggingEraId: string, targetEraId: string) => {
+      if (draggingEraId === targetEraId) {
+        return false;
+      }
+      const draggingEra = eras.find((item) => item.id === draggingEraId);
+      const targetEra = eras.find((item) => item.id === targetEraId);
+      if (!draggingEra || !targetEra) {
+        return false;
+      }
+      return draggingEra.axisId === targetEra.axisId;
+    },
+    [eras]
+  );
+
+  const canDropSegmentOnSegment = useCallback(
+    (draggingSegmentId: string, targetSegmentId: string) => {
+      if (draggingSegmentId === targetSegmentId) {
+        return false;
+      }
+      const draggingSegment = segments.find((item) => item.id === draggingSegmentId);
+      const targetSegment = segments.find((item) => item.id === targetSegmentId);
+      if (!draggingSegment || !targetSegment) {
+        return false;
+      }
+      return draggingSegment.eraId === targetSegment.eraId;
+    },
+    [segments]
+  );
+
   const reorderEras = useCallback(
     async (
       draggingEraId: string,
@@ -399,6 +430,9 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
       const draggingEra = eras.find((item) => item.id === draggingEraId);
       const targetEra = eras.find((item) => item.id === targetEraId);
       if (!draggingEra || !targetEra || draggingEra.id === targetEra.id) {
+        return;
+      }
+      if (draggingEra.axisId !== targetEra.axisId) {
         return;
       }
 
@@ -475,6 +509,9 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
         !targetSegment ||
         draggingSegment.id === targetSegment.id
       ) {
+        return;
+      }
+      if (draggingSegment.eraId !== targetSegment.eraId) {
         return;
       }
 
@@ -803,7 +840,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                         savingOrder ||
                         !dragNode ||
                         dragNode.kind !== "era" ||
-                        dragNode.id === eraNode.era.id
+                        !canDropEraOnEra(dragNode.id, eraNode.era.id)
                       ) {
                         return;
                       }
@@ -821,7 +858,12 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                       }
                     }}
                     onDrop={(event) => {
-                      if (!dragNode || dragNode.kind !== "era" || savingOrder) {
+                      if (
+                        !dragNode ||
+                        dragNode.kind !== "era" ||
+                        savingOrder ||
+                        !canDropEraOnEra(dragNode.id, eraNode.era.id)
+                      ) {
                         clearDragState();
                         return;
                       }
@@ -874,15 +916,15 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                         setDragNode({ kind: "segment", id: segmentNode.segment.id });
                         setDropHint(null);
                       }}
-                      onDragOver={(event) => {
-                        if (
-                          savingOrder ||
-                          !dragNode ||
-                          dragNode.kind !== "segment" ||
-                          dragNode.id === segmentNode.segment.id
-                        ) {
-                          return;
-                        }
+                    onDragOver={(event) => {
+                      if (
+                        savingOrder ||
+                        !dragNode ||
+                        dragNode.kind !== "segment" ||
+                        !canDropSegmentOnSegment(dragNode.id, segmentNode.segment.id)
+                      ) {
+                        return;
+                      }
                         event.preventDefault();
                         event.stopPropagation();
                         setDropHint({
@@ -900,7 +942,12 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                         }
                       }}
                       onDrop={(event) => {
-                        if (!dragNode || dragNode.kind !== "segment" || savingOrder) {
+                        if (
+                          !dragNode ||
+                          dragNode.kind !== "segment" ||
+                          savingOrder ||
+                          !canDropSegmentOnSegment(dragNode.id, segmentNode.segment.id)
+                        ) {
                           clearDragState();
                           return;
                         }
