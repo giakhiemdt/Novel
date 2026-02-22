@@ -1,5 +1,6 @@
 import { type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BoardViewportControls } from "../../components/common/BoardViewportControls";
+import { useToast } from "../../components/common/Toast";
 import { useBoardViewport } from "../../hooks/useBoardViewport";
 import { useI18n } from "../../i18n/I18nProvider";
 import {
@@ -65,6 +66,7 @@ const MINIMAP_WIDTH = 220;
 const MINIMAP_HEIGHT = 140;
 const MINIMAP_PADDING = 10;
 const MINIMAP_HEADER_HEIGHT = 20;
+const PAGE_LIMIT = 200;
 
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
@@ -239,6 +241,7 @@ const buildLayout = (
 
 export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoardProps) => {
   const { t } = useI18n();
+  const { notify } = useToast();
   const boardRef = useRef<HTMLDivElement>(null);
   const [axes, setAxes] = useState<TimelineAxis[]>([]);
   const [eras, setEras] = useState<TimelineEra[]>([]);
@@ -267,20 +270,54 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
   });
 
   const loadData = useCallback(async () => {
+    const loadAll = async <T,>(
+      loader: (query: { limit: number; offset: number }) => Promise<{
+        data: T[];
+        meta?: { total?: number };
+      }>
+    ): Promise<T[]> => {
+      const items: T[] = [];
+      let offset = 0;
+      let done = false;
+
+      while (!done) {
+        const response = await loader({ limit: PAGE_LIMIT, offset });
+        const batch = response?.data ?? [];
+        items.push(...batch);
+
+        const total =
+          typeof response?.meta?.total === "number" ? response.meta.total : undefined;
+        if (total !== undefined) {
+          done = items.length >= total || batch.length === 0;
+        } else {
+          done = batch.length < PAGE_LIMIT;
+        }
+
+        offset += batch.length;
+        if (batch.length === 0) {
+          done = true;
+        }
+      }
+
+      return items;
+    };
+
     setLoading(true);
     try {
       const [axisRes, eraRes, segmentRes] = await Promise.all([
-        getTimelineAxesPage({ limit: 500, offset: 0 }),
-        getTimelineErasPage({ limit: 1000, offset: 0 }),
-        getTimelineSegmentsPage({ limit: 2000, offset: 0 }),
+        loadAll((query) => getTimelineAxesPage(query)),
+        loadAll((query) => getTimelineErasPage(query)),
+        loadAll((query) => getTimelineSegmentsPage(query)),
       ]);
-      setAxes(axisRes?.data ?? []);
-      setEras(eraRes?.data ?? []);
-      setSegments(segmentRes?.data ?? []);
+      setAxes(axisRes);
+      setEras(eraRes);
+      setSegments(segmentRes);
+    } catch (error) {
+      notify((error as Error).message, "error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [notify]);
 
   useEffect(() => {
     void loadData();
