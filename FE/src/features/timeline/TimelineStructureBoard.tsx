@@ -70,6 +70,15 @@ type DropHint = {
   position: "before" | "after";
 } | null;
 
+const AXIS_TYPES = ["main", "parallel", "branch", "loop"] as const;
+type AxisType = (typeof AXIS_TYPES)[number];
+const AXIS_TYPE_LABELS: Record<AxisType, string> = {
+  main: "Main",
+  parallel: "Parallel",
+  branch: "Branch",
+  loop: "Loop",
+};
+
 const AXIS_X = 190;
 const AXIS_WIDTH = 1320;
 const TOP_PADDING = 44;
@@ -292,6 +301,9 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
   const [dragNode, setDragNode] = useState<DragBoardNode | null>(null);
   const [dropHint, setDropHint] = useState<DropHint>(null);
   const [savingOrder, setSavingOrder] = useState(false);
+  const [visibleAxisTypes, setVisibleAxisTypes] = useState<AxisType[]>([
+    ...AXIS_TYPES,
+  ]);
   const {
     scale,
     pan,
@@ -367,7 +379,42 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     void loadData();
   }, [loadData, refreshKey]);
 
-  const axisLayout = useMemo(() => buildLayout(axes, eras, segments), [axes, eras, segments]);
+  const axisNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    axes.forEach((axis) => {
+      map.set(axis.id, axis.name);
+    });
+    return map;
+  }, [axes]);
+
+  const filteredAxes = useMemo(
+    () =>
+      axes.filter((axis) =>
+        visibleAxisTypes.includes(axis.axisType as AxisType)
+      ),
+    [axes, visibleAxisTypes]
+  );
+
+  const axisLayout = useMemo(
+    () => buildLayout(filteredAxes, eras, segments),
+    [filteredAxes, eras, segments]
+  );
+
+  const toggleAxisTypeFilter = (axisType: AxisType) => {
+    setVisibleAxisTypes((prev) => {
+      if (prev.includes(axisType)) {
+        if (prev.length === 1) {
+          return prev;
+        }
+        return prev.filter((item) => item !== axisType);
+      }
+      return [...prev, axisType];
+    });
+  };
+
+  const resetAxisTypeFilter = () => {
+    setVisibleAxisTypes([...AXIS_TYPES]);
+  };
 
   const buildEraPayload = (era: TimelineEra, axisId: string, order: number) => ({
     axisId,
@@ -671,6 +718,39 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
               "Each axis is a main horizontal bar. Eras are smaller bars under the axis, and segments are nested bars inside each era."
             )}
           </p>
+          <div className="timeline-structure-legend">
+            {AXIS_TYPES.map((axisType) => (
+              <span
+                key={axisType}
+                className={`timeline-structure-legend__item timeline-structure-legend__item--${axisType}`}
+              >
+                {t(AXIS_TYPE_LABELS[axisType])}
+              </span>
+            ))}
+          </div>
+          <div className="timeline-structure-filters">
+            {AXIS_TYPES.map((axisType) => (
+              <button
+                key={`filter-${axisType}`}
+                type="button"
+                className={`timeline-structure-filter${
+                  visibleAxisTypes.includes(axisType)
+                    ? " timeline-structure-filter--active"
+                    : ""
+                }`}
+                onClick={() => toggleAxisTypeFilter(axisType)}
+              >
+                {t(AXIS_TYPE_LABELS[axisType])}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="timeline-structure-filter timeline-structure-filter--ghost"
+              onClick={resetAxisTypeFilter}
+            >
+              {t("Show all")}
+            </button>
+          </div>
         </div>
         <button
           type="button"
@@ -785,16 +865,31 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                 className="timeline-structure-axis-label"
                 style={{ transform: `translate(24px, ${axisNode.y - 2}px)` }}
               >
-                <strong>{axisNode.axis.name}</strong>
+                <div className="timeline-structure-axis-label__title">
+                  <strong>{axisNode.axis.name}</strong>
+                  <span
+                    className={`timeline-structure-axis-tag timeline-structure-axis-tag--${axisNode.axis.axisType}`}
+                  >
+                    {t(AXIS_TYPE_LABELS[axisNode.axis.axisType as AxisType] ?? "Main")}
+                  </span>
+                </div>
                 <span>
                   0 → {Math.round(axisNode.duration)}
                 </span>
+                {axisNode.axis.parentAxisId ? (
+                  <span className="timeline-structure-axis-label__parent">
+                    {t("Parent")}:{" "}
+                    {axisNameById.get(axisNode.axis.parentAxisId) ??
+                      axisNode.axis.parentAxisId}
+                  </span>
+                ) : null}
               </div>
 
               <div
                 className={[
                   "timeline-structure-node",
                   "timeline-structure-node--axis",
+                  `timeline-structure-node--axis-${axisNode.axis.axisType}`,
                   selectedNode?.kind === "axis" && selectedNode.id === axisNode.axis.id
                     ? "timeline-structure-node--selected"
                     : "",

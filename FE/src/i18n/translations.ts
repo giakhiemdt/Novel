@@ -512,6 +512,7 @@ const vi: Dictionary = {
   "State query tools for debugging and migration.": "Công cụ truy vấn trạng thái cho debug và migration.",
   "Show advanced queries": "Hiện truy vấn nâng cao",
   "Hide advanced queries": "Ẩn truy vấn nâng cao",
+  "Show all": "Hiện tất cả",
   "Timeline details": "Chi tiết dòng thời gian",
   "Edit timeline": "Chỉnh sửa dòng thời gian",
   "Character created successfully.": "Tạo nhân vật thành công.",
