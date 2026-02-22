@@ -169,6 +169,16 @@ const isDeadlockError = (error: unknown) => {
   return /deadlock/i.test(message) || /DeadlockDetected/i.test(message);
 };
 
+const setAlignedDragImage = (event: DragEvent<HTMLElement>) => {
+  if (!event.dataTransfer) {
+    return;
+  }
+  const rect = event.currentTarget.getBoundingClientRect();
+  const offsetX = event.clientX - rect.left;
+  const offsetY = event.clientY - rect.top;
+  event.dataTransfer.setDragImage(event.currentTarget, offsetX, offsetY);
+};
+
 const buildLayout = (
   axes: TimelineAxis[],
   eras: TimelineEra[],
@@ -832,6 +842,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                       event.stopPropagation();
                       event.dataTransfer.setData("text/plain", eraNode.era.id);
                       event.dataTransfer.effectAllowed = "move";
+                      setAlignedDragImage(event);
                       setDragNode({ kind: "era", id: eraNode.era.id });
                       setDropHint(null);
                     }}
@@ -913,6 +924,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                         event.stopPropagation();
                         event.dataTransfer.setData("text/plain", segmentNode.segment.id);
                         event.dataTransfer.effectAllowed = "move";
+                        setAlignedDragImage(event);
                         setDragNode({ kind: "segment", id: segmentNode.segment.id });
                         setDropHint(null);
                       }}
