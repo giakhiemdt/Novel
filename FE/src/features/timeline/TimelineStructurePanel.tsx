@@ -1578,13 +1578,6 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
           <>
             <TextInput label="Axis name" value={axisName} onChange={setAxisName} required />
             <TextInput label="Axis code" value={axisCode} onChange={setAxisCode} />
-            {hasMainAxis ? (
-              <div className="form-field form-field--wide">
-                <p className="header__subtitle">
-                  {t("Main axis already exists. Only one main axis is allowed.")}
-                </p>
-              </div>
-            ) : null}
             <Select
               label="Axis type"
               value={axisType}
@@ -1645,6 +1638,9 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
         </div>
         <div className="form-field form-field--wide">
           <p className="header__subtitle">
+            {hasMainAxis
+              ? `${t("Main axis already exists. Only one main axis is allowed.")} `
+              : ""}
             {t("Drag an era onto an axis, segment onto an era, and marker onto a segment to re-parent.")}
           </p>
         </div>
