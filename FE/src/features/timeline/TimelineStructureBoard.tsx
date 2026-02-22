@@ -70,6 +70,16 @@ type DropHint = {
   position: "before" | "after";
 } | null;
 
+type AxisConnector = {
+  id: string;
+  axisId: string;
+  axisType: "branch" | "loop";
+  parentName: string;
+  path: string;
+  badgeX: number;
+  badgeY: number;
+};
+
 const AXIS_TYPES = ["main", "parallel", "branch", "loop"] as const;
 type AxisType = (typeof AXIS_TYPES)[number];
 const AXIS_TYPE_LABELS: Record<AxisType, string> = {
@@ -399,6 +409,52 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     () => buildLayout(filteredAxes, eras, segments),
     [filteredAxes, eras, segments]
   );
+
+  const axisConnectors = useMemo<AxisConnector[]>(() => {
+    const axisLayoutById = new Map<string, AxisLayout>();
+    axisLayout.forEach((item) => {
+      axisLayoutById.set(item.axis.id, item);
+    });
+
+    const controlXOffset = 86;
+
+    return axisLayout.flatMap((item) => {
+      const axisType = item.axis.axisType;
+      if ((axisType !== "branch" && axisType !== "loop") || !item.axis.parentAxisId) {
+        return [];
+      }
+
+      const parent = axisLayoutById.get(item.axis.parentAxisId);
+      if (!parent) {
+        return [];
+      }
+
+      const fromX = AXIS_X + AXIS_WIDTH;
+      const fromY = parent.y + AXIS_BAR_HEIGHT / 2;
+      const toX = AXIS_X + AXIS_WIDTH;
+      const toY = item.y + AXIS_BAR_HEIGHT / 2;
+      const controlX = fromX + controlXOffset;
+      const path = `M ${fromX} ${fromY} C ${controlX} ${fromY}, ${controlX} ${toY}, ${toX} ${toY}`;
+
+      return [
+        {
+          id: `connector:${item.axis.id}:${parent.axis.id}`,
+          axisId: item.axis.id,
+          axisType,
+          parentName: parent.axis.name,
+          path,
+          badgeX: controlX + 2,
+          badgeY: (fromY + toY) / 2,
+        },
+      ];
+    });
+  }, [axisLayout]);
+
+  const canvasSize = useMemo(() => {
+    const width = AXIS_X + AXIS_WIDTH + 240;
+    const height = Math.max(TOP_PADDING + axisLayout.length * ROW_HEIGHT + 60, 420);
+    return { width, height };
+  }, [axisLayout.length]);
 
   const toggleAxisTypeFilter = (axisType: AxisType) => {
     setVisibleAxisTypes((prev) => {
@@ -853,6 +909,65 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
             transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${scale})`,
           }}
         >
+          <svg
+            className="timeline-structure-links"
+            width={canvasSize.width}
+            height={canvasSize.height}
+            aria-hidden="true"
+          >
+            <defs>
+              <marker
+                id="timeline-link-arrow-branch"
+                viewBox="0 0 10 10"
+                refX="7"
+                refY="5"
+                markerWidth="5"
+                markerHeight="5"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 0 L 10 5 L 0 10 z" className="timeline-structure-link-arrow timeline-structure-link-arrow--branch" />
+              </marker>
+              <marker
+                id="timeline-link-arrow-loop"
+                viewBox="0 0 10 10"
+                refX="7"
+                refY="5"
+                markerWidth="5"
+                markerHeight="5"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 0 L 10 5 L 0 10 z" className="timeline-structure-link-arrow timeline-structure-link-arrow--loop" />
+              </marker>
+            </defs>
+
+            {axisConnectors.map((connector) => (
+              <g key={connector.id}>
+                <path
+                  d={connector.path}
+                  className={[
+                    "timeline-structure-link",
+                    `timeline-structure-link--${connector.axisType}`,
+                    selectedNode?.kind === "axis" && selectedNode.id === connector.axisId
+                      ? "timeline-structure-link--selected"
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  markerEnd={`url(#timeline-link-arrow-${connector.axisType})`}
+                />
+                <text
+                  x={connector.badgeX}
+                  y={connector.badgeY - 4}
+                  className={`timeline-structure-link-label timeline-structure-link-label--${connector.axisType}`}
+                >
+                  {connector.axisType === "loop"
+                    ? `${t("Loop")} ↺ ${connector.parentName}`
+                    : `${t("Branch")} ← ${connector.parentName}`}
+                </text>
+              </g>
+            ))}
+          </svg>
+
           {axisLayout.length === 0 ? (
             <p className="timeline-empty" style={{ transform: "translate(32px, 26px)" }}>
               {t("No timeline-first structures yet.")}

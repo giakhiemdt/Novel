@@ -1528,6 +1528,54 @@ h3 {
   color: var(--text-faint);
 }
 
+.timeline-structure-links {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.timeline-structure-link {
+  fill: none;
+  stroke-width: 2;
+  opacity: 0.75;
+}
+
+.timeline-structure-link--branch {
+  stroke: color-mix(in srgb, var(--color-danger) 62%, var(--text-muted));
+}
+
+.timeline-structure-link--loop {
+  stroke: color-mix(in srgb, var(--color-success) 62%, var(--text-muted));
+  stroke-dasharray: 6 4;
+}
+
+.timeline-structure-link--selected {
+  stroke-width: 2.6;
+  opacity: 1;
+}
+
+.timeline-structure-link-arrow--branch {
+  fill: color-mix(in srgb, var(--color-danger) 62%, var(--text-muted));
+}
+
+.timeline-structure-link-arrow--loop {
+  fill: color-mix(in srgb, var(--color-success) 62%, var(--text-muted));
+}
+
+.timeline-structure-link-label {
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+
+.timeline-structure-link-label--branch {
+  fill: color-mix(in srgb, var(--color-danger) 60%, var(--text-muted));
+}
+
+.timeline-structure-link-label--loop {
+  fill: color-mix(in srgb, var(--color-success) 60%, var(--text-muted));
+}
+
 .timeline-structure-node {
   position: absolute;
   border: 1px solid transparent;
