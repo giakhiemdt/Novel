@@ -10,6 +10,9 @@ import {
   createTimelineEra,
   createTimelineMarker,
   createTimelineSegment,
+  deleteTimelineAxis,
+  deleteTimelineEra,
+  deleteTimelineSegment,
   getTimelineAxesPage,
   getTimelineErasPage,
   getTimelineMarkersPage,
@@ -18,12 +21,16 @@ import {
   getTimelineStateHistory,
   getTimelineStateProjection,
   getTimelineStateSnapshot,
+  updateTimelineAxis,
+  updateTimelineEra,
+  updateTimelineSegment,
 } from "./timeline-structure.api";
 import type {
   TimelineAxis,
   TimelineEra,
   TimelineMarker,
   TimelineSegment,
+  TimelineStructStatus,
 } from "./timeline-structure.types";
 
 const AXIS_TYPES = ["main", "parallel", "branch", "loop"] as const;
@@ -76,6 +83,57 @@ type TimelineStructurePanelProps = {
 };
 
 type CreateMode = "axis" | "era" | "segment" | "marker";
+type EditableNodeType = "axis" | "era" | "segment";
+
+type DetailNodeState =
+  | { nodeType: "axis"; node: TimelineAxis }
+  | { nodeType: "era"; node: TimelineEra }
+  | { nodeType: "segment"; node: TimelineSegment }
+  | null;
+
+type AxisEditState = {
+  nodeType: "axis";
+  id: string;
+  name: string;
+  code: string;
+  axisType: (typeof AXIS_TYPES)[number];
+  description: string;
+  sortOrder: string;
+  startTick: string;
+  endTick: string;
+  status: TimelineStructStatus;
+};
+
+type EraEditState = {
+  nodeType: "era";
+  id: string;
+  axisId: string;
+  name: string;
+  code: string;
+  summary: string;
+  description: string;
+  order: string;
+  startTick: string;
+  endTick: string;
+  status: TimelineStructStatus;
+};
+
+type SegmentEditState = {
+  nodeType: "segment";
+  id: string;
+  axisId: string;
+  eraId: string;
+  name: string;
+  code: string;
+  summary: string;
+  description: string;
+  order: string;
+  startTick: string;
+  endTick: string;
+  status: TimelineStructStatus;
+};
+
+type EditNodeState = AxisEditState | EraEditState | SegmentEditState | null;
 
 const formatJson = (value: unknown): string => JSON.stringify(value, null, 2);
 
@@ -108,6 +166,9 @@ const formatTickRange = (startTick?: number, endTick?: number): string => {
   return `${startLabel} - ${endLabel}`;
 };
 
+const toInputValue = (value?: number): string =>
+  typeof value === "number" ? String(value) : "";
+
 export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) => {
   const { t } = useI18n();
   const { notify } = useToast();
@@ -126,6 +187,9 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
   const [createMode, setCreateMode] = useState<CreateMode>("axis");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [showStateQueries, setShowStateQueries] = useState(false);
+  const [detailNode, setDetailNode] = useState<DetailNodeState>(null);
+  const [editNode, setEditNode] = useState<EditNodeState>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const [axisName, setAxisName] = useState("");
   const [axisCode, setAxisCode] = useState("");
@@ -579,6 +643,230 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
     await handleCreateMarker();
   };
 
+  const openDetail = (
+    nodeType: EditableNodeType,
+    node: TimelineAxis | TimelineEra | TimelineSegment
+  ) => {
+    if (nodeType === "axis") {
+      setDetailNode({ nodeType, node: node as TimelineAxis });
+      return;
+    }
+    if (nodeType === "era") {
+      setDetailNode({ nodeType, node: node as TimelineEra });
+      return;
+    }
+    setDetailNode({ nodeType, node: node as TimelineSegment });
+  };
+
+  const openEditAxis = (axis: TimelineAxis) => {
+    setEditNode({
+      nodeType: "axis",
+      id: axis.id,
+      name: axis.name,
+      code: axis.code ?? "",
+      axisType: axis.axisType,
+      description: axis.description ?? "",
+      sortOrder: toInputValue(axis.sortOrder),
+      startTick: toInputValue(axis.startTick),
+      endTick: toInputValue(axis.endTick),
+      status: axis.status ?? "active",
+    });
+  };
+
+  const openEditEra = (era: TimelineEra) => {
+    setEditNode({
+      nodeType: "era",
+      id: era.id,
+      axisId: era.axisId,
+      name: era.name,
+      code: era.code ?? "",
+      summary: era.summary ?? "",
+      description: era.description ?? "",
+      order: toInputValue(era.order),
+      startTick: toInputValue(era.startTick),
+      endTick: toInputValue(era.endTick),
+      status: era.status ?? "active",
+    });
+  };
+
+  const openEditSegment = (segment: TimelineSegment) => {
+    setEditNode({
+      nodeType: "segment",
+      id: segment.id,
+      axisId: segment.axisId,
+      eraId: segment.eraId,
+      name: segment.name,
+      code: segment.code ?? "",
+      summary: segment.summary ?? "",
+      description: segment.description ?? "",
+      order: toInputValue(segment.order),
+      startTick: toInputValue(segment.startTick),
+      endTick: toInputValue(segment.endTick),
+      status: segment.status ?? "active",
+    });
+  };
+
+  const parseOptionalNumber = (
+    value: string,
+    label: string
+  ): number | undefined => {
+    const normalized = value.trim();
+    if (!normalized) {
+      return undefined;
+    }
+    const parsed = Number(normalized);
+    if (!Number.isFinite(parsed)) {
+      throw new Error(t(`${label} must be a number`));
+    }
+    return parsed;
+  };
+
+  const validateTickRange = (
+    startTick?: number,
+    endTick?: number
+  ): boolean => {
+    if (
+      typeof startTick === "number" &&
+      typeof endTick === "number" &&
+      startTick > endTick
+    ) {
+      notify(t("Start tick cannot be greater than end tick"), "error");
+      return false;
+    }
+    return true;
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editNode) {
+      return;
+    }
+
+    const trimmedName = editNode.name.trim();
+    if (!trimmedName) {
+      if (editNode.nodeType === "axis") {
+        notify(t("Axis name is required"), "error");
+      } else if (editNode.nodeType === "era") {
+        notify(t("Era name is required"), "error");
+      } else {
+        notify(t("Segment name is required"), "error");
+      }
+      return;
+    }
+
+    try {
+      setSavingEdit(true);
+      if (editNode.nodeType === "axis") {
+        const sortOrder = parseOptionalNumber(editNode.sortOrder, "Sort order");
+        const startTick = parseOptionalNumber(editNode.startTick, "Start tick");
+        const endTick = parseOptionalNumber(editNode.endTick, "End tick");
+        if (!validateTickRange(startTick, endTick)) {
+          setSavingEdit(false);
+          return;
+        }
+        await updateTimelineAxis(editNode.id, {
+          name: trimmedName,
+          code: editNode.code.trim() || undefined,
+          axisType: editNode.axisType,
+          description: editNode.description.trim() || undefined,
+          sortOrder,
+          startTick,
+          endTick,
+          status: editNode.status,
+        });
+      } else if (editNode.nodeType === "era") {
+        const order = parseOptionalNumber(editNode.order, "Order");
+        const startTick = parseOptionalNumber(editNode.startTick, "Start tick");
+        const endTick = parseOptionalNumber(editNode.endTick, "End tick");
+        if (!validateTickRange(startTick, endTick)) {
+          setSavingEdit(false);
+          return;
+        }
+        await updateTimelineEra(editNode.id, {
+          axisId: editNode.axisId,
+          name: trimmedName,
+          code: editNode.code.trim() || undefined,
+          summary: editNode.summary.trim() || undefined,
+          description: editNode.description.trim() || undefined,
+          order,
+          startTick,
+          endTick,
+          status: editNode.status,
+        });
+      } else {
+        const order = parseOptionalNumber(editNode.order, "Order");
+        const startTick = parseOptionalNumber(editNode.startTick, "Start tick");
+        const endTick = parseOptionalNumber(editNode.endTick, "End tick");
+        if (!validateTickRange(startTick, endTick)) {
+          setSavingEdit(false);
+          return;
+        }
+        await updateTimelineSegment(editNode.id, {
+          eraId: editNode.eraId,
+          name: trimmedName,
+          code: editNode.code.trim() || undefined,
+          summary: editNode.summary.trim() || undefined,
+          description: editNode.description.trim() || undefined,
+          order,
+          startTick,
+          endTick,
+          status: editNode.status,
+        });
+      }
+
+      notify(t("Save changes"), "success");
+      setEditNode(null);
+      await refreshData();
+    } catch (error) {
+      notify((error as Error).message, "error");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const deleteNodeByType = async (
+    nodeType: EditableNodeType,
+    id: string
+  ) => {
+    try {
+      let successMessage = "Deleted successfully.";
+      if (nodeType === "axis") {
+        await deleteTimelineAxis(id);
+        successMessage = "Axis deleted";
+      } else if (nodeType === "era") {
+        await deleteTimelineEra(id);
+        successMessage = "Era deleted";
+      } else {
+        await deleteTimelineSegment(id);
+        successMessage = "Segment deleted";
+      }
+      notify(t(successMessage), "success");
+      await refreshData();
+    } catch (error) {
+      notify((error as Error).message, "error");
+    }
+  };
+
+  const handleDeleteAxis = async (axis: TimelineAxis) => {
+    if (!window.confirm(t("Delete this axis? This action cannot be undone."))) {
+      return;
+    }
+    await deleteNodeByType("axis", axis.id);
+  };
+
+  const handleDeleteEra = async (era: TimelineEra) => {
+    if (!window.confirm(t("Delete this era? This action cannot be undone."))) {
+      return;
+    }
+    await deleteNodeByType("era", era.id);
+  };
+
+  const handleDeleteSegment = async (segment: TimelineSegment) => {
+    if (!window.confirm(t("Delete this segment? This action cannot be undone."))) {
+      return;
+    }
+    await deleteNodeByType("segment", segment.id);
+  };
+
   const runSnapshot = async () => {
     if (!selectedAxisId) {
       notify(t("Select an axis first"), "error");
@@ -793,6 +1081,36 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
           <div className="table__actions tree-row__actions">
             <button
               type="button"
+              className="table__action"
+              onClick={(event) => {
+                event.stopPropagation();
+                openDetail("segment", node);
+              }}
+            >
+              {t("Detail")}
+            </button>
+            <button
+              type="button"
+              className="table__action table__action--ghost"
+              onClick={(event) => {
+                event.stopPropagation();
+                openEditSegment(node);
+              }}
+            >
+              {t("Edit")}
+            </button>
+            <button
+              type="button"
+              className="table__action table__action--danger"
+              onClick={(event) => {
+                event.stopPropagation();
+                void handleDeleteSegment(node);
+              }}
+            >
+              {t("Delete")}
+            </button>
+            <button
+              type="button"
               className="table__action table__action--ghost"
               onClick={(event) => {
                 event.stopPropagation();
@@ -870,6 +1188,36 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
           <div className="table__actions tree-row__actions">
             <button
               type="button"
+              className="table__action"
+              onClick={(event) => {
+                event.stopPropagation();
+                openDetail("era", node);
+              }}
+            >
+              {t("Detail")}
+            </button>
+            <button
+              type="button"
+              className="table__action table__action--ghost"
+              onClick={(event) => {
+                event.stopPropagation();
+                openEditEra(node);
+              }}
+            >
+              {t("Edit")}
+            </button>
+            <button
+              type="button"
+              className="table__action table__action--danger"
+              onClick={(event) => {
+                event.stopPropagation();
+                void handleDeleteEra(node);
+              }}
+            >
+              {t("Delete")}
+            </button>
+            <button
+              type="button"
               className="table__action table__action--ghost"
               onClick={(event) => {
                 event.stopPropagation();
@@ -945,6 +1293,36 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
             </span>
           </div>
           <div className="table__actions tree-row__actions">
+            <button
+              type="button"
+              className="table__action"
+              onClick={(event) => {
+                event.stopPropagation();
+                openDetail("axis", node);
+              }}
+            >
+              {t("Detail")}
+            </button>
+            <button
+              type="button"
+              className="table__action table__action--ghost"
+              onClick={(event) => {
+                event.stopPropagation();
+                openEditAxis(node);
+              }}
+            >
+              {t("Edit")}
+            </button>
+            <button
+              type="button"
+              className="table__action table__action--danger"
+              onClick={(event) => {
+                event.stopPropagation();
+                void handleDeleteAxis(node);
+              }}
+            >
+              {t("Delete")}
+            </button>
             <button
               type="button"
               className="table__action table__action--ghost"
@@ -1236,6 +1614,279 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
           </p>
         </div>
       </FormSection>
+
+      {detailNode ? (
+        <div className="modal__backdrop" onClick={() => setDetailNode(null)}>
+          <div
+            className="modal modal--details modal--wide"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="modal__header">
+              <div>
+                <h3 className="section-title">
+                  {detailNode.nodeType === "axis"
+                    ? t("Axis details")
+                    : detailNode.nodeType === "era"
+                      ? t("Era details")
+                      : t("Segment details")}
+                </h3>
+                <p className="modal__subtitle">{detailNode.node.name}</p>
+              </div>
+              <button
+                type="button"
+                className="modal__close"
+                onClick={() => setDetailNode(null)}
+                aria-label={t("Close modal")}
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal__body detail-sections">
+              <div className="detail-item">
+                <span className="detail-item__label">{t("Type")}</span>
+                <strong>
+                  {detailNode.nodeType === "axis"
+                    ? t(AXIS_TYPE_LABELS[detailNode.node.axisType])
+                    : detailNode.nodeType === "era"
+                      ? t("Era")
+                      : t("Segment")}
+                </strong>
+              </div>
+              <div className="detail-item">
+                <span className="detail-item__label">{t("Code")}</span>
+                <strong>{detailNode.node.code || "-"}</strong>
+              </div>
+              <div className="detail-item">
+                <span className="detail-item__label">{t("Status")}</span>
+                <strong>
+                  {detailNode.node.status === "archived" ? t("Archived") : t("Active")}
+                </strong>
+              </div>
+              <div className="detail-item">
+                <span className="detail-item__label">{t("Tick")}</span>
+                <strong>
+                  {formatTickRange(detailNode.node.startTick, detailNode.node.endTick)}
+                </strong>
+              </div>
+              <div className="detail-item">
+                <span className="detail-item__label">{t("Parent")}</span>
+                <strong>
+                  {detailNode.nodeType === "axis"
+                    ? "-"
+                    : detailNode.nodeType === "era"
+                      ? axisNameById.get(detailNode.node.axisId) ?? "-"
+                      : eraNameById.get(detailNode.node.eraId) ?? "-"}
+                </strong>
+              </div>
+              <div className="detail-item detail-item--wide">
+                <span className="detail-item__label">
+                  {detailNode.nodeType === "axis" ? t("Description") : t("Summary")}
+                </span>
+                <p className="header__subtitle" style={{ margin: 0 }}>
+                  {detailNode.nodeType === "axis"
+                    ? detailNode.node.description || "-"
+                    : detailNode.node.summary || detailNode.node.description || "-"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {editNode ? (
+        <div className="modal__backdrop" onClick={() => setEditNode(null)}>
+          <div
+            className="modal modal--wide"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="modal__header">
+              <div>
+                <h3 className="section-title">
+                  {editNode.nodeType === "axis"
+                    ? t("Edit axis")
+                    : editNode.nodeType === "era"
+                      ? t("Edit era")
+                      : t("Edit segment")}
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="modal__close"
+                onClick={() => setEditNode(null)}
+                aria-label={t("Close modal")}
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal__body">
+              <div className="modal__grid">
+                <TextInput
+                  label={
+                    editNode.nodeType === "axis"
+                      ? "Axis name"
+                      : editNode.nodeType === "era"
+                        ? "Era name"
+                        : "Segment name"
+                  }
+                  value={editNode.name}
+                  onChange={(value) =>
+                    setEditNode((prev) => (prev ? { ...prev, name: value } : prev))
+                  }
+                  required
+                />
+                <TextInput
+                  label={
+                    editNode.nodeType === "axis"
+                      ? "Axis code"
+                      : editNode.nodeType === "era"
+                        ? "Era code"
+                        : "Segment code"
+                  }
+                  value={editNode.code}
+                  onChange={(value) =>
+                    setEditNode((prev) => (prev ? { ...prev, code: value } : prev))
+                  }
+                />
+                {editNode.nodeType === "axis" ? (
+                  <Select
+                    label="Axis type"
+                    value={editNode.axisType}
+                    onChange={(value) =>
+                      setEditNode((prev) =>
+                        prev && prev.nodeType === "axis"
+                          ? {
+                              ...prev,
+                              axisType:
+                                (value as (typeof AXIS_TYPES)[number]) || prev.axisType,
+                            }
+                          : prev
+                      )
+                    }
+                    options={AXIS_TYPES.map((value) => ({
+                      value,
+                      label: AXIS_TYPE_LABELS[value],
+                    }))}
+                    placeholder="Select type"
+                  />
+                ) : (
+                  <div className="form-field">
+                    <label>{t("Parent")}</label>
+                    <p className="header__subtitle">
+                      {editNode.nodeType === "era"
+                        ? axisNameById.get(editNode.axisId) ?? "-"
+                        : eraNameById.get(editNode.eraId) ?? "-"}
+                    </p>
+                  </div>
+                )}
+                <Select
+                  label="Status"
+                  value={editNode.status}
+                  onChange={(value) =>
+                    setEditNode((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            status:
+                              value === "archived" ? "archived" : "active",
+                          }
+                        : prev
+                    )
+                  }
+                  options={[
+                    { value: "active", label: "Active" },
+                    { value: "archived", label: "Archived" },
+                  ]}
+                  placeholder="Select"
+                />
+                <TextInput
+                  label={editNode.nodeType === "axis" ? "Sort order" : "Order"}
+                  type="number"
+                  value={editNode.nodeType === "axis" ? editNode.sortOrder : editNode.order}
+                  onChange={(value) =>
+                    setEditNode((prev) => {
+                      if (!prev) {
+                        return prev;
+                      }
+                      if (prev.nodeType === "axis") {
+                        return { ...prev, sortOrder: value };
+                      }
+                      return { ...prev, order: value };
+                    })
+                  }
+                />
+                <TextInput
+                  label="Start tick"
+                  type="number"
+                  value={editNode.startTick}
+                  onChange={(value) =>
+                    setEditNode((prev) => (prev ? { ...prev, startTick: value } : prev))
+                  }
+                />
+                <TextInput
+                  label="End tick"
+                  type="number"
+                  value={editNode.endTick}
+                  onChange={(value) =>
+                    setEditNode((prev) => (prev ? { ...prev, endTick: value } : prev))
+                  }
+                />
+                <div className="form-field form-field--wide">
+                  <label>{editNode.nodeType === "axis" ? t("Description") : t("Summary")}</label>
+                  <textarea
+                    className="textarea"
+                    value={
+                      editNode.nodeType === "axis"
+                        ? editNode.description
+                        : editNode.summary
+                    }
+                    onChange={(event) =>
+                      setEditNode((prev) => {
+                        if (!prev) {
+                          return prev;
+                        }
+                        if (prev.nodeType === "axis") {
+                          return { ...prev, description: event.target.value };
+                        }
+                        return { ...prev, summary: event.target.value };
+                      })
+                    }
+                    rows={4}
+                  />
+                </div>
+                {editNode.nodeType !== "axis" ? (
+                  <div className="form-field form-field--wide">
+                    <label>{t("Description")}</label>
+                    <textarea
+                      className="textarea"
+                      value={editNode.description}
+                      onChange={(event) =>
+                        setEditNode((prev) =>
+                          prev && prev.nodeType !== "axis"
+                            ? { ...prev, description: event.target.value }
+                            : prev
+                        )
+                      }
+                      rows={4}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="modal__footer">
+              <Button variant="ghost" onClick={() => setEditNode(null)} disabled={savingEdit}>
+                {t("Cancel")}
+              </Button>
+              <Button onClick={() => void handleSaveEdit()} disabled={savingEdit}>
+                {savingEdit ? t("Saving...") : t("Save changes")}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
