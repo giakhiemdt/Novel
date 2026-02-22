@@ -109,7 +109,32 @@ RETURN count(a) AS total
 
 const DELETE_TIMELINE_AXIS = `
 MATCH (a:${nodeLabels.timelineAxis} {id: $id})
-WITH a
+WITH a, a.id AS axisId
+CALL {
+  WITH axisId
+  MATCH (child:${nodeLabels.timelineAxis})
+  WHERE child.parentAxisId = axisId
+  SET child.parentAxisId = NULL
+  RETURN count(child) AS updatedChildren
+}
+CALL {
+  WITH axisId
+  OPTIONAL MATCH (m:${nodeLabels.timelineMarker} {axisId: axisId})
+  DETACH DELETE m
+  RETURN count(m) AS deletedMarkers
+}
+CALL {
+  WITH axisId
+  OPTIONAL MATCH (s:${nodeLabels.timelineSegment} {axisId: axisId})
+  DETACH DELETE s
+  RETURN count(s) AS deletedSegments
+}
+CALL {
+  WITH axisId
+  OPTIONAL MATCH (e:${nodeLabels.timelineEra} {axisId: axisId})
+  DETACH DELETE e
+  RETURN count(e) AS deletedEras
+}
 DETACH DELETE a
 RETURN 1 AS deleted
 `;
@@ -175,7 +200,8 @@ RETURN e
 const GET_TIMELINE_ERAS = `
 MATCH (e:${nodeLabels.timelineEra})
 WHERE
-  ($name IS NULL OR toLower(e.name) CONTAINS toLower($name))
+  EXISTS { MATCH (a:${nodeLabels.timelineAxis} {id: e.axisId}) }
+  AND ($name IS NULL OR toLower(e.name) CONTAINS toLower($name))
   AND ($code IS NULL OR toLower(e.code) CONTAINS toLower($code))
   AND ($axisId IS NULL OR e.axisId = $axisId)
   AND ($status IS NULL OR e.status = $status)
@@ -189,7 +215,8 @@ const GET_TIMELINE_ERAS_BY_SEARCH = `
 CALL db.index.fulltext.queryNodes("timeline_era_search", $q) YIELD node, score
 WITH node AS e, score
 WHERE
-  ($name IS NULL OR toLower(e.name) CONTAINS toLower($name))
+  EXISTS { MATCH (a:${nodeLabels.timelineAxis} {id: e.axisId}) }
+  AND ($name IS NULL OR toLower(e.name) CONTAINS toLower($name))
   AND ($code IS NULL OR toLower(e.code) CONTAINS toLower($code))
   AND ($axisId IS NULL OR e.axisId = $axisId)
   AND ($status IS NULL OR e.status = $status)
@@ -202,7 +229,8 @@ LIMIT toInteger($limit)
 const COUNT_TIMELINE_ERAS = `
 MATCH (e:${nodeLabels.timelineEra})
 WHERE
-  ($name IS NULL OR toLower(e.name) CONTAINS toLower($name))
+  EXISTS { MATCH (a:${nodeLabels.timelineAxis} {id: e.axisId}) }
+  AND ($name IS NULL OR toLower(e.name) CONTAINS toLower($name))
   AND ($code IS NULL OR toLower(e.code) CONTAINS toLower($code))
   AND ($axisId IS NULL OR e.axisId = $axisId)
   AND ($status IS NULL OR e.status = $status)
@@ -213,7 +241,8 @@ const COUNT_TIMELINE_ERAS_BY_SEARCH = `
 CALL db.index.fulltext.queryNodes("timeline_era_search", $q) YIELD node, score
 WITH node AS e, score
 WHERE
-  ($name IS NULL OR toLower(e.name) CONTAINS toLower($name))
+  EXISTS { MATCH (a:${nodeLabels.timelineAxis} {id: e.axisId}) }
+  AND ($name IS NULL OR toLower(e.name) CONTAINS toLower($name))
   AND ($code IS NULL OR toLower(e.code) CONTAINS toLower($code))
   AND ($axisId IS NULL OR e.axisId = $axisId)
   AND ($status IS NULL OR e.status = $status)
@@ -227,7 +256,19 @@ RETURN e
 
 const DELETE_TIMELINE_ERA = `
 MATCH (e:${nodeLabels.timelineEra} {id: $id})
-WITH e
+WITH e, e.id AS eraId
+CALL {
+  WITH eraId
+  OPTIONAL MATCH (m:${nodeLabels.timelineMarker} {eraId: eraId})
+  DETACH DELETE m
+  RETURN count(m) AS deletedMarkers
+}
+CALL {
+  WITH eraId
+  OPTIONAL MATCH (s:${nodeLabels.timelineSegment} {eraId: eraId})
+  DETACH DELETE s
+  RETURN count(s) AS deletedSegments
+}
 DETACH DELETE e
 RETURN 1 AS deleted
 `;
@@ -283,7 +324,9 @@ RETURN s
 const GET_TIMELINE_SEGMENTS = `
 MATCH (s:${nodeLabels.timelineSegment})
 WHERE
-  ($name IS NULL OR toLower(s.name) CONTAINS toLower($name))
+  EXISTS { MATCH (e:${nodeLabels.timelineEra} {id: s.eraId}) }
+  AND EXISTS { MATCH (a:${nodeLabels.timelineAxis} {id: s.axisId}) }
+  AND ($name IS NULL OR toLower(s.name) CONTAINS toLower($name))
   AND ($code IS NULL OR toLower(s.code) CONTAINS toLower($code))
   AND ($axisId IS NULL OR s.axisId = $axisId)
   AND ($eraId IS NULL OR s.eraId = $eraId)
@@ -298,7 +341,9 @@ const GET_TIMELINE_SEGMENTS_BY_SEARCH = `
 CALL db.index.fulltext.queryNodes("timeline_segment_search", $q) YIELD node, score
 WITH node AS s, score
 WHERE
-  ($name IS NULL OR toLower(s.name) CONTAINS toLower($name))
+  EXISTS { MATCH (e:${nodeLabels.timelineEra} {id: s.eraId}) }
+  AND EXISTS { MATCH (a:${nodeLabels.timelineAxis} {id: s.axisId}) }
+  AND ($name IS NULL OR toLower(s.name) CONTAINS toLower($name))
   AND ($code IS NULL OR toLower(s.code) CONTAINS toLower($code))
   AND ($axisId IS NULL OR s.axisId = $axisId)
   AND ($eraId IS NULL OR s.eraId = $eraId)
@@ -312,7 +357,9 @@ LIMIT toInteger($limit)
 const COUNT_TIMELINE_SEGMENTS = `
 MATCH (s:${nodeLabels.timelineSegment})
 WHERE
-  ($name IS NULL OR toLower(s.name) CONTAINS toLower($name))
+  EXISTS { MATCH (e:${nodeLabels.timelineEra} {id: s.eraId}) }
+  AND EXISTS { MATCH (a:${nodeLabels.timelineAxis} {id: s.axisId}) }
+  AND ($name IS NULL OR toLower(s.name) CONTAINS toLower($name))
   AND ($code IS NULL OR toLower(s.code) CONTAINS toLower($code))
   AND ($axisId IS NULL OR s.axisId = $axisId)
   AND ($eraId IS NULL OR s.eraId = $eraId)
@@ -324,7 +371,9 @@ const COUNT_TIMELINE_SEGMENTS_BY_SEARCH = `
 CALL db.index.fulltext.queryNodes("timeline_segment_search", $q) YIELD node, score
 WITH node AS s, score
 WHERE
-  ($name IS NULL OR toLower(s.name) CONTAINS toLower($name))
+  EXISTS { MATCH (e:${nodeLabels.timelineEra} {id: s.eraId}) }
+  AND EXISTS { MATCH (a:${nodeLabels.timelineAxis} {id: s.axisId}) }
+  AND ($name IS NULL OR toLower(s.name) CONTAINS toLower($name))
   AND ($code IS NULL OR toLower(s.code) CONTAINS toLower($code))
   AND ($axisId IS NULL OR s.axisId = $axisId)
   AND ($eraId IS NULL OR s.eraId = $eraId)
@@ -339,7 +388,13 @@ RETURN s
 
 const DELETE_TIMELINE_SEGMENT = `
 MATCH (s:${nodeLabels.timelineSegment} {id: $id})
-WITH s
+WITH s, s.id AS segmentId
+CALL {
+  WITH segmentId
+  OPTIONAL MATCH (m:${nodeLabels.timelineMarker} {segmentId: segmentId})
+  DETACH DELETE m
+  RETURN count(m) AS deletedMarkers
+}
 DETACH DELETE s
 RETURN 1 AS deleted
 `;
@@ -393,7 +448,10 @@ RETURN m
 const GET_TIMELINE_MARKERS = `
 MATCH (m:${nodeLabels.timelineMarker})
 WHERE
-  ($label IS NULL OR toLower(m.label) CONTAINS toLower($label))
+  EXISTS { MATCH (s:${nodeLabels.timelineSegment} {id: m.segmentId}) }
+  AND EXISTS { MATCH (e:${nodeLabels.timelineEra} {id: m.eraId}) }
+  AND EXISTS { MATCH (a:${nodeLabels.timelineAxis} {id: m.axisId}) }
+  AND ($label IS NULL OR toLower(m.label) CONTAINS toLower($label))
   AND ($markerType IS NULL OR m.markerType = $markerType)
   AND ($axisId IS NULL OR m.axisId = $axisId)
   AND ($eraId IS NULL OR m.eraId = $eraId)
@@ -411,7 +469,10 @@ const GET_TIMELINE_MARKERS_BY_SEARCH = `
 CALL db.index.fulltext.queryNodes("timeline_marker_search", $q) YIELD node, score
 WITH node AS m, score
 WHERE
-  ($label IS NULL OR toLower(m.label) CONTAINS toLower($label))
+  EXISTS { MATCH (s:${nodeLabels.timelineSegment} {id: m.segmentId}) }
+  AND EXISTS { MATCH (e:${nodeLabels.timelineEra} {id: m.eraId}) }
+  AND EXISTS { MATCH (a:${nodeLabels.timelineAxis} {id: m.axisId}) }
+  AND ($label IS NULL OR toLower(m.label) CONTAINS toLower($label))
   AND ($markerType IS NULL OR m.markerType = $markerType)
   AND ($axisId IS NULL OR m.axisId = $axisId)
   AND ($eraId IS NULL OR m.eraId = $eraId)
@@ -428,7 +489,10 @@ LIMIT toInteger($limit)
 const COUNT_TIMELINE_MARKERS = `
 MATCH (m:${nodeLabels.timelineMarker})
 WHERE
-  ($label IS NULL OR toLower(m.label) CONTAINS toLower($label))
+  EXISTS { MATCH (s:${nodeLabels.timelineSegment} {id: m.segmentId}) }
+  AND EXISTS { MATCH (e:${nodeLabels.timelineEra} {id: m.eraId}) }
+  AND EXISTS { MATCH (a:${nodeLabels.timelineAxis} {id: m.axisId}) }
+  AND ($label IS NULL OR toLower(m.label) CONTAINS toLower($label))
   AND ($markerType IS NULL OR m.markerType = $markerType)
   AND ($axisId IS NULL OR m.axisId = $axisId)
   AND ($eraId IS NULL OR m.eraId = $eraId)
@@ -443,7 +507,10 @@ const COUNT_TIMELINE_MARKERS_BY_SEARCH = `
 CALL db.index.fulltext.queryNodes("timeline_marker_search", $q) YIELD node, score
 WITH node AS m, score
 WHERE
-  ($label IS NULL OR toLower(m.label) CONTAINS toLower($label))
+  EXISTS { MATCH (s:${nodeLabels.timelineSegment} {id: m.segmentId}) }
+  AND EXISTS { MATCH (e:${nodeLabels.timelineEra} {id: m.eraId}) }
+  AND EXISTS { MATCH (a:${nodeLabels.timelineAxis} {id: m.axisId}) }
+  AND ($label IS NULL OR toLower(m.label) CONTAINS toLower($label))
   AND ($markerType IS NULL OR m.markerType = $markerType)
   AND ($axisId IS NULL OR m.axisId = $axisId)
   AND ($eraId IS NULL OR m.eraId = $eraId)
