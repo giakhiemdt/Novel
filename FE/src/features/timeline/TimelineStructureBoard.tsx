@@ -80,6 +80,15 @@ type AxisConnector = {
   badgeY: number;
 };
 
+type SelectionSummary = {
+  title: string;
+  subtitle: string;
+  rows: Array<{
+    label: string;
+    value: string;
+  }>;
+};
+
 const AXIS_TYPES = ["main", "parallel", "branch", "loop"] as const;
 type AxisType = (typeof AXIS_TYPES)[number];
 const AXIS_TYPE_LABELS: Record<AxisType, string> = {
@@ -87,6 +96,12 @@ const AXIS_TYPE_LABELS: Record<AxisType, string> = {
   parallel: "Parallel",
   branch: "Branch",
   loop: "Loop",
+};
+const AXIS_TYPE_POLICIES: Record<AxisType, string> = {
+  main: "Primary canonical axis.",
+  parallel: "Runs independently in parallel with other axes.",
+  branch: "Diverges from the parent axis into an alternative branch.",
+  loop: "Returns toward the parent axis as a time loop.",
 };
 
 const AXIS_X = 190;
@@ -182,6 +197,15 @@ const wait = (ms: number) =>
   new Promise<void>((resolve) => {
     window.setTimeout(resolve, ms);
   });
+
+const formatTickRange = (start?: number, end?: number): string => {
+  if (!isFiniteNumber(start) && !isFiniteNumber(end)) {
+    return "-";
+  }
+  const startLabel = isFiniteNumber(start) ? Math.round(start).toString() : "?";
+  const endLabel = isFiniteNumber(end) ? Math.round(end).toString() : "?";
+  return `${startLabel} - ${endLabel}`;
+};
 
 const isDeadlockError = (error: unknown) => {
   const message = (error as Error)?.message ?? "";
@@ -397,6 +421,14 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     return map;
   }, [axes]);
 
+  const eraById = useMemo(() => {
+    const map = new Map<string, TimelineEra>();
+    eras.forEach((era) => {
+      map.set(era.id, era);
+    });
+    return map;
+  }, [eras]);
+
   const filteredAxes = useMemo(
     () =>
       axes.filter((axis) =>
@@ -409,6 +441,36 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     () => buildLayout(filteredAxes, eras, segments),
     [filteredAxes, eras, segments]
   );
+
+  const axisDurationById = useMemo(() => {
+    const map = new Map<string, number>();
+    axisLayout.forEach((axisNode) => {
+      map.set(axisNode.axis.id, axisNode.duration);
+    });
+    return map;
+  }, [axisLayout]);
+
+  const eraDurationById = useMemo(() => {
+    const map = new Map<string, number>();
+    axisLayout.forEach((axisNode) => {
+      axisNode.eras.forEach((eraNode) => {
+        map.set(eraNode.era.id, eraNode.duration);
+      });
+    });
+    return map;
+  }, [axisLayout]);
+
+  const segmentDurationById = useMemo(() => {
+    const map = new Map<string, number>();
+    axisLayout.forEach((axisNode) => {
+      axisNode.eras.forEach((eraNode) => {
+        eraNode.segments.forEach((segmentNode) => {
+          map.set(segmentNode.segment.id, segmentNode.duration);
+        });
+      });
+    });
+    return map;
+  }, [axisLayout]);
 
   const axisConnectors = useMemo<AxisConnector[]>(() => {
     const axisLayoutById = new Map<string, AxisLayout>();
@@ -449,6 +511,112 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
       ];
     });
   }, [axisLayout]);
+
+  const selectionSummary = useMemo<SelectionSummary | null>(() => {
+    if (!selectedNode) {
+      return null;
+    }
+
+    if (selectedNode.kind === "axis") {
+      const axis = axes.find((item) => item.id === selectedNode.id);
+      if (!axis) {
+        return null;
+      }
+      const axisType = axis.axisType as AxisType;
+      const duration =
+        axisDurationById.get(axis.id) ??
+        getDurationFromRange(axis.startTick, axis.endTick, 1);
+      const parentName = axis.parentAxisId
+        ? axisNameById.get(axis.parentAxisId) ?? axis.parentAxisId
+        : "-";
+
+      return {
+        title: axis.name,
+        subtitle: t("Timeline Axis"),
+        rows: [
+          { label: t("Axis type"), value: t(AXIS_TYPE_LABELS[axisType] ?? "Main") },
+          { label: t("Parent axis"), value: parentName },
+          { label: t("Code"), value: axis.code?.trim() || "-" },
+          { label: t("Duration"), value: `0 - ${Math.round(duration)}` },
+          {
+            label: t("Policy"),
+            value: axis.policy?.trim() || t(AXIS_TYPE_POLICIES[axisType] ?? "-"),
+          },
+          {
+            label: t("Status"),
+            value: axis.status === "archived" ? t("Archived") : t("Active"),
+          },
+        ],
+      };
+    }
+
+    if (selectedNode.kind === "era") {
+      const era = eras.find((item) => item.id === selectedNode.id);
+      if (!era) {
+        return null;
+      }
+      const duration =
+        eraDurationById.get(era.id) ?? getDurationFromRange(era.startTick, era.endTick, 1);
+      const parentAxisName = axisNameById.get(era.axisId) ?? era.axisId;
+
+      return {
+        title: era.name,
+        subtitle: t("Timeline Era"),
+        rows: [
+          { label: t("Parent axis"), value: parentAxisName },
+          { label: t("Order"), value: isFiniteNumber(era.order) ? String(era.order) : "-" },
+          { label: t("Code"), value: era.code?.trim() || "-" },
+          { label: t("Duration"), value: `0 - ${Math.round(duration)}` },
+          { label: t("Fixed range"), value: formatTickRange(era.startTick, era.endTick) },
+          {
+            label: t("Status"),
+            value: era.status === "archived" ? t("Archived") : t("Active"),
+          },
+        ],
+      };
+    }
+
+    const segment = segments.find((item) => item.id === selectedNode.id);
+    if (!segment) {
+      return null;
+    }
+    const duration =
+      segmentDurationById.get(segment.id) ??
+      getDurationFromRange(segment.startTick, segment.endTick, 1);
+    const parentEraName = eraById.get(segment.eraId)?.name ?? segment.eraId;
+    const parentAxisName = axisNameById.get(segment.axisId) ?? segment.axisId;
+
+    return {
+      title: segment.name,
+      subtitle: t("Timeline Segment"),
+      rows: [
+        { label: t("Parent axis"), value: parentAxisName },
+        { label: t("Parent era"), value: parentEraName },
+        {
+          label: t("Order"),
+          value: isFiniteNumber(segment.order) ? String(segment.order) : "-",
+        },
+        { label: t("Code"), value: segment.code?.trim() || "-" },
+        { label: t("Duration"), value: `0 - ${Math.round(duration)}` },
+        { label: t("Fixed range"), value: formatTickRange(segment.startTick, segment.endTick) },
+        {
+          label: t("Status"),
+          value: segment.status === "archived" ? t("Archived") : t("Active"),
+        },
+      ],
+    };
+  }, [
+    axisDurationById,
+    axisNameById,
+    axes,
+    eraById,
+    eraDurationById,
+    eras,
+    segmentDurationById,
+    segments,
+    selectedNode,
+    t,
+  ]);
 
   const canvasSize = useMemo(() => {
     const width = AXIS_X + AXIS_WIDTH + 240;
@@ -767,45 +935,71 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
   return (
     <div className="timeline-structure-board-wrap">
       <div className="card timeline-structure-board-head">
-        <div>
-          <h3 className="section-title">{t("Timeline board")}</h3>
-          <p className="header__subtitle">
-            {t(
-              "Each axis is a main horizontal bar. Eras are smaller bars under the axis, and segments are nested bars inside each era."
-            )}
-          </p>
-          <div className="timeline-structure-legend">
-            {AXIS_TYPES.map((axisType) => (
-              <span
-                key={axisType}
-                className={`timeline-structure-legend__item timeline-structure-legend__item--${axisType}`}
-              >
-                {t(AXIS_TYPE_LABELS[axisType])}
-              </span>
-            ))}
-          </div>
-          <div className="timeline-structure-filters">
-            {AXIS_TYPES.map((axisType) => (
+        <div className="timeline-structure-board-head__content">
+          <div className="timeline-structure-board-head__intro">
+            <h3 className="section-title">{t("Timeline board")}</h3>
+            <p className="header__subtitle">
+              {t(
+                "Each axis is a main horizontal bar. Eras are smaller bars under the axis, and segments are nested bars inside each era."
+              )}
+            </p>
+            <div className="timeline-structure-legend">
+              {AXIS_TYPES.map((axisType) => (
+                <span
+                  key={axisType}
+                  className={`timeline-structure-legend__item timeline-structure-legend__item--${axisType}`}
+                >
+                  {t(AXIS_TYPE_LABELS[axisType])}
+                </span>
+              ))}
+            </div>
+            <div className="timeline-structure-filters">
+              {AXIS_TYPES.map((axisType) => (
+                <button
+                  key={`filter-${axisType}`}
+                  type="button"
+                  className={`timeline-structure-filter${
+                    visibleAxisTypes.includes(axisType)
+                      ? " timeline-structure-filter--active"
+                      : ""
+                  }`}
+                  onClick={() => toggleAxisTypeFilter(axisType)}
+                >
+                  {t(AXIS_TYPE_LABELS[axisType])}
+                </button>
+              ))}
               <button
-                key={`filter-${axisType}`}
                 type="button"
-                className={`timeline-structure-filter${
-                  visibleAxisTypes.includes(axisType)
-                    ? " timeline-structure-filter--active"
-                    : ""
-                }`}
-                onClick={() => toggleAxisTypeFilter(axisType)}
+                className="timeline-structure-filter timeline-structure-filter--ghost"
+                onClick={resetAxisTypeFilter}
               >
-                {t(AXIS_TYPE_LABELS[axisType])}
+                {t("Show all")}
               </button>
-            ))}
-            <button
-              type="button"
-              className="timeline-structure-filter timeline-structure-filter--ghost"
-              onClick={resetAxisTypeFilter}
-            >
-              {t("Show all")}
-            </button>
+            </div>
+          </div>
+
+          <div className="timeline-structure-selection">
+            <h4 className="timeline-structure-selection__title">{t("Selection summary")}</h4>
+            {selectionSummary ? (
+              <>
+                <p className="timeline-structure-selection__node">
+                  <strong>{selectionSummary.title}</strong>
+                  <span>{selectionSummary.subtitle}</span>
+                </p>
+                <dl className="timeline-structure-selection__list">
+                  {selectionSummary.rows.map((row) => (
+                    <div key={`${row.label}:${row.value}`} className="timeline-structure-selection__row">
+                      <dt>{row.label}</dt>
+                      <dd>{row.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </>
+            ) : (
+              <p className="timeline-structure-selection__empty">
+                {t("Select axis, era, or segment on the board to view quick details.")}
+              </p>
+            )}
           </div>
         </div>
         <button

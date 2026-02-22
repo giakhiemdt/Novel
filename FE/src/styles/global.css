@@ -1416,6 +1416,86 @@ h3 {
   margin-bottom: var(--space-3);
 }
 
+.timeline-structure-board-head__content {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.timeline-structure-board-head__intro {
+  min-width: 0;
+}
+
+.timeline-structure-selection {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--surface-soft) 92%, var(--surface-panel));
+}
+
+.timeline-structure-selection__title {
+  margin: 0;
+  font-size: var(--text-body-sm);
+}
+
+.timeline-structure-selection__node {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 8px 0 0;
+}
+
+.timeline-structure-selection__node strong {
+  color: var(--color-ink);
+  font-size: var(--text-body-sm);
+}
+
+.timeline-structure-selection__node span {
+  color: var(--text-muted);
+  font-size: var(--text-body-xs);
+}
+
+.timeline-structure-selection__list {
+  margin: 10px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.timeline-structure-selection__row {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+}
+
+.timeline-structure-selection__row dt,
+.timeline-structure-selection__row dd {
+  margin: 0;
+  font-size: var(--text-body-xs);
+}
+
+.timeline-structure-selection__row dt {
+  color: var(--text-muted);
+}
+
+.timeline-structure-selection__row dd {
+  color: var(--color-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timeline-structure-selection__empty {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-body-xs);
+  line-height: 1.5;
+}
+
 .timeline-structure-legend,
 .timeline-structure-filters {
   display: flex;
@@ -1663,6 +1743,21 @@ h3 {
 .timeline-structure-node--era:active,
 .timeline-structure-node--segment:active {
   cursor: grabbing;
+}
+
+@media (max-width: 1180px) {
+  .timeline-structure-board-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .timeline-structure-board-head__content {
+    grid-template-columns: 1fr;
+  }
+
+  .timeline-structure-board-head > .table__action {
+    align-self: flex-start;
+  }
 }
 
 .graph-board-toolbar {
