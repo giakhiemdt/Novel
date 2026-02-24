@@ -229,6 +229,16 @@ const validateAxisPayload = (payload: unknown): TimelineAxisInput => {
     "parentAxisId",
     assertOptionalString(data.parentAxisId, "parentAxisId")
   );
+  addIfDefined(
+    result,
+    "originSegmentId",
+    assertOptionalString(data.originSegmentId, "originSegmentId")
+  );
+  addIfDefined(
+    result,
+    "originOffsetYears",
+    assertOptionalNumber(data.originOffsetYears, "originOffsetYears")
+  );
   addIfDefined(result, "policy", assertOptionalString(data.policy, "policy"));
   addIfDefined(
     result,
@@ -254,6 +264,10 @@ const validateAxisPayload = (payload: unknown): TimelineAxisInput => {
   addIfDefined(result, "tags", assertOptionalStringArray(data.tags, "tags"));
 
   validateOrder(result.sortOrder as number | undefined, "sortOrder");
+  const originOffsetYears = result.originOffsetYears as number | undefined;
+  if (originOffsetYears !== undefined && originOffsetYears < 0) {
+    throw new AppError("originOffsetYears must be >= 0", 400);
+  }
   validateTickRange(
     result.startTick as number | undefined,
     result.endTick as number | undefined,
@@ -569,7 +583,9 @@ export const timelineStructureService = {
     const validated = validateAxisPayload(payload);
     const axisType = validated.axisType ?? "main";
     const requiresParentAxis = axisType === "branch" || axisType === "loop";
+    const requiresOriginSegment = axisType === "branch";
     const parentAxisId = validated.parentAxisId;
+    const originSegmentId = validated.originSegmentId;
 
     if (axisType === "main") {
       const mainAxisCount = await countMainTimelineAxes(database);
@@ -584,6 +600,12 @@ export const timelineStructureService = {
     if (!requiresParentAxis && parentAxisId) {
       throw new AppError("only branch and loop axes can have parent axis", 400);
     }
+    if (requiresOriginSegment && !originSegmentId) {
+      throw new AppError("origin segment is required for branch axis", 400);
+    }
+    if (!requiresOriginSegment && (originSegmentId || validated.originOffsetYears !== undefined)) {
+      throw new AppError("only branch axis can set origin segment", 400);
+    }
 
     const nodeId = validated.id ?? generateId();
     if (parentAxisId) {
@@ -593,6 +615,15 @@ export const timelineStructureService = {
       const parentExists = await checkTimelineAxisExists(database, parentAxisId);
       if (!parentExists) {
         throw new AppError("parent axis not found", 404);
+      }
+    }
+    if (originSegmentId) {
+      const segment = await getTimelineSegmentById(database, originSegmentId);
+      if (!segment) {
+        throw new AppError("origin segment not found", 404);
+      }
+      if (!parentAxisId || segment.axisId !== parentAxisId) {
+        throw new AppError("origin segment must belong to parent axis", 400);
       }
     }
 
@@ -618,7 +649,9 @@ export const timelineStructureService = {
     const validated = validateAxisPayload(payload);
     const axisType = validated.axisType ?? "main";
     const requiresParentAxis = axisType === "branch" || axisType === "loop";
+    const requiresOriginSegment = axisType === "branch";
     const parentAxisId = validated.parentAxisId;
+    const originSegmentId = validated.originSegmentId;
 
     if (axisType === "main") {
       const mainAxisCount = await countMainTimelineAxes(database, normalizedId);
@@ -633,6 +666,12 @@ export const timelineStructureService = {
     if (!requiresParentAxis && parentAxisId) {
       throw new AppError("only branch and loop axes can have parent axis", 400);
     }
+    if (requiresOriginSegment && !originSegmentId) {
+      throw new AppError("origin segment is required for branch axis", 400);
+    }
+    if (!requiresOriginSegment && (originSegmentId || validated.originOffsetYears !== undefined)) {
+      throw new AppError("only branch axis can set origin segment", 400);
+    }
 
     if (parentAxisId) {
       if (parentAxisId === normalizedId) {
@@ -641,6 +680,15 @@ export const timelineStructureService = {
       const parentExists = await checkTimelineAxisExists(database, parentAxisId);
       if (!parentExists) {
         throw new AppError("parent axis not found", 404);
+      }
+    }
+    if (originSegmentId) {
+      const segment = await getTimelineSegmentById(database, originSegmentId);
+      if (!segment) {
+        throw new AppError("origin segment not found", 404);
+      }
+      if (!parentAxisId || segment.axisId !== parentAxisId) {
+        throw new AppError("origin segment must belong to parent axis", 400);
       }
     }
 

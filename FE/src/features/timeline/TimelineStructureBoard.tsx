@@ -558,6 +558,14 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     return map;
   }, [eras]);
 
+  const segmentNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    segments.forEach((segment) => {
+      map.set(segment.id, segment.name);
+    });
+    return map;
+  }, [segments]);
+
   const filteredAxes = useMemo(
     () =>
       normalizedAxes.filter((axis) =>
@@ -603,11 +611,15 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
 
   const axisConnectors = useMemo<AxisConnector[]>(() => {
     const axisLayoutById = new Map<string, AxisLayout>();
+    const segmentLayoutById = new Map<string, SegmentLayout>();
     axisLayout.forEach((item) => {
       axisLayoutById.set(item.axis.id, item);
+      item.eras.forEach((eraNode) => {
+        eraNode.segments.forEach((segmentNode) => {
+          segmentLayoutById.set(segmentNode.segment.id, segmentNode);
+        });
+      });
     });
-
-    const controlXOffset = 86;
 
     return axisLayout.flatMap((item) => {
       const axisType = item.axis.axisType;
@@ -620,11 +632,22 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
         return [];
       }
 
-      const fromX = parent.axisX + parent.axisWidth;
-      const fromY = parent.y + AXIS_BAR_HEIGHT / 2;
-      const toX = item.axisX + item.axisWidth;
+      let fromX = parent.axisX + parent.axisWidth;
+      let fromY = parent.y + AXIS_BAR_HEIGHT / 2;
+      if (axisType === "branch" && item.axis.originSegmentId) {
+        const originSegment = segmentLayoutById.get(item.axis.originSegmentId);
+        if (originSegment) {
+          const offsetYears = isFiniteNumber(item.axis.originOffsetYears)
+            ? Math.max(item.axis.originOffsetYears, 0)
+            : 0;
+          const ratio = clamp(offsetYears / Math.max(originSegment.duration, 1), 0, 1);
+          fromX = originSegment.x + ratio * originSegment.width;
+          fromY = originSegment.y + SEGMENT_BAR_HEIGHT / 2;
+        }
+      }
+      const toX = item.axisX;
       const toY = item.y + AXIS_BAR_HEIGHT / 2;
-      const controlX = Math.max(fromX, toX) + controlXOffset;
+      const controlX = (fromX + toX) / 2;
       const path = `M ${fromX} ${fromY} C ${controlX} ${fromY}, ${controlX} ${toY}, ${toX} ${toY}`;
 
       return [
@@ -670,6 +693,20 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
           {
             label: t("Policy"),
             value: axis.policy?.trim() || t(AXIS_TYPE_POLICIES[axisType] ?? "-"),
+          },
+          {
+            label: t("Origin segment"),
+            value:
+              axisType === "branch" && axis.originSegmentId
+                ? segmentNameById.get(axis.originSegmentId) ?? axis.originSegmentId
+                : "-",
+          },
+          {
+            label: t("Origin offset years"),
+            value:
+              axisType === "branch" && isFiniteNumber(axis.originOffsetYears)
+                ? String(axis.originOffsetYears)
+                : "-",
           },
           {
             label: t("Status"),
@@ -741,6 +778,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     eraDurationById,
     eras,
     normalizedAxes,
+    segmentNameById,
     segmentDurationById,
     segments,
     selectedNode,

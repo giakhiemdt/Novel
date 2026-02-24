@@ -106,6 +106,8 @@ type AxisEditState = {
   code: string;
   axisType: (typeof AXIS_TYPES)[number];
   parentAxisId: string;
+  originSegmentId: string;
+  originOffsetYears: string;
   description: string;
   sortOrder: string;
   startTick: string;
@@ -245,6 +247,8 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
   const [axisCode, setAxisCode] = useState("");
   const [axisType, setAxisType] = useState<(typeof AXIS_TYPES)[number]>("main");
   const [axisParentId, setAxisParentId] = useState("");
+  const [axisOriginSegmentId, setAxisOriginSegmentId] = useState("");
+  const [axisOriginOffsetYears, setAxisOriginOffsetYears] = useState("");
 
   const [eraName, setEraName] = useState("");
   const [eraCode, setEraCode] = useState("");
@@ -316,6 +320,18 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
         label: axis.name,
       })),
     [axes]
+  );
+
+  const branchOriginSegmentOptions = useMemo(
+    () =>
+      [...segments]
+        .filter((segment) => segment.axisId === axisParentId)
+        .sort(sortSegments)
+        .map((segment) => ({
+          value: segment.id,
+          label: segment.name,
+        })),
+    [axisParentId, segments]
   );
 
   const eraNameById = useMemo(() => {
@@ -466,6 +482,12 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       if (axisParentId) {
         setAxisParentId("");
       }
+      if (axisOriginSegmentId) {
+        setAxisOriginSegmentId("");
+      }
+      if (axisOriginOffsetYears) {
+        setAxisOriginOffsetYears("");
+      }
       return;
     }
     const hasCurrentParent = axisParentId && axes.some((axis) => axis.id === axisParentId);
@@ -479,7 +501,32 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
     if (fallbackParentId && fallbackParentId !== axisParentId) {
       setAxisParentId(fallbackParentId);
     }
-  }, [axisParentId, axisParentOptions, axisType, axes, createMode, selectedAxisId]);
+  }, [
+    axisOriginOffsetYears,
+    axisOriginSegmentId,
+    axisParentId,
+    axisParentOptions,
+    axisType,
+    axes,
+    createMode,
+    selectedAxisId,
+  ]);
+
+  useEffect(() => {
+    if (createMode !== "axis" || axisType !== "branch") {
+      return;
+    }
+    const hasCurrentOrigin =
+      axisOriginSegmentId &&
+      branchOriginSegmentOptions.some((option) => option.value === axisOriginSegmentId);
+    if (hasCurrentOrigin) {
+      return;
+    }
+    const fallbackOriginSegmentId = branchOriginSegmentOptions[0]?.value ?? "";
+    if (fallbackOriginSegmentId !== axisOriginSegmentId) {
+      setAxisOriginSegmentId(fallbackOriginSegmentId);
+    }
+  }, [axisOriginSegmentId, axisType, branchOriginSegmentOptions, createMode]);
 
   const timelineTree = useMemo<TimelineTreeAxisNode[]>(() => {
     const markersBySegment = new Map<string, TimelineTreeMarkerNode[]>();
@@ -590,12 +637,30 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       notify(t("Select an axis first"), "error");
       return;
     }
+    const requiresOrigin = axisType === "branch";
+    if (requiresOrigin && !axisOriginSegmentId) {
+      notify(t("Select a segment first"), "error");
+      return;
+    }
+    const normalizedOriginOffset = axisOriginOffsetYears.trim();
+    const parsedOriginOffsetYears = normalizedOriginOffset
+      ? Number(normalizedOriginOffset)
+      : undefined;
+    if (
+      parsedOriginOffsetYears !== undefined &&
+      (!Number.isFinite(parsedOriginOffsetYears) || parsedOriginOffsetYears < 0)
+    ) {
+      notify(t("Origin offset years must be >= 0"), "error");
+      return;
+    }
     try {
       const created = await createTimelineAxis({
         name: axisName.trim(),
         code: axisCode.trim() || undefined,
         axisType,
         parentAxisId: requiresParent ? axisParentId : undefined,
+        originSegmentId: requiresOrigin ? axisOriginSegmentId : undefined,
+        originOffsetYears: requiresOrigin ? parsedOriginOffsetYears : undefined,
       });
       notify(t("Axis created"), "success");
       await refreshData();
@@ -606,6 +671,8 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       setAxisName("");
       setAxisCode("");
       setAxisParentId("");
+      setAxisOriginSegmentId("");
+      setAxisOriginOffsetYears("");
     } catch (error) {
       notify((error as Error).message, "error");
     }
@@ -863,6 +930,8 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       code: axis.code ?? "",
       axisType: axis.axisType,
       parentAxisId: axis.parentAxisId ?? effectiveAxisParentById.get(axis.id) ?? "",
+      originSegmentId: axis.originSegmentId ?? "",
+      originOffsetYears: toInputValue(axis.originOffsetYears),
       description: axis.description ?? "",
       sortOrder: toInputValue(axis.sortOrder),
       startTick: toInputValue(axis.startTick),
@@ -956,8 +1025,23 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       setSavingEdit(true);
       if (editNode.nodeType === "axis") {
         const requiresParent = editNode.axisType === "branch" || editNode.axisType === "loop";
+        const requiresOrigin = editNode.axisType === "branch";
         if (requiresParent && !editNode.parentAxisId.trim()) {
           notify(t("Select an axis first"), "error");
+          setSavingEdit(false);
+          return;
+        }
+        if (requiresOrigin && !editNode.originSegmentId.trim()) {
+          notify(t("Select a segment first"), "error");
+          setSavingEdit(false);
+          return;
+        }
+        const originOffsetYears = parseOptionalNumber(
+          editNode.originOffsetYears,
+          "Origin offset years"
+        );
+        if (typeof originOffsetYears === "number" && originOffsetYears < 0) {
+          notify(t("Origin offset years must be >= 0"), "error");
           setSavingEdit(false);
           return;
         }
@@ -973,6 +1057,8 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
           code: editNode.code.trim() || undefined,
           axisType: editNode.axisType,
           parentAxisId: requiresParent ? editNode.parentAxisId.trim() : undefined,
+          originSegmentId: requiresOrigin ? editNode.originSegmentId.trim() : undefined,
+          originOffsetYears: requiresOrigin ? originOffsetYears : undefined,
           description: editNode.description.trim() || undefined,
           sortOrder,
           startTick,
@@ -1708,6 +1794,23 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
                 placeholder="Select axis"
               />
             ) : null}
+            {axisType === "branch" ? (
+              <>
+                <Select
+                  label="Origin segment"
+                  value={axisOriginSegmentId}
+                  onChange={(value) => setAxisOriginSegmentId(value)}
+                  options={branchOriginSegmentOptions}
+                  placeholder="Select segment"
+                />
+                <TextInput
+                  label="Origin offset years"
+                  type="number"
+                  value={axisOriginOffsetYears}
+                  onChange={setAxisOriginOffsetYears}
+                />
+              </>
+            ) : null}
           </>
         ) : null}
 
@@ -2021,10 +2124,13 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
                           (value as (typeof AXIS_TYPES)[number]) || prev.axisType;
                         const requiresParent =
                           nextAxisType === "branch" || nextAxisType === "loop";
+                        const requiresOrigin = nextAxisType === "branch";
                         return {
                           ...prev,
                           axisType: nextAxisType,
                           parentAxisId: requiresParent ? prev.parentAxisId : "",
+                          originSegmentId: requiresOrigin ? prev.originSegmentId : "",
+                          originOffsetYears: requiresOrigin ? prev.originOffsetYears : "",
                         };
                       })
                     }
@@ -2055,7 +2161,12 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
                     onChange={(value) =>
                       setEditNode((prev) =>
                         prev && prev.nodeType === "axis"
-                          ? { ...prev, parentAxisId: value }
+                          ? {
+                              ...prev,
+                              parentAxisId: value,
+                              originSegmentId:
+                                prev.axisType === "branch" ? "" : prev.originSegmentId,
+                            }
                           : prev
                       )
                     }
@@ -2068,6 +2179,41 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
                       }))}
                     placeholder="Select axis"
                   />
+                ) : null}
+                {editNode.nodeType === "axis" && editNode.axisType === "branch" ? (
+                  <>
+                    <Select
+                      label="Origin segment"
+                      value={editNode.originSegmentId}
+                      onChange={(value) =>
+                        setEditNode((prev) =>
+                          prev && prev.nodeType === "axis"
+                            ? { ...prev, originSegmentId: value }
+                            : prev
+                        )
+                      }
+                      options={[...segments]
+                        .filter((segment) => segment.axisId === editNode.parentAxisId)
+                        .sort(sortSegments)
+                        .map((segment) => ({
+                          value: segment.id,
+                          label: segment.name,
+                        }))}
+                      placeholder="Select segment"
+                    />
+                    <TextInput
+                      label="Origin offset years"
+                      type="number"
+                      value={editNode.originOffsetYears}
+                      onChange={(value) =>
+                        setEditNode((prev) =>
+                          prev && prev.nodeType === "axis"
+                            ? { ...prev, originOffsetYears: value }
+                            : prev
+                        )
+                      }
+                    />
+                  </>
                 ) : null}
                 <Select
                   label="Status"

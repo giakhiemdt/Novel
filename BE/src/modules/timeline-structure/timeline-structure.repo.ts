@@ -23,6 +23,8 @@ CREATE (a:${nodeLabels.timelineAxis} {
   axisType: $axisType,
   description: $description,
   parentAxisId: $parentAxisId,
+  originSegmentId: $originSegmentId,
+  originOffsetYears: $originOffsetYears,
   policy: $policy,
   sortOrder: $sortOrder,
   startTick: $startTick,
@@ -44,6 +46,8 @@ SET
   a.axisType = $axisType,
   a.description = $description,
   a.parentAxisId = $parentAxisId,
+  a.originSegmentId = $originSegmentId,
+  a.originOffsetYears = $originOffsetYears,
   a.policy = $policy,
   a.sortOrder = $sortOrder,
   a.startTick = $startTick,
@@ -114,7 +118,9 @@ CALL {
   WITH axisId
   MATCH (child:${nodeLabels.timelineAxis})
   WHERE child.parentAxisId = axisId
-  SET child.parentAxisId = NULL
+  SET child.parentAxisId = NULL,
+      child.originSegmentId = NULL,
+      child.originOffsetYears = NULL
   RETURN count(child) AS updatedChildren
 }
 CALL {
@@ -537,6 +543,8 @@ const AXIS_PARAMS = [
   "axisType",
   "description",
   "parentAxisId",
+  "originSegmentId",
+  "originOffsetYears",
   "policy",
   "sortOrder",
   "startTick",
