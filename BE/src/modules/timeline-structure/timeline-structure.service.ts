@@ -323,9 +323,14 @@ const validateSegmentPayload = (payload: unknown): TimelineSegmentInput => {
   }
 
   const data = payload as Record<string, unknown>;
+  const durationYears = assertRequiredNumber(data.durationYears, "durationYears");
+  if (durationYears <= 0) {
+    throw new AppError("durationYears must be > 0", 400);
+  }
   const result: Record<string, unknown> = {
     eraId: assertRequiredString(data.eraId, "eraId"),
     name: assertRequiredString(data.name, "name"),
+    durationYears,
   };
 
   addIfDefined(result, "id", assertOptionalString(data.id, "id"));

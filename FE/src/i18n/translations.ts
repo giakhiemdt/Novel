@@ -448,6 +448,8 @@ const vi: Dictionary = {
   "Era created": "Đã tạo kỷ nguyên",
   "Select an era first": "Hãy chọn kỷ nguyên trước",
   "Segment name is required": "Tên phân đoạn là bắt buộc",
+  "Duration years": "Số năm",
+  "Duration years must be > 0": "Số năm phải lớn hơn 0",
   "Segment created": "Đã tạo phân đoạn",
   "Select a segment first": "Hãy chọn phân đoạn trước",
   "Marker label is required": "Nhãn mốc là bắt buộc",

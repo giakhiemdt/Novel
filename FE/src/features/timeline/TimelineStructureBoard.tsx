@@ -204,6 +204,13 @@ const getDurationFromRange = (
   return Math.max(fallback, 1);
 };
 
+const getSegmentDuration = (segment: TimelineSegment): number => {
+  if (isFiniteNumber(segment.durationYears) && segment.durationYears > 0) {
+    return segment.durationYears;
+  }
+  return getDurationFromRange(segment.startTick, segment.endTick, 1);
+};
+
 const wait = (ms: number) =>
   new Promise<void>((resolve) => {
     window.setTimeout(resolve, ms);
@@ -351,7 +358,7 @@ const buildLayout = (
       const eraSegments = [...(segmentsByEra.get(era.id) ?? [])].sort(sortSegments);
       const segmentDefinitions = eraSegments.map((segment) => ({
         segment,
-        duration: getDurationFromRange(segment.startTick, segment.endTick, 1),
+        duration: getSegmentDuration(segment),
       }));
 
       const durationFromSegments = segmentDefinitions.reduce(
@@ -787,6 +794,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
   ) => ({
     eraId,
     name: segment.name,
+    durationYears: getSegmentDuration(segment),
     code: segment.code,
     summary: segment.summary,
     description: segment.description,

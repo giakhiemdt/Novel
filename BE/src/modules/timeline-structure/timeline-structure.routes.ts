@@ -341,11 +341,12 @@ export const timelineStructureRoutes: RouteConfig[] = [
       summary: "Create timeline segment",
       body: {
         type: "object",
-        required: ["eraId", "name"],
+        required: ["eraId", "name", "durationYears"],
         properties: {
           id: { type: "string" },
           eraId: { type: "string" },
           name: { type: "string" },
+          durationYears: { type: "number" },
           code: { type: "string" },
           summary: { type: "string" },
           description: { type: "string" },
@@ -379,10 +380,11 @@ export const timelineStructureRoutes: RouteConfig[] = [
       summary: "Update timeline segment",
       body: {
         type: "object",
-        required: ["eraId", "name"],
+        required: ["eraId", "name", "durationYears"],
         properties: {
           eraId: { type: "string" },
           name: { type: "string" },
+          durationYears: { type: "number" },
           code: { type: "string" },
           summary: { type: "string" },
           description: { type: "string" },

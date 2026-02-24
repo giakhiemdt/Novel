@@ -55,6 +55,7 @@ export type TimelineSegmentInput = {
   axisId?: string;
   eraId: string;
   name: string;
+  durationYears: number;
   code?: string;
   summary?: string;
   description?: string;

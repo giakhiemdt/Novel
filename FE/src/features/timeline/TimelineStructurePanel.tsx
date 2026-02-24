@@ -133,6 +133,7 @@ type SegmentEditState = {
   axisId: string;
   eraId: string;
   name: string;
+  durationYears: string;
   code: string;
   summary: string;
   description: string;
@@ -250,6 +251,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
 
   const [segmentName, setSegmentName] = useState("");
   const [segmentCode, setSegmentCode] = useState("");
+  const [segmentDurationYears, setSegmentDurationYears] = useState("");
 
   const [markerLabel, setMarkerLabel] = useState("");
   const [markerType, setMarkerType] = useState("");
@@ -654,10 +656,16 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       notify(t("Segment name is required"), "error");
       return;
     }
+    const parsedDurationYears = Number(segmentDurationYears);
+    if (!Number.isFinite(parsedDurationYears) || parsedDurationYears <= 0) {
+      notify(t("Duration years must be > 0"), "error");
+      return;
+    }
     try {
       const created = await createTimelineSegment({
         eraId: targetEraId,
         name: segmentName.trim(),
+        durationYears: parsedDurationYears,
         code: segmentCode.trim() || undefined,
       });
       notify(t("Segment created"), "success");
@@ -668,6 +676,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       setSelectedNodeKey(getNodeKey("segment", created.id));
       setSegmentName("");
       setSegmentCode("");
+      setSegmentDurationYears("");
     } catch (error) {
       notify((error as Error).message, "error");
     }
@@ -790,6 +799,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
         await updateTimelineSegment(segment.id, {
           eraId: targetId,
           name: segment.name,
+          durationYears: segment.durationYears ?? 1,
           code: segment.code,
           summary: segment.summary,
           description: segment.description,
@@ -884,6 +894,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       axisId: segment.axisId,
       eraId: segment.eraId,
       name: segment.name,
+      durationYears: toInputValue(segment.durationYears),
       code: segment.code ?? "",
       summary: segment.summary ?? "",
       description: segment.description ?? "",
@@ -991,6 +1002,12 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
         const order = parseOptionalNumber(editNode.order, "Order");
         const startTick = parseOptionalNumber(editNode.startTick, "Start tick");
         const endTick = parseOptionalNumber(editNode.endTick, "End tick");
+        const durationYears = parseOptionalNumber(editNode.durationYears, "Duration years");
+        if (typeof durationYears !== "number" || durationYears <= 0) {
+          notify(t("Duration years must be > 0"), "error");
+          setSavingEdit(false);
+          return;
+        }
         if (!validateTickRange(startTick, endTick)) {
           setSavingEdit(false);
           return;
@@ -998,6 +1015,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
         await updateTimelineSegment(editNode.id, {
           eraId: editNode.eraId,
           name: trimmedName,
+          durationYears,
           code: editNode.code.trim() || undefined,
           summary: editNode.summary.trim() || undefined,
           description: editNode.description.trim() || undefined,
@@ -1709,6 +1727,13 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
               required
             />
             <TextInput label="Segment code" value={segmentCode} onChange={setSegmentCode} />
+            <TextInput
+              label="Duration years"
+              type="number"
+              value={segmentDurationYears}
+              onChange={setSegmentDurationYears}
+              required
+            />
           </>
         ) : null}
 
@@ -2080,6 +2105,21 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
                     })
                   }
                 />
+                {editNode.nodeType === "segment" ? (
+                  <TextInput
+                    label="Duration years"
+                    type="number"
+                    value={editNode.durationYears}
+                    onChange={(value) =>
+                      setEditNode((prev) =>
+                        prev && prev.nodeType === "segment"
+                          ? { ...prev, durationYears: value }
+                          : prev
+                      )
+                    }
+                    required
+                  />
+                ) : null}
                 <TextInput
                   label="Start tick"
                   type="number"

@@ -41,6 +41,7 @@ export type TimelineSegment = {
   axisId: string;
   eraId: string;
   name: string;
+  durationYears: number;
   code?: string;
   summary?: string;
   description?: string;
@@ -125,7 +126,7 @@ export type TimelineAxisPayload = Partial<TimelineAxis> & Pick<TimelineAxis, "na
 export type TimelineEraPayload = Partial<TimelineEra> &
   Pick<TimelineEra, "axisId" | "name">;
 export type TimelineSegmentPayload = Partial<TimelineSegment> &
-  Pick<TimelineSegment, "eraId" | "name">;
+  Pick<TimelineSegment, "eraId" | "name" | "durationYears">;
 export type TimelineMarkerPayload = Partial<TimelineMarker> &
   Pick<TimelineMarker, "segmentId" | "label" | "tick">;
 
