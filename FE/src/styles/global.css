@@ -1555,17 +1555,35 @@ h3 {
   height: min(68vh, 760px);
 }
 
-.timeline-structure-board:fullscreen {
-  height: 100vh;
+.timeline-structure-board--expanded {
+  position: fixed;
+  inset: 12px;
+  height: auto;
   border-radius: 0;
   border-style: solid;
+  z-index: 60;
 }
 
-.timeline-structure-board:fullscreen::backdrop {
-  background: var(--bg-page);
+.timeline-structure-board-navbar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 9;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-popover) 92%, transparent);
+  backdrop-filter: blur(6px);
 }
 
-.timeline-board-fullscreen {
+.timeline-structure-board__viewport-tools {
+  top: 66px;
+}
+
+.timeline-board-expand {
   position: absolute;
   left: 12px;
   bottom: 14px;
@@ -1581,7 +1599,7 @@ h3 {
   cursor: pointer;
 }
 
-.timeline-board-fullscreen:hover {
+.timeline-board-expand:hover {
   border-color: var(--border-strong);
 }
 

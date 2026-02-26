@@ -132,6 +132,7 @@ const MINIMAP_HEIGHT = 140;
 const MINIMAP_PADDING = 10;
 const MINIMAP_HEADER_HEIGHT = 20;
 const PAGE_LIMIT = 200;
+const SHOW_MINIMAP = false;
 
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
@@ -501,7 +502,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     wheelZoomFactor: 0.001,
     consumeWheel: true,
   });
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const loadData = useCallback(async () => {
     const loadAll = async <T,>(
@@ -1212,7 +1213,10 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     if (target.closest(".timeline-structure-node")) {
       return;
     }
-    if (target.closest(".timeline-board-fullscreen")) {
+    if (
+      target.closest(".timeline-board-expand") ||
+      target.closest(".timeline-structure-board-navbar")
+    ) {
       return;
     }
     if (target.closest(".graph-board-toolbar") || target.closest(".graph-board-minimap")) {
@@ -1237,27 +1241,14 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
   };
 
   useEffect(() => {
-    const onFullscreenChange = () => {
-      const board = boardRef.current;
-      setIsFullscreen(Boolean(board && document.fullscreenElement === board));
-    };
-    document.addEventListener("fullscreenchange", onFullscreenChange);
-    onFullscreenChange();
+    document.body.style.overflow = isExpanded ? "hidden" : "";
     return () => {
-      document.removeEventListener("fullscreenchange", onFullscreenChange);
+      document.body.style.overflow = "";
     };
-  }, []);
+  }, [isExpanded]);
 
-  const toggleFullscreen = async () => {
-    const board = boardRef.current;
-    if (!board) {
-      return;
-    }
-    if (document.fullscreenElement === board) {
-      await document.exitFullscreen();
-      return;
-    }
-    await board.requestFullscreen();
+  const toggleExpandedBoard = () => {
+    setIsExpanded((prev) => !prev);
   };
 
   return (
@@ -1280,64 +1271,6 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                   {t(AXIS_TYPE_LABELS[axisType])}
                 </span>
               ))}
-            </div>
-            <div className="timeline-structure-filters">
-              {AXIS_TYPES.map((axisType) => (
-                <button
-                  key={`filter-${axisType}`}
-                  type="button"
-                  className={`timeline-structure-filter${
-                    visibleAxisTypes.includes(axisType)
-                      ? " timeline-structure-filter--active"
-                      : ""
-                  }`}
-                  onClick={() => toggleAxisTypeFilter(axisType)}
-                >
-                  {t(AXIS_TYPE_LABELS[axisType])}
-                </button>
-              ))}
-              <button
-                type="button"
-                className="timeline-structure-filter timeline-structure-filter--ghost"
-                onClick={resetAxisTypeFilter}
-              >
-                {t("Show all")}
-              </button>
-              <button
-                type="button"
-                className={`timeline-structure-filter${
-                  showMarkers ? " timeline-structure-filter--active" : ""
-                }`}
-                onClick={() => setShowMarkers((prev) => !prev)}
-              >
-                {showMarkers ? t("Hide markers") : t("Show markers")}
-              </button>
-              <button
-                type="button"
-                className={`timeline-structure-filter${
-                  focusSelectedAxis ? " timeline-structure-filter--active" : ""
-                }`}
-                disabled={!focusSelectedAxis && !selectedAxisIdForFocus}
-                onClick={() => {
-                  if (focusSelectedAxis) {
-                    setFocusSelectedAxis(false);
-                    setLockedFocusAxisId("");
-                    return;
-                  }
-                  if (!selectedAxisIdForFocus) {
-                    return;
-                  }
-                  setLockedFocusAxisId(selectedAxisIdForFocus);
-                  setFocusSelectedAxis(true);
-                }}
-                title={
-                  focusSelectedAxis || selectedAxisIdForFocus
-                    ? t("Focus current axis and descendants")
-                    : t("Select an axis, era, or segment first")
-                }
-              >
-                {t("Focus selected axis")}
-              </button>
             </div>
           </div>
 
@@ -1376,21 +1309,81 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
       </div>
 
       <div
-        className="timeline-board timeline-structure-board"
+        className={`timeline-board timeline-structure-board${
+          isExpanded ? " timeline-structure-board--expanded" : ""
+        }`}
         ref={boardRef}
         onPointerDown={handleBoardPointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
       >
+        <div className="timeline-structure-board-navbar">
+          {AXIS_TYPES.map((axisType) => (
+            <button
+              key={`nav-filter-${axisType}`}
+              type="button"
+              className={`timeline-structure-filter${
+                visibleAxisTypes.includes(axisType) ? " timeline-structure-filter--active" : ""
+              }`}
+              onClick={() => toggleAxisTypeFilter(axisType)}
+            >
+              {t(AXIS_TYPE_LABELS[axisType])}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="timeline-structure-filter timeline-structure-filter--ghost"
+            onClick={resetAxisTypeFilter}
+          >
+            {t("Show all")}
+          </button>
+          <button
+            type="button"
+            className={`timeline-structure-filter${
+              showMarkers ? " timeline-structure-filter--active" : ""
+            }`}
+            onClick={() => setShowMarkers((prev) => !prev)}
+          >
+            {showMarkers ? t("Hide markers") : t("Show markers")}
+          </button>
+          <button
+            type="button"
+            className={`timeline-structure-filter${
+              focusSelectedAxis ? " timeline-structure-filter--active" : ""
+            }`}
+            disabled={!focusSelectedAxis && !selectedAxisIdForFocus}
+            onClick={() => {
+              if (focusSelectedAxis) {
+                setFocusSelectedAxis(false);
+                setLockedFocusAxisId("");
+                return;
+              }
+              if (!selectedAxisIdForFocus) {
+                return;
+              }
+              setLockedFocusAxisId(selectedAxisIdForFocus);
+              setFocusSelectedAxis(true);
+            }}
+            title={
+              focusSelectedAxis || selectedAxisIdForFocus
+                ? t("Focus current axis and descendants")
+                : t("Select an axis, era, or segment first")
+            }
+          >
+            {t("Focus selected axis")}
+          </button>
+        </div>
         <BoardViewportControls
           zoom={scale}
           onZoomOut={() => zoomBy(-0.12)}
           onZoomIn={() => zoomBy(0.12)}
           onFit={() => fitToRect(contentBounds, 24)}
           onReset={resetView}
-          minimapTitle={t("Mini map")}
-          minimap={(
+          className="timeline-structure-board__viewport-tools"
+          minimapTitle={SHOW_MINIMAP ? t("Mini map") : undefined}
+          minimap={
+            SHOW_MINIMAP ? (
             <svg
               width={MINIMAP_WIDTH}
               height={MINIMAP_HEIGHT}
@@ -1457,16 +1450,17 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                 />
               ) : null}
             </svg>
-          )}
+            ) : undefined
+          }
         />
         <button
           type="button"
-          className="timeline-board-fullscreen"
-          onClick={() => void toggleFullscreen()}
-          title={isFullscreen ? t("Exit fullscreen") : t("Fullscreen")}
-          aria-label={isFullscreen ? t("Exit fullscreen") : t("Fullscreen")}
+          className="timeline-board-expand"
+          onClick={toggleExpandedBoard}
+          title={isExpanded ? t("Exit board mode") : t("Expand board")}
+          aria-label={isExpanded ? t("Exit board mode") : t("Expand board")}
         >
-          {isFullscreen ? t("Exit") : t("Fullscreen")}
+          {isExpanded ? t("Exit board") : t("Expand board")}
         </button>
 
         <div
