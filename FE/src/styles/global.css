@@ -1890,6 +1890,7 @@ h3 {
   top: 50%;
   width: 2px;
   height: 12px;
+  transform: translateY(-50%);
   background: var(--timeline-axis-color);
 }
 
