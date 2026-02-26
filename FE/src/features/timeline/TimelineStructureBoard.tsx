@@ -801,6 +801,75 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     return map;
   }, [axisLayout, markers]);
 
+  const mainAxisId = useMemo(() => {
+    const mainAxis = axisLayout.find((node) => node.axis.axisType === "main");
+    return mainAxis?.axis.id ?? axisLayout[0]?.axis.id ?? "";
+  }, [axisLayout]);
+
+  const segmentParentEraById = useMemo(() => {
+    const map = new Map<string, string>();
+    axisLayout.forEach((axisNode) => {
+      axisNode.eras.forEach((eraNode) => {
+        eraNode.segments.forEach((segmentNode) => {
+          map.set(segmentNode.segment.id, eraNode.era.id);
+        });
+      });
+    });
+    return map;
+  }, [axisLayout]);
+
+  const selectedEraIdForView = useMemo(() => {
+    if (!selectedNode) {
+      return "";
+    }
+    if (selectedNode.kind === "era") {
+      return selectedNode.id;
+    }
+    if (selectedNode.kind === "segment") {
+      return segmentParentEraById.get(selectedNode.id) ?? "";
+    }
+    return "";
+  }, [segmentParentEraById, selectedNode]);
+
+  const shouldShowAxis = (axisId: string) => {
+    if (!selectedNode) {
+      return axisId === mainAxisId;
+    }
+    if (selectedNode.kind === "axis") {
+      return selectedNode.id === axisId;
+    }
+    return false;
+  };
+
+  const shouldShowEra = (eraId: string, axisId: string) => {
+    if (!selectedNode) {
+      return false;
+    }
+    if (selectedNode.kind === "axis") {
+      return selectedNode.id === axisId;
+    }
+    if (selectedNode.kind === "era") {
+      return selectedNode.id === eraId;
+    }
+    if (selectedNode.kind === "segment") {
+      return selectedEraIdForView === eraId;
+    }
+    return false;
+  };
+
+  const shouldShowSegment = (eraId: string) => {
+    if (!selectedNode) {
+      return false;
+    }
+    if (selectedNode.kind === "era") {
+      return selectedNode.id === eraId;
+    }
+    if (selectedNode.kind === "segment") {
+      return selectedEraIdForView === eraId;
+    }
+    return false;
+  };
+
   const selectionSummary = useMemo<SelectionSummary | null>(() => {
     if (!selectedNode) {
       return null;
@@ -1594,7 +1663,10 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
               </marker>
             </defs>
 
-            {axisConnectors.map((connector) => (
+            {((!selectedNode || selectedNode.kind === "axis")
+              ? axisConnectors
+              : []
+            ).map((connector) => (
               <g key={connector.id}>
                 <path
                   d={connector.path}
@@ -1630,67 +1702,72 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
 
           {axisLayout.map((axisNode) => (
             <div key={axisNode.axis.id}>
-              <div
-                className="timeline-structure-axis-label"
-                style={{
-                  transform: `translate(${24 + axisNode.depth * AXIS_INDENT_STEP}px, ${
-                    axisNode.y - 2
-                  }px)`,
-                }}
-              >
-                <div className="timeline-structure-axis-label__title">
-                  <strong>{axisNode.axis.name}</strong>
-                  <span
-                    className={`timeline-structure-axis-tag timeline-structure-axis-tag--${axisNode.axis.axisType}`}
+              {shouldShowAxis(axisNode.axis.id) ? (
+                <>
+                  <div
+                    className="timeline-structure-axis-label"
+                    style={{
+                      transform: `translate(${24 + axisNode.depth * AXIS_INDENT_STEP}px, ${
+                        axisNode.y - 2
+                      }px)`,
+                    }}
                   >
-                    {t(AXIS_TYPE_LABELS[axisNode.axis.axisType as AxisType] ?? "Main")}
-                  </span>
-                </div>
-                {axisNode.axis.parentAxisId ? (
-                  <span className="timeline-structure-axis-label__parent">
-                    {t("Parent")}:{" "}
-                    {axisNameById.get(axisNode.axis.parentAxisId) ??
-                      axisNode.axis.parentAxisId}
-                  </span>
-                ) : null}
-              </div>
+                    <div className="timeline-structure-axis-label__title">
+                      <strong>{axisNode.axis.name}</strong>
+                      <span
+                        className={`timeline-structure-axis-tag timeline-structure-axis-tag--${axisNode.axis.axisType}`}
+                      >
+                        {t(AXIS_TYPE_LABELS[axisNode.axis.axisType as AxisType] ?? "Main")}
+                      </span>
+                    </div>
+                    {axisNode.axis.parentAxisId ? (
+                      <span className="timeline-structure-axis-label__parent">
+                        {t("Parent")}:{" "}
+                        {axisNameById.get(axisNode.axis.parentAxisId) ??
+                          axisNode.axis.parentAxisId}
+                      </span>
+                    ) : null}
+                  </div>
 
-              <div
-                className={[
-                  "timeline-structure-node",
-                  "timeline-structure-node--axis",
-                  `timeline-structure-node--axis-${axisNode.axis.axisType}`,
-                  selectedNode?.kind === "axis" && selectedNode.id === axisNode.axis.id
-                    ? "timeline-structure-node--selected"
-                    : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                style={{
-                  width: axisNode.axisWidth,
-                  transform: `translate(${axisNode.axisX}px, ${axisNode.y}px)`,
-                }}
-                aria-label={`${axisNode.axis.name}: ${Math.round(axisNode.start)} - ${Math.round(
-                  axisNode.end
-                )}`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setSelectedNode({ kind: "axis", id: axisNode.axis.id });
-                }}
-              >
-                <span className="timeline-structure-axis-year timeline-structure-axis-year--start">
-                  {Math.round(axisNode.start)}
-                </span>
-                <span className="timeline-structure-axis-year timeline-structure-axis-year--end">
-                  {Math.round(axisNode.end)}
-                </span>
-                <span className="timeline-structure-axis-line" aria-hidden="true" />
-                <span className="timeline-structure-axis-start-tick" aria-hidden="true" />
-                <span className="timeline-structure-axis-arrow" aria-hidden="true" />
-              </div>
+                  <div
+                    className={[
+                      "timeline-structure-node",
+                      "timeline-structure-node--axis",
+                      `timeline-structure-node--axis-${axisNode.axis.axisType}`,
+                      selectedNode?.kind === "axis" && selectedNode.id === axisNode.axis.id
+                        ? "timeline-structure-node--selected"
+                        : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    style={{
+                      width: axisNode.axisWidth,
+                      transform: `translate(${axisNode.axisX}px, ${axisNode.y}px)`,
+                    }}
+                    aria-label={`${axisNode.axis.name}: ${Math.round(axisNode.start)} - ${Math.round(
+                      axisNode.end
+                    )}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setSelectedNode({ kind: "axis", id: axisNode.axis.id });
+                    }}
+                  >
+                    <span className="timeline-structure-axis-year timeline-structure-axis-year--start">
+                      {Math.round(axisNode.start)}
+                    </span>
+                    <span className="timeline-structure-axis-year timeline-structure-axis-year--end">
+                      {Math.round(axisNode.end)}
+                    </span>
+                    <span className="timeline-structure-axis-line" aria-hidden="true" />
+                    <span className="timeline-structure-axis-start-tick" aria-hidden="true" />
+                    <span className="timeline-structure-axis-arrow" aria-hidden="true" />
+                  </div>
+                </>
+              ) : null}
 
               {axisNode.eras.map((eraNode) => (
                 <div key={eraNode.era.id}>
+                  {shouldShowEra(eraNode.era.id, axisNode.axis.id) ? (
                   <div
                     className={[
                       "timeline-structure-node",
@@ -1770,8 +1847,10 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                       0 - {Math.round(eraNode.duration)}
                     </span>
                   </div>
+                  ) : null}
 
-                  {eraNode.segments.map((segmentNode) => (
+                  {shouldShowSegment(eraNode.era.id)
+                    ? eraNode.segments.map((segmentNode) => (
                     <div
                       key={segmentNode.segment.id}
                       className={[
@@ -1873,7 +1952,8 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                           ) : null
                       )}
                     </div>
-                  ))}
+                    ))
+                    : null}
                 </div>
               ))}
             </div>
