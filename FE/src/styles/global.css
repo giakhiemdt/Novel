@@ -1892,6 +1892,7 @@ h3 {
   height: 12px;
   transform: translateY(-50%);
   background: var(--timeline-axis-color);
+  border-radius: 999px;
 }
 
 .timeline-structure-axis-year {
@@ -1951,8 +1952,8 @@ h3 {
 .timeline-structure-node--segment::before {
   content: "";
   position: absolute;
-  left: 0;
-  right: 0;
+  left: 3px;
+  right: 3px;
   top: 50%;
   height: 2px;
   transform: translateY(-50%);
@@ -1963,13 +1964,14 @@ h3 {
 .timeline-structure-node--segment::after {
   content: "";
   position: absolute;
-  left: 0;
+  left: 1px;
   top: 50%;
   width: 2px;
   height: 12px;
   transform: translateY(-50%);
   background: var(--timeline-subline-color);
-  box-shadow: calc(100% - 2px) 0 0 0 var(--timeline-subline-color);
+  box-shadow: calc(100% - 4px) 0 0 0 var(--timeline-subline-color);
+  border-radius: 999px;
 }
 
 .timeline-structure-node--segment::after {
