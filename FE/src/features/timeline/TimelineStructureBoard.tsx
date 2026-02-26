@@ -1270,6 +1270,12 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     stopPan();
   };
 
+  const updateHoverLabelX = (event: PointerEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const localX = clamp(event.clientX - rect.left, 12, Math.max(rect.width - 12, 12));
+    event.currentTarget.style.setProperty("--hover-label-x", `${localX}px`);
+  };
+
   useEffect(() => {
     document.body.style.overflow = isExpanded ? "hidden" : "";
     return () => {
@@ -1740,6 +1746,8 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                       event.stopPropagation();
                       setSelectedNode({ kind: "era", id: eraNode.era.id });
                     }}
+                    onPointerEnter={updateHoverLabelX}
+                    onPointerMove={updateHoverLabelX}
                   >
                     <span className="timeline-structure-node__title">{eraNode.era.name}</span>
                     <span className="timeline-structure-node__range">
@@ -1825,6 +1833,8 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                         event.stopPropagation();
                         setSelectedNode({ kind: "segment", id: segmentNode.segment.id });
                       }}
+                      onPointerEnter={updateHoverLabelX}
+                      onPointerMove={updateHoverLabelX}
                     >
                       <span className="timeline-structure-node__title">
                         {segmentNode.segment.name}

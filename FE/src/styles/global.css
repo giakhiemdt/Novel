@@ -1926,7 +1926,7 @@ h3 {
 .timeline-structure-node--era .timeline-structure-node__title,
 .timeline-structure-node--segment .timeline-structure-node__title {
   position: absolute;
-  left: 0;
+  left: var(--hover-label-x, 0px);
   bottom: 100%;
   margin-bottom: 4px;
   max-width: min(220px, 100%);
@@ -1936,7 +1936,7 @@ h3 {
   border-radius: 6px;
   z-index: 2;
   opacity: 0;
-  transform: translateY(4px);
+  transform: translate(-50%, 4px);
   transition: opacity 0.18s ease, transform 0.18s ease;
 }
 
@@ -1964,7 +1964,7 @@ h3 {
 .timeline-structure-node--selected.timeline-structure-node--segment
   .timeline-structure-node__title {
   opacity: 1;
-  transform: translateY(0);
+  transform: translate(-50%, 0);
 }
 
 .timeline-structure-segment-marker {
