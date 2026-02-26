@@ -1272,7 +1272,9 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
 
   const updateHoverLabelX = (event: PointerEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
-    const localX = clamp(event.clientX - rect.left, 12, Math.max(rect.width - 12, 12));
+    const unscaledWidth = rect.width / Math.max(scale, 0.0001);
+    const unscaledX = (event.clientX - rect.left) / Math.max(scale, 0.0001);
+    const localX = clamp(unscaledX, 12, Math.max(unscaledWidth - 12, 12));
     event.currentTarget.style.setProperty("--hover-label-x", `${localX}px`);
   };
 
