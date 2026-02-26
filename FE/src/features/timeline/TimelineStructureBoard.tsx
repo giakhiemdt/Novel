@@ -135,12 +135,18 @@ const MINIMAP_PADDING = 10;
 const MINIMAP_HEADER_HEIGHT = 20;
 const PAGE_LIMIT = 200;
 const SHOW_MINIMAP = false;
+const YEAR_PX_MIN = 0.25;
+const YEAR_PX_MAX = 8;
+const YEAR_PX_STEP = 0.25;
 
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
 
 const clamp = (value: number, min: number, max: number) =>
   Math.max(min, Math.min(max, value));
+
+const roundToStep = (value: number, step = YEAR_PX_STEP) =>
+  Math.round(value / step) * step;
 
 const sortAxes = (a: TimelineAxis, b: TimelineAxis) => {
   const orderA = isFiniteNumber(a.sortOrder) ? a.sortOrder : Number.MAX_SAFE_INTEGER;
@@ -350,7 +356,8 @@ const buildAxisRows = (axes: TimelineAxis[]): AxisRow[] => {
 const buildLayout = (
   axes: TimelineAxis[],
   eras: TimelineEra[],
-  segments: TimelineSegment[]
+  segments: TimelineSegment[],
+  yearPx: number
 ): AxisLayout[] => {
   const erasByAxis = new Map<string, TimelineEra[]>();
   eras.forEach((era) => {
@@ -395,7 +402,7 @@ const buildLayout = (
     const axisStart = 0;
     const axisEnd = axisStart + axisDuration;
     const axisX = AXIS_X + depth * AXIS_INDENT_STEP;
-    const axisWidth = Math.max(AXIS_WIDTH - depth * AXIS_INDENT_STEP, AXIS_MIN_WIDTH);
+    const axisWidth = Math.max(Math.round(axisDuration * yearPx), AXIS_MIN_WIDTH);
 
     let eraCursor = axisStart;
     const eraLayouts: EraLayout[] = eraDefinitions.map((item) => {
@@ -484,6 +491,8 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
   const [showMarkers, setShowMarkers] = useState(true);
   const [focusSelectedAxis, setFocusSelectedAxis] = useState(false);
   const [lockedFocusAxisId, setLockedFocusAxisId] = useState("");
+  const [yearPx, setYearPx] = useState(1);
+  const [yearPxInput, setYearPxInput] = useState("1");
   const {
     scale,
     pan,
@@ -659,8 +668,8 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
   }, [filteredAxes, focusedAxisIds]);
 
   const axisLayout = useMemo(
-    () => buildLayout(axesForLayout, eras, segments),
-    [axesForLayout, eras, segments]
+    () => buildLayout(axesForLayout, eras, segments, yearPx),
+    [axesForLayout, eras, segments, yearPx]
   );
 
   const axisDurationById = useMemo(() => {
@@ -937,6 +946,25 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
 
   const resetAxisTypeFilter = () => {
     setVisibleAxisTypes([...AXIS_TYPES]);
+  };
+
+  const applyYearPx = (rawValue: string) => {
+    const parsed = Number(rawValue);
+    if (!Number.isFinite(parsed)) {
+      setYearPxInput(String(yearPx));
+      return;
+    }
+    const clamped = clamp(roundToStep(parsed), YEAR_PX_MIN, YEAR_PX_MAX);
+    const normalized = Number(clamped.toFixed(2));
+    setYearPx(normalized);
+    setYearPxInput(String(normalized));
+  };
+
+  const adjustYearPx = (delta: number) => {
+    const next = clamp(roundToStep(yearPx + delta), YEAR_PX_MIN, YEAR_PX_MAX);
+    const normalized = Number(next.toFixed(2));
+    setYearPx(normalized);
+    setYearPxInput(String(normalized));
   };
 
   const buildEraPayload = (era: TimelineEra, axisId: string, order: number) => ({
@@ -1375,6 +1403,43 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
           >
             {t("Focus selected axis")}
           </button>
+          <div className="timeline-structure-scale">
+            <button
+              type="button"
+              className="timeline-structure-scale__btn"
+              onClick={() => adjustYearPx(-YEAR_PX_STEP)}
+              title={t("Decrease timeline scale")}
+            >
+              -
+            </button>
+            <label className="timeline-structure-scale__label">
+              <input
+                type="number"
+                min={YEAR_PX_MIN}
+                max={YEAR_PX_MAX}
+                step={YEAR_PX_STEP}
+                value={yearPxInput}
+                onChange={(event) => setYearPxInput(event.target.value)}
+                onBlur={() => applyYearPx(yearPxInput)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    applyYearPx(yearPxInput);
+                  }
+                }}
+                className="timeline-structure-scale__input"
+              />
+              <span>px/year</span>
+            </label>
+            <button
+              type="button"
+              className="timeline-structure-scale__btn"
+              onClick={() => adjustYearPx(YEAR_PX_STEP)}
+              title={t("Increase timeline scale")}
+            >
+              +
+            </button>
+          </div>
         </div>
         <BoardViewportControls
           zoom={scale}
