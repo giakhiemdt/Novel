@@ -1362,9 +1362,6 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                     {t(AXIS_TYPE_LABELS[axisNode.axis.axisType as AxisType] ?? "Main")}
                   </span>
                 </div>
-                <span>
-                  0 → {Math.round(axisNode.duration)}
-                </span>
                 {axisNode.axis.parentAxisId ? (
                   <span className="timeline-structure-axis-label__parent">
                     {t("Parent")}:{" "}
@@ -1389,15 +1386,23 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                   width: axisNode.axisWidth,
                   transform: `translate(${axisNode.axisX}px, ${axisNode.y}px)`,
                 }}
+                aria-label={`${axisNode.axis.name}: ${Math.round(axisNode.start)} - ${Math.round(
+                  axisNode.end
+                )}`}
                 onClick={(event) => {
                   event.stopPropagation();
                   setSelectedNode({ kind: "axis", id: axisNode.axis.id });
                 }}
               >
-                <span className="timeline-structure-node__title">{axisNode.axis.name}</span>
-                <span className="timeline-structure-node__range">
-                  0 - {Math.round(axisNode.duration)}
+                <span className="timeline-structure-axis-year timeline-structure-axis-year--start">
+                  {Math.round(axisNode.start)}
                 </span>
+                <span className="timeline-structure-axis-year timeline-structure-axis-year--end">
+                  {Math.round(axisNode.end)}
+                </span>
+                <span className="timeline-structure-axis-line" aria-hidden="true" />
+                <span className="timeline-structure-axis-start-tick" aria-hidden="true" />
+                <span className="timeline-structure-axis-arrow" aria-hidden="true" />
               </div>
 
               {axisNode.eras.map((eraNode) => (

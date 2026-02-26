@@ -1687,29 +1687,89 @@ h3 {
 
 .timeline-structure-node--axis {
   height: 20px;
-  border-color: color-mix(in srgb, var(--color-primary) 55%, transparent);
-  background: color-mix(in srgb, var(--color-primary) 18%, var(--timeline-board-bg));
-  box-shadow: 0 3px 10px color-mix(in srgb, var(--color-primary) 20%, transparent);
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  overflow: visible;
+  --timeline-axis-color: color-mix(in srgb, var(--color-primary) 72%, var(--color-ink));
 }
 
 .timeline-structure-node--axis-main {
-  border-color: color-mix(in srgb, var(--color-primary) 55%, transparent);
-  background: color-mix(in srgb, var(--color-primary) 18%, var(--timeline-board-bg));
+  --timeline-axis-color: color-mix(in srgb, var(--color-primary) 72%, var(--color-ink));
 }
 
 .timeline-structure-node--axis-parallel {
-  border-color: color-mix(in srgb, var(--color-accent) 58%, transparent);
-  background: color-mix(in srgb, var(--color-accent) 16%, var(--timeline-board-bg));
+  --timeline-axis-color: color-mix(in srgb, var(--color-accent) 74%, var(--color-ink));
 }
 
 .timeline-structure-node--axis-branch {
-  border-color: color-mix(in srgb, var(--color-danger) 62%, transparent);
-  background: color-mix(in srgb, var(--color-danger) 16%, var(--timeline-board-bg));
+  --timeline-axis-color: color-mix(in srgb, var(--color-danger) 74%, var(--color-ink));
 }
 
 .timeline-structure-node--axis-loop {
-  border-color: color-mix(in srgb, var(--color-success) 58%, transparent);
-  background: color-mix(in srgb, var(--color-success) 16%, var(--timeline-board-bg));
+  --timeline-axis-color: color-mix(in srgb, var(--color-success) 72%, var(--color-ink));
+}
+
+.timeline-structure-axis-line {
+  position: absolute;
+  left: 0;
+  right: 12px;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  background: var(--timeline-axis-color);
+}
+
+.timeline-structure-axis-arrow {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 10px solid var(--timeline-axis-color);
+}
+
+.timeline-structure-axis-start-tick {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 2px;
+  height: 12px;
+  background: var(--timeline-axis-color);
+}
+
+.timeline-structure-axis-year {
+  position: absolute;
+  top: -10px;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--text-muted);
+}
+
+.timeline-structure-axis-year--start {
+  left: 0;
+  transform: translateX(-6%);
+}
+
+.timeline-structure-axis-year--end {
+  right: 0;
+  transform: translateX(6%);
+}
+
+.timeline-structure-node--axis.timeline-structure-node--selected .timeline-structure-axis-line {
+  height: 3px;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+
+.timeline-structure-node--axis.timeline-structure-node--selected .timeline-structure-axis-arrow,
+.timeline-structure-node--axis.timeline-structure-node--selected
+  .timeline-structure-axis-start-tick {
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--color-primary) 38%, transparent));
 }
 
 .timeline-structure-node--era {
