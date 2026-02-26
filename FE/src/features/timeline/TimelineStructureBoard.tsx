@@ -478,6 +478,8 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
   const [visibleAxisTypes, setVisibleAxisTypes] = useState<AxisType[]>([
     ...AXIS_TYPES,
   ]);
+  const [showMarkers, setShowMarkers] = useState(true);
+  const [focusSelectedAxis, setFocusSelectedAxis] = useState(false);
   const {
     scale,
     pan,
@@ -589,9 +591,61 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     [normalizedAxes, visibleAxisTypes]
   );
 
+  const selectedAxisIdForFocus = useMemo(() => {
+    if (!selectedNode) {
+      return "";
+    }
+    if (selectedNode.kind === "axis") {
+      return selectedNode.id;
+    }
+    if (selectedNode.kind === "era") {
+      return eras.find((item) => item.id === selectedNode.id)?.axisId ?? "";
+    }
+    return segments.find((item) => item.id === selectedNode.id)?.axisId ?? "";
+  }, [eras, segments, selectedNode]);
+
+  const focusedAxisIds = useMemo(() => {
+    if (!focusSelectedAxis || !selectedAxisIdForFocus) {
+      return null;
+    }
+    const childrenByParentId = new Map<string, string[]>();
+    normalizedAxes.forEach((axis) => {
+      if (!axis.parentAxisId) {
+        return;
+      }
+      const list = childrenByParentId.get(axis.parentAxisId) ?? [];
+      list.push(axis.id);
+      childrenByParentId.set(axis.parentAxisId, list);
+    });
+
+    const visibleIds = new Set<string>();
+    const stack: string[] = [selectedAxisIdForFocus];
+    while (stack.length) {
+      const current = stack.pop()!;
+      if (visibleIds.has(current)) {
+        continue;
+      }
+      visibleIds.add(current);
+      const children = childrenByParentId.get(current) ?? [];
+      children.forEach((childId) => {
+        if (!visibleIds.has(childId)) {
+          stack.push(childId);
+        }
+      });
+    }
+    return visibleIds;
+  }, [focusSelectedAxis, normalizedAxes, selectedAxisIdForFocus]);
+
+  const axesForLayout = useMemo(() => {
+    if (!focusedAxisIds) {
+      return filteredAxes;
+    }
+    return filteredAxes.filter((axis) => focusedAxisIds.has(axis.id));
+  }, [filteredAxes, focusedAxisIds]);
+
   const axisLayout = useMemo(
-    () => buildLayout(filteredAxes, eras, segments),
-    [filteredAxes, eras, segments]
+    () => buildLayout(axesForLayout, eras, segments),
+    [axesForLayout, eras, segments]
   );
 
   const axisDurationById = useMemo(() => {
@@ -1210,6 +1264,30 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
               >
                 {t("Show all")}
               </button>
+              <button
+                type="button"
+                className={`timeline-structure-filter${
+                  showMarkers ? " timeline-structure-filter--active" : ""
+                }`}
+                onClick={() => setShowMarkers((prev) => !prev)}
+              >
+                {showMarkers ? t("Hide markers") : t("Show markers")}
+              </button>
+              <button
+                type="button"
+                className={`timeline-structure-filter${
+                  focusSelectedAxis ? " timeline-structure-filter--active" : ""
+                }`}
+                disabled={!selectedAxisIdForFocus}
+                onClick={() => setFocusSelectedAxis((prev) => !prev)}
+                title={
+                  selectedAxisIdForFocus
+                    ? t("Focus current axis and descendants")
+                    : t("Select an axis, era, or segment first")
+                }
+              >
+                {t("Focus selected axis")}
+              </button>
             </div>
           </div>
 
@@ -1627,15 +1705,16 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                         {segmentNode.segment.name}
                       </span>
                       {(markerOffsetsBySegment.get(segmentNode.segment.id) ?? []).map(
-                        (marker) => (
-                          <span
-                            key={marker.id}
-                            className="timeline-structure-segment-marker"
-                            style={{ left: `${marker.offset}px` }}
-                            title={`${marker.label} (${marker.tick})`}
-                            aria-label={`${marker.label} (${marker.tick})`}
-                          />
-                        )
+                        (marker) =>
+                          showMarkers ? (
+                            <span
+                              key={marker.id}
+                              className="timeline-structure-segment-marker"
+                              style={{ left: `${marker.offset}px` }}
+                              title={`${marker.label} (${marker.tick})`}
+                              aria-label={`${marker.label} (${marker.tick})`}
+                            />
+                          ) : null
                       )}
                     </div>
                   ))}

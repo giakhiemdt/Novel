@@ -1832,6 +1832,9 @@ h3 {
   background: color-mix(in srgb, var(--timeline-board-bg) 82%, transparent);
   border-radius: 6px;
   z-index: 2;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
 }
 
 .timeline-structure-node--era .timeline-structure-node__range {
@@ -1843,6 +1846,22 @@ h3 {
   background: color-mix(in srgb, var(--timeline-board-bg) 82%, transparent);
   border-radius: 6px;
   z-index: 2;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.timeline-structure-node--era:hover .timeline-structure-node__title,
+.timeline-structure-node--era:hover .timeline-structure-node__range,
+.timeline-structure-node--segment:hover .timeline-structure-node__title,
+.timeline-structure-node--selected.timeline-structure-node--era
+  .timeline-structure-node__title,
+.timeline-structure-node--selected.timeline-structure-node--era
+  .timeline-structure-node__range,
+.timeline-structure-node--selected.timeline-structure-node--segment
+  .timeline-structure-node__title {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .timeline-structure-segment-marker {
