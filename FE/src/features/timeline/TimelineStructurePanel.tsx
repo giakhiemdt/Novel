@@ -12,6 +12,7 @@ import {
   createTimelineSegment,
   deleteTimelineAxis,
   deleteTimelineEra,
+  deleteTimelineMarker,
   deleteTimelineSegment,
   getTimelineAxesPage,
   getTimelineErasPage,
@@ -84,7 +85,7 @@ type TimelineStructurePanelProps = {
 };
 
 type CreateMode = "axis" | "era" | "segment" | "marker";
-type EditableNodeType = "axis" | "era" | "segment";
+type EditableNodeType = "axis" | "era" | "segment" | "marker";
 type DraggableNodeType = "era" | "segment" | "marker";
 type DropTargetType = "axis" | "era" | "segment";
 
@@ -97,6 +98,7 @@ type DetailNodeState =
   | { nodeType: "axis"; node: TimelineAxis }
   | { nodeType: "era"; node: TimelineEra }
   | { nodeType: "segment"; node: TimelineSegment }
+  | { nodeType: "marker"; node: TimelineMarker }
   | null;
 
 type AxisEditState = {
@@ -145,7 +147,26 @@ type SegmentEditState = {
   status: TimelineStructStatus;
 };
 
-type EditNodeState = AxisEditState | EraEditState | SegmentEditState | null;
+type MarkerEditState = {
+  nodeType: "marker";
+  id: string;
+  segmentId: string;
+  label: string;
+  markerType: string;
+  tick: string;
+  description: string;
+  status: TimelineStructStatus;
+  eventRefId?: string;
+  notes?: string;
+  tags?: string[];
+};
+
+type EditNodeState =
+  | AxisEditState
+  | EraEditState
+  | SegmentEditState
+  | MarkerEditState
+  | null;
 
 const CREATE_MODE_LABELS: Record<CreateMode, string> = {
   axis: "Axis",
@@ -909,7 +930,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
 
   const openDetail = (
     nodeType: EditableNodeType,
-    node: TimelineAxis | TimelineEra | TimelineSegment
+    node: TimelineAxis | TimelineEra | TimelineSegment | TimelineMarker
   ) => {
     if (nodeType === "axis") {
       setDetailNode({ nodeType, node: node as TimelineAxis });
@@ -919,7 +940,11 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       setDetailNode({ nodeType, node: node as TimelineEra });
       return;
     }
-    setDetailNode({ nodeType, node: node as TimelineSegment });
+    if (nodeType === "segment") {
+      setDetailNode({ nodeType, node: node as TimelineSegment });
+      return;
+    }
+    setDetailNode({ nodeType, node: node as TimelineMarker });
   };
 
   const openEditAxis = (axis: TimelineAxis) => {
@@ -974,6 +999,22 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
     });
   };
 
+  const openEditMarker = (marker: TimelineMarker) => {
+    setEditNode({
+      nodeType: "marker",
+      id: marker.id,
+      segmentId: marker.segmentId,
+      label: marker.label,
+      markerType: marker.markerType ?? "",
+      tick: String(marker.tick),
+      description: marker.description ?? "",
+      status: marker.status ?? "active",
+      eventRefId: marker.eventRefId,
+      notes: marker.notes,
+      tags: marker.tags,
+    });
+  };
+
   const parseOptionalNumber = (
     value: string,
     label: string
@@ -1009,14 +1050,19 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       return;
     }
 
-    const trimmedName = editNode.name.trim();
+    const trimmedName =
+      editNode.nodeType === "marker"
+        ? editNode.label.trim()
+        : editNode.name.trim();
     if (!trimmedName) {
       if (editNode.nodeType === "axis") {
         notify(t("Axis name is required"), "error");
       } else if (editNode.nodeType === "era") {
         notify(t("Era name is required"), "error");
-      } else {
+      } else if (editNode.nodeType === "segment") {
         notify(t("Segment name is required"), "error");
+      } else {
+        notify(t("Marker label is required"), "error");
       }
       return;
     }
@@ -1084,7 +1130,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
           endTick,
           status: editNode.status,
         });
-      } else {
+      } else if (editNode.nodeType === "segment") {
         const order = parseOptionalNumber(editNode.order, "Order");
         const startTick = parseOptionalNumber(editNode.startTick, "Start tick");
         const endTick = parseOptionalNumber(editNode.endTick, "End tick");
@@ -1110,6 +1156,24 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
           endTick,
           status: editNode.status,
         });
+      } else {
+        const parsedTick = Number(editNode.tick);
+        if (!Number.isFinite(parsedTick)) {
+          notify(t("Tick must be a number"), "error");
+          setSavingEdit(false);
+          return;
+        }
+        await updateTimelineMarker(editNode.id, {
+          segmentId: editNode.segmentId,
+          label: trimmedName,
+          tick: parsedTick,
+          markerType: editNode.markerType.trim() || undefined,
+          description: editNode.description.trim() || undefined,
+          status: editNode.status,
+          eventRefId: editNode.eventRefId,
+          notes: editNode.notes,
+          tags: editNode.tags,
+        });
       }
 
       notify(t("Save changes"), "success");
@@ -1134,9 +1198,12 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       } else if (nodeType === "era") {
         await deleteTimelineEra(id);
         successMessage = "Era deleted";
-      } else {
+      } else if (nodeType === "segment") {
         await deleteTimelineSegment(id);
         successMessage = "Segment deleted";
+      } else {
+        await deleteTimelineMarker(id);
+        successMessage = "Marker deleted";
       }
       notify(t(successMessage), "success");
       await refreshData();
@@ -1164,6 +1231,13 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       return;
     }
     await deleteNodeByType("segment", segment.id);
+  };
+
+  const handleDeleteMarker = async (marker: TimelineMarker) => {
+    if (!window.confirm(t("Delete this marker? This action cannot be undone."))) {
+      return;
+    }
+    await deleteNodeByType("marker", marker.id);
   };
 
   const runSnapshot = async () => {
@@ -1317,13 +1391,33 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
           <div className="table__actions tree-row__actions">
             <button
               type="button"
+              className="table__action"
+              onClick={(event) => {
+                event.stopPropagation();
+                openDetail("marker", node);
+              }}
+            >
+              {t("Detail")}
+            </button>
+            <button
+              type="button"
               className="table__action table__action--ghost"
               onClick={(event) => {
                 event.stopPropagation();
-                selectMarkerNode(node);
+                openEditMarker(node);
               }}
             >
-              {t("Select")}
+              {t("Edit")}
+            </button>
+            <button
+              type="button"
+              className="table__action table__action--danger"
+              onClick={(event) => {
+                event.stopPropagation();
+                void handleDeleteMarker(node);
+              }}
+            >
+              {t("Delete")}
             </button>
           </div>
         </div>
@@ -1990,9 +2084,15 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
                     ? t("Axis details")
                     : detailNode.nodeType === "era"
                       ? t("Era details")
-                      : t("Segment details")}
+                      : detailNode.nodeType === "segment"
+                        ? t("Segment details")
+                        : t("Marker details")}
                 </h3>
-                <p className="modal__subtitle">{detailNode.node.name}</p>
+                <p className="modal__subtitle">
+                  {detailNode.nodeType === "marker"
+                    ? detailNode.node.label
+                    : detailNode.node.name}
+                </p>
               </div>
               <button
                 type="button"
@@ -2011,12 +2111,20 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
                     ? t(AXIS_TYPE_LABELS[detailNode.node.axisType])
                     : detailNode.nodeType === "era"
                       ? t("Era")
-                      : t("Segment")}
+                      : detailNode.nodeType === "segment"
+                        ? t("Segment")
+                        : t("Marker")}
                 </strong>
               </div>
               <div className="detail-item">
-                <span className="detail-item__label">{t("Code")}</span>
-                <strong>{detailNode.node.code || "-"}</strong>
+                <span className="detail-item__label">
+                  {detailNode.nodeType === "marker" ? t("Marker type") : t("Code")}
+                </span>
+                <strong>
+                  {detailNode.nodeType === "marker"
+                    ? detailNode.node.markerType || "-"
+                    : detailNode.node.code || "-"}
+                </strong>
               </div>
               <div className="detail-item">
                 <span className="detail-item__label">{t("Status")}</span>
@@ -2027,7 +2135,9 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
               <div className="detail-item">
                 <span className="detail-item__label">{t("Tick")}</span>
                 <strong>
-                  {formatTickRange(detailNode.node.startTick, detailNode.node.endTick)}
+                  {detailNode.nodeType === "marker"
+                    ? detailNode.node.tick
+                    : formatTickRange(detailNode.node.startTick, detailNode.node.endTick)}
                 </strong>
               </div>
               <div className="detail-item">
@@ -2037,17 +2147,25 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
                     ? "-"
                     : detailNode.nodeType === "era"
                       ? axisNameById.get(detailNode.node.axisId) ?? "-"
-                      : eraNameById.get(detailNode.node.eraId) ?? "-"}
+                      : detailNode.nodeType === "segment"
+                        ? eraNameById.get(detailNode.node.eraId) ?? "-"
+                        : segmentNameById.get(detailNode.node.segmentId) ?? "-"}
                 </strong>
               </div>
               <div className="detail-item detail-item--wide">
                 <span className="detail-item__label">
-                  {detailNode.nodeType === "axis" ? t("Description") : t("Summary")}
+                  {detailNode.nodeType === "axis"
+                    ? t("Description")
+                    : detailNode.nodeType === "marker"
+                      ? t("Description")
+                      : t("Summary")}
                 </span>
                 <p className="header__subtitle" style={{ margin: 0 }}>
                   {detailNode.nodeType === "axis"
                     ? detailNode.node.description || "-"
-                    : detailNode.node.summary || detailNode.node.description || "-"}
+                    : detailNode.nodeType === "marker"
+                      ? detailNode.node.description || "-"
+                      : detailNode.node.summary || detailNode.node.description || "-"}
                 </p>
               </div>
             </div>
@@ -2070,7 +2188,9 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
                     ? t("Edit axis")
                     : editNode.nodeType === "era"
                       ? t("Edit era")
-                      : t("Edit segment")}
+                      : editNode.nodeType === "segment"
+                        ? t("Edit segment")
+                        : t("Edit marker")}
                 </h3>
               </div>
               <button
@@ -2090,27 +2210,51 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
                       ? "Axis name"
                       : editNode.nodeType === "era"
                         ? "Era name"
-                        : "Segment name"
+                        : editNode.nodeType === "segment"
+                          ? "Segment name"
+                          : "Marker label"
                   }
-                  value={editNode.name}
+                  value={editNode.nodeType === "marker" ? editNode.label : editNode.name}
                   onChange={(value) =>
-                    setEditNode((prev) => (prev ? { ...prev, name: value } : prev))
+                    setEditNode((prev) => {
+                      if (!prev) {
+                        return prev;
+                      }
+                      if (prev.nodeType === "marker") {
+                        return { ...prev, label: value };
+                      }
+                      return { ...prev, name: value };
+                    })
                   }
                   required
                 />
-                <TextInput
-                  label={
-                    editNode.nodeType === "axis"
-                      ? "Axis code"
-                      : editNode.nodeType === "era"
-                        ? "Era code"
-                        : "Segment code"
-                  }
-                  value={editNode.code}
-                  onChange={(value) =>
-                    setEditNode((prev) => (prev ? { ...prev, code: value } : prev))
-                  }
-                />
+                {editNode.nodeType !== "marker" ? (
+                  <TextInput
+                    label={
+                      editNode.nodeType === "axis"
+                        ? "Axis code"
+                        : editNode.nodeType === "era"
+                          ? "Era code"
+                          : "Segment code"
+                    }
+                    value={editNode.code}
+                    onChange={(value) =>
+                      setEditNode((prev) => (prev ? { ...prev, code: value } : prev))
+                    }
+                  />
+                ) : (
+                  <TextInput
+                    label="Marker type"
+                    value={editNode.markerType}
+                    onChange={(value) =>
+                      setEditNode((prev) =>
+                        prev && prev.nodeType === "marker"
+                          ? { ...prev, markerType: value }
+                          : prev
+                      )
+                    }
+                  />
+                )}
                 {editNode.nodeType === "axis" ? (
                   <Select
                     label="Axis type"
@@ -2143,6 +2287,13 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
                     }))}
                     placeholder="Select type"
                   />
+                ) : editNode.nodeType === "marker" ? (
+                  <div className="form-field">
+                    <label>{t("Parent")}</label>
+                    <p className="header__subtitle">
+                      {segmentNameById.get(editNode.segmentId) ?? "-"}
+                    </p>
+                  </div>
                 ) : (
                   <div className="form-field">
                     <label>{t("Parent")}</label>
@@ -2236,9 +2387,21 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
                   placeholder="Select"
                 />
                 <TextInput
-                  label={editNode.nodeType === "axis" ? "Sort order" : "Order"}
+                  label={
+                    editNode.nodeType === "axis"
+                      ? "Sort order"
+                      : editNode.nodeType === "marker"
+                        ? "Tick"
+                        : "Order"
+                  }
                   type="number"
-                  value={editNode.nodeType === "axis" ? editNode.sortOrder : editNode.order}
+                  value={
+                    editNode.nodeType === "axis"
+                      ? editNode.sortOrder
+                      : editNode.nodeType === "marker"
+                        ? editNode.tick
+                        : editNode.order
+                  }
                   onChange={(value) =>
                     setEditNode((prev) => {
                       if (!prev) {
@@ -2246,6 +2409,9 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
                       }
                       if (prev.nodeType === "axis") {
                         return { ...prev, sortOrder: value };
+                      }
+                      if (prev.nodeType === "marker") {
+                        return { ...prev, tick: value };
                       }
                       return { ...prev, order: value };
                     })
@@ -2266,46 +2432,66 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
                     required
                   />
                 ) : null}
-                <TextInput
-                  label="Start tick"
-                  type="number"
-                  value={editNode.startTick}
-                  onChange={(value) =>
-                    setEditNode((prev) => (prev ? { ...prev, startTick: value } : prev))
-                  }
-                />
-                <TextInput
-                  label="End tick"
-                  type="number"
-                  value={editNode.endTick}
-                  onChange={(value) =>
-                    setEditNode((prev) => (prev ? { ...prev, endTick: value } : prev))
-                  }
-                />
-                <div className="form-field form-field--wide">
-                  <label>{editNode.nodeType === "axis" ? t("Description") : t("Summary")}</label>
-                  <textarea
-                    className="textarea"
-                    value={
-                      editNode.nodeType === "axis"
-                        ? editNode.description
-                        : editNode.summary
-                    }
-                    onChange={(event) =>
-                      setEditNode((prev) => {
-                        if (!prev) {
-                          return prev;
+                {editNode.nodeType !== "marker" ? (
+                  <>
+                    <TextInput
+                      label="Start tick"
+                      type="number"
+                      value={editNode.startTick}
+                      onChange={(value) =>
+                        setEditNode((prev) => (prev ? { ...prev, startTick: value } : prev))
+                      }
+                    />
+                    <TextInput
+                      label="End tick"
+                      type="number"
+                      value={editNode.endTick}
+                      onChange={(value) =>
+                        setEditNode((prev) => (prev ? { ...prev, endTick: value } : prev))
+                      }
+                    />
+                    <div className="form-field form-field--wide">
+                      <label>{editNode.nodeType === "axis" ? t("Description") : t("Summary")}</label>
+                      <textarea
+                        className="textarea"
+                        value={
+                          editNode.nodeType === "axis"
+                            ? editNode.description
+                            : editNode.summary
                         }
-                        if (prev.nodeType === "axis") {
-                          return { ...prev, description: event.target.value };
+                        onChange={(event) =>
+                          setEditNode((prev) => {
+                            if (!prev) {
+                              return prev;
+                            }
+                            if (prev.nodeType === "axis") {
+                              return { ...prev, description: event.target.value };
+                            }
+                            return { ...prev, summary: event.target.value };
+                          })
                         }
-                        return { ...prev, summary: event.target.value };
-                      })
-                    }
-                    rows={4}
-                  />
-                </div>
-                {editNode.nodeType !== "axis" ? (
+                        rows={4}
+                      />
+                    </div>
+                    {editNode.nodeType !== "axis" ? (
+                      <div className="form-field form-field--wide">
+                        <label>{t("Description")}</label>
+                        <textarea
+                          className="textarea"
+                          value={editNode.description}
+                          onChange={(event) =>
+                            setEditNode((prev) =>
+                              prev && prev.nodeType !== "axis" && prev.nodeType !== "marker"
+                                ? { ...prev, description: event.target.value }
+                                : prev
+                            )
+                          }
+                          rows={4}
+                        />
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
                   <div className="form-field form-field--wide">
                     <label>{t("Description")}</label>
                     <textarea
@@ -2313,7 +2499,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
                       value={editNode.description}
                       onChange={(event) =>
                         setEditNode((prev) =>
-                          prev && prev.nodeType !== "axis"
+                          prev && prev.nodeType === "marker"
                             ? { ...prev, description: event.target.value }
                             : prev
                         )
@@ -2321,7 +2507,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
                       rows={4}
                     />
                   </div>
-                ) : null}
+                )}
               </div>
             </div>
             <div className="modal__footer">
