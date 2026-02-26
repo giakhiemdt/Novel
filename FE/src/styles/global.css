@@ -1774,17 +1774,73 @@ h3 {
 
 .timeline-structure-node--era {
   height: 16px;
-  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
-  background: color-mix(in srgb, var(--color-accent) 14%, var(--timeline-board-bg));
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  overflow: visible;
+  --timeline-subline-color: color-mix(in srgb, var(--color-accent) 68%, var(--color-ink));
   cursor: grab;
 }
 
 .timeline-structure-node--segment {
   height: 12px;
-  border-radius: 7px;
-  border-color: color-mix(in srgb, var(--color-success) 56%, transparent);
-  background: color-mix(in srgb, var(--color-success) 14%, var(--timeline-board-bg));
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  overflow: visible;
+  --timeline-subline-color: color-mix(in srgb, var(--color-accent-2) 70%, var(--color-ink));
   cursor: grab;
+}
+
+.timeline-structure-node--era::before,
+.timeline-structure-node--segment::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 10px;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  background: var(--timeline-subline-color);
+}
+
+.timeline-structure-node--era::after,
+.timeline-structure-node--segment::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 8px solid var(--timeline-subline-color);
+}
+
+.timeline-structure-node--era .timeline-structure-node__title,
+.timeline-structure-node--segment .timeline-structure-node__title {
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  margin-bottom: 4px;
+  max-width: min(220px, 100%);
+  padding: 0 4px;
+  color: var(--color-ink);
+  background: color-mix(in srgb, var(--timeline-board-bg) 82%, transparent);
+  border-radius: 6px;
+}
+
+.timeline-structure-node--era .timeline-structure-node__range {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  margin-bottom: 4px;
+  padding: 0 4px;
+  background: color-mix(in srgb, var(--timeline-board-bg) 82%, transparent);
+  border-radius: 6px;
 }
 
 .timeline-structure-node--selected {
