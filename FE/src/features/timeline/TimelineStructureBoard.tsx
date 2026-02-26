@@ -501,6 +501,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     wheelZoomFactor: 0.001,
     consumeWheel: true,
   });
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const loadData = useCallback(async () => {
     const loadAll = async <T,>(
@@ -1211,6 +1212,9 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     if (target.closest(".timeline-structure-node")) {
       return;
     }
+    if (target.closest(".timeline-board-fullscreen")) {
+      return;
+    }
     if (target.closest(".graph-board-toolbar") || target.closest(".graph-board-minimap")) {
       return;
     }
@@ -1230,6 +1234,30 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
       return;
     }
     stopPan();
+  };
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      const board = boardRef.current;
+      setIsFullscreen(Boolean(board && document.fullscreenElement === board));
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    onFullscreenChange();
+    return () => {
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+    };
+  }, []);
+
+  const toggleFullscreen = async () => {
+    const board = boardRef.current;
+    if (!board) {
+      return;
+    }
+    if (document.fullscreenElement === board) {
+      await document.exitFullscreen();
+      return;
+    }
+    await board.requestFullscreen();
   };
 
   return (
@@ -1431,6 +1459,15 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
             </svg>
           )}
         />
+        <button
+          type="button"
+          className="timeline-board-fullscreen"
+          onClick={() => void toggleFullscreen()}
+          title={isFullscreen ? t("Exit fullscreen") : t("Fullscreen")}
+          aria-label={isFullscreen ? t("Exit fullscreen") : t("Fullscreen")}
+        >
+          {isFullscreen ? t("Exit") : t("Fullscreen")}
+        </button>
 
         <div
           className="timeline-board__canvas"

@@ -1555,6 +1555,36 @@ h3 {
   height: min(68vh, 760px);
 }
 
+.timeline-structure-board:fullscreen {
+  height: 100vh;
+  border-radius: 0;
+  border-style: solid;
+}
+
+.timeline-structure-board:fullscreen::backdrop {
+  background: var(--bg-page);
+}
+
+.timeline-board-fullscreen {
+  position: absolute;
+  left: 12px;
+  bottom: 14px;
+  z-index: 8;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  min-width: 92px;
+  height: 32px;
+  padding: 0 12px;
+  background: color-mix(in srgb, var(--surface-popover) 92%, transparent);
+  color: var(--color-ink);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.timeline-board-fullscreen:hover {
+  border-color: var(--border-strong);
+}
+
 .timeline-structure-axis-label {
   position: absolute;
   display: inline-flex;
