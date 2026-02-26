@@ -1534,21 +1534,21 @@ h3 {
 .timeline-structure-filter {
   border: 1px solid var(--border-subtle);
   border-radius: 999px;
-  background: var(--color-ink);
-  color: var(--color-paper);
+  background: var(--surface-soft);
+  color: var(--text-muted);
   padding: 5px 10px;
   font-size: var(--text-body-xs);
   cursor: pointer;
 }
 
 .timeline-structure-filter--active {
-  border-color: var(--color-ink);
-  background: var(--color-paper);
+  border-color: var(--border-strong);
+  background: var(--surface-card);
   color: var(--color-ink);
 }
 
 .timeline-structure-filter--ghost {
-  color: var(--color-paper);
+  color: var(--color-ink);
 }
 
 .timeline-structure-board {
@@ -1593,8 +1593,8 @@ h3 {
   width: 38px;
   height: 38px;
   padding: 0;
-  background: var(--color-ink);
-  color: var(--color-paper);
+  background: color-mix(in srgb, var(--surface-popover) 92%, transparent);
+  color: var(--color-ink);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -1609,6 +1609,11 @@ h3 {
   width: 18px;
   height: 18px;
   display: block;
+  filter: brightness(0) invert(1);
+}
+
+:root[data-theme="light"] .timeline-board-expand__icon {
+  filter: none;
 }
 
 .timeline-structure-axis-label {
@@ -1994,8 +1999,8 @@ h3 {
   min-width: 30px;
   height: 30px;
   padding: 0 8px;
-  background: var(--color-ink);
-  color: var(--color-paper);
+  background: var(--surface-soft);
+  color: var(--color-ink);
   font-weight: 700;
   cursor: pointer;
 }
