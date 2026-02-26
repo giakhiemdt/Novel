@@ -1693,11 +1693,11 @@ h3 {
   box-shadow: none;
   padding: 0;
   overflow: visible;
-  --timeline-axis-color: color-mix(in srgb, var(--color-primary) 72%, var(--color-ink));
+  --timeline-axis-color: color-mix(in srgb, var(--color-accent) 72%, var(--color-ink));
 }
 
 .timeline-structure-node--axis-main {
-  --timeline-axis-color: color-mix(in srgb, var(--color-primary) 72%, var(--color-ink));
+  --timeline-axis-color: color-mix(in srgb, var(--color-ink) 72%, var(--color-accent));
 }
 
 .timeline-structure-node--axis-parallel {
@@ -1705,11 +1705,11 @@ h3 {
 }
 
 .timeline-structure-node--axis-branch {
-  --timeline-axis-color: color-mix(in srgb, var(--color-danger) 74%, var(--color-ink));
+  --timeline-axis-color: color-mix(in srgb, var(--text-danger) 78%, var(--color-ink));
 }
 
 .timeline-structure-node--axis-loop {
-  --timeline-axis-color: color-mix(in srgb, var(--color-success) 72%, var(--color-ink));
+  --timeline-axis-color: color-mix(in srgb, var(--color-accent-2) 72%, var(--color-ink));
 }
 
 .timeline-structure-axis-line {
@@ -1763,13 +1763,13 @@ h3 {
 
 .timeline-structure-node--axis.timeline-structure-node--selected .timeline-structure-axis-line {
   height: 3px;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 30%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 .timeline-structure-node--axis.timeline-structure-node--selected .timeline-structure-axis-arrow,
 .timeline-structure-node--axis.timeline-structure-node--selected
   .timeline-structure-axis-start-tick {
-  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--color-primary) 38%, transparent));
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--color-accent) 38%, transparent));
 }
 
 .timeline-structure-node--era {
