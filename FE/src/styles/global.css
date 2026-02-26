@@ -1934,25 +1934,25 @@ h3 {
 
 .timeline-structure-node--segment {
   height: 8px;
-  border: 1px solid color-mix(in srgb, var(--color-accent-2) 58%, transparent);
+  border: none;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--color-accent-2) 26%, var(--timeline-board-bg));
+  background: transparent;
   padding: 0;
   overflow: visible;
   --timeline-subline-color: color-mix(in srgb, var(--color-accent-2) 82%, var(--color-ink));
   cursor: grab;
 }
 
-.timeline-structure-node--era::before,
 .timeline-structure-node--segment::before {
   content: "";
   position: absolute;
-  left: 8px;
-  right: 8px;
+  left: 0;
+  right: 0;
   top: 50%;
-  height: 1px;
+  height: 2px;
   transform: translateY(-50%);
-  background: color-mix(in srgb, var(--timeline-subline-color) 52%, transparent);
+  background: var(--timeline-subline-color);
+  border-radius: 999px;
 }
 
 .timeline-structure-node--era .timeline-structure-node__title,
