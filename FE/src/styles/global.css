@@ -1843,6 +1843,7 @@ h3 {
   padding: 0;
   overflow: visible;
   --timeline-axis-color: color-mix(in srgb, var(--color-accent) 72%, var(--color-ink));
+  z-index: 4;
 }
 
 .timeline-structure-node--axis-main {
@@ -1923,26 +1924,29 @@ h3 {
 
 .timeline-structure-node--era {
   height: 20px;
-  border: 1px solid color-mix(in srgb, var(--color-accent) 42%, transparent);
-  background: color-mix(in srgb, var(--color-accent) 12%, var(--timeline-board-bg));
-  border-radius: 999px;
+  border: none;
+  background: transparent;
+  border-radius: 0;
   padding: 0;
   overflow: visible;
   --timeline-subline-color: color-mix(in srgb, var(--color-accent) 74%, var(--color-ink));
   cursor: grab;
+  z-index: 3;
 }
 
 .timeline-structure-node--segment {
   height: 8px;
   border: none;
-  border-radius: 999px;
+  border-radius: 0;
   background: transparent;
   padding: 0;
   overflow: visible;
   --timeline-subline-color: color-mix(in srgb, var(--color-accent-2) 82%, var(--color-ink));
   cursor: grab;
+  z-index: 2;
 }
 
+.timeline-structure-node--era::before,
 .timeline-structure-node--segment::before {
   content: "";
   position: absolute;
@@ -1952,7 +1956,23 @@ h3 {
   height: 2px;
   transform: translateY(-50%);
   background: var(--timeline-subline-color);
-  border-radius: 999px;
+}
+
+.timeline-structure-node--era::after,
+.timeline-structure-node--segment::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 2px;
+  height: 12px;
+  transform: translateY(-50%);
+  background: var(--timeline-subline-color);
+  box-shadow: calc(100% - 2px) 0 0 0 var(--timeline-subline-color);
+}
+
+.timeline-structure-node--segment::after {
+  height: 10px;
 }
 
 .timeline-structure-node--era .timeline-structure-node__title,
