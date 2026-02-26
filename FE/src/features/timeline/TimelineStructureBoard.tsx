@@ -485,9 +485,6 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
   const [dragNode, setDragNode] = useState<DragBoardNode | null>(null);
   const [dropHint, setDropHint] = useState<DropHint>(null);
   const [savingOrder, setSavingOrder] = useState(false);
-  const [visibleAxisTypes, setVisibleAxisTypes] = useState<AxisType[]>([
-    ...AXIS_TYPES,
-  ]);
   const [showMarkers, setShowMarkers] = useState(true);
   const [focusSelectedAxis, setFocusSelectedAxis] = useState(false);
   const [lockedFocusAxisId, setLockedFocusAxisId] = useState("");
@@ -607,14 +604,6 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     return map;
   }, [segments]);
 
-  const filteredAxes = useMemo(
-    () =>
-      normalizedAxes.filter((axis) =>
-        visibleAxisTypes.includes(axis.axisType as AxisType)
-      ),
-    [normalizedAxes, visibleAxisTypes]
-  );
-
   const selectedAxisIdForFocus = useMemo(() => {
     if (!selectedNode) {
       return "";
@@ -662,10 +651,10 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
 
   const axesForLayout = useMemo(() => {
     if (!focusedAxisIds) {
-      return filteredAxes;
+      return normalizedAxes;
     }
-    return filteredAxes.filter((axis) => focusedAxisIds.has(axis.id));
-  }, [filteredAxes, focusedAxisIds]);
+    return normalizedAxes.filter((axis) => focusedAxisIds.has(axis.id));
+  }, [normalizedAxes, focusedAxisIds]);
 
   const axisLayout = useMemo(
     () => buildLayout(axesForLayout, eras, segments, yearPx),
@@ -1000,22 +989,6 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     const height = Math.max(TOP_PADDING + axisLayout.length * ROW_HEIGHT + 60, 420);
     return { width, height };
   }, [axisLayout]);
-
-  const toggleAxisTypeFilter = (axisType: AxisType) => {
-    setVisibleAxisTypes((prev) => {
-      if (prev.includes(axisType)) {
-        if (prev.length === 1) {
-          return prev;
-        }
-        return prev.filter((item) => item !== axisType);
-      }
-      return [...prev, axisType];
-    });
-  };
-
-  const resetAxisTypeFilter = () => {
-    setVisibleAxisTypes([...AXIS_TYPES]);
-  };
 
   const applyYearPx = (rawValue: string) => {
     const parsed = Number(rawValue);
@@ -1426,25 +1399,6 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
         onPointerLeave={handlePointerUp}
       >
         <div className="timeline-structure-board-navbar">
-          {AXIS_TYPES.map((axisType) => (
-            <button
-              key={`nav-filter-${axisType}`}
-              type="button"
-              className={`timeline-structure-filter${
-                visibleAxisTypes.includes(axisType) ? " timeline-structure-filter--active" : ""
-              }`}
-              onClick={() => toggleAxisTypeFilter(axisType)}
-            >
-              {t(AXIS_TYPE_LABELS[axisType])}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="timeline-structure-filter timeline-structure-filter--ghost"
-            onClick={resetAxisTypeFilter}
-          >
-            {t("Show all")}
-          </button>
           <button
             type="button"
             className={`timeline-structure-filter${
