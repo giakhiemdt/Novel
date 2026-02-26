@@ -122,12 +122,12 @@ const AXIS_MIN_WIDTH = 940;
 const TOP_PADDING = 44;
 const ROW_HEIGHT = 220;
 const AXIS_BAR_HEIGHT = 20;
-const ERA_BAR_HEIGHT = 16;
-const SEGMENT_BAR_HEIGHT = 12;
-const LAYER_GAP = 18;
+const ERA_BAR_HEIGHT = 20;
+const SEGMENT_BAR_HEIGHT = 8;
+const LAYER_GAP = 14;
 const AXIS_BAR_Y = 18;
 const ERA_BAR_Y = AXIS_BAR_Y + AXIS_BAR_HEIGHT + LAYER_GAP;
-const SEGMENT_BAR_Y = ERA_BAR_Y + ERA_BAR_HEIGHT + LAYER_GAP;
+const SEGMENT_BAR_Y = ERA_BAR_Y + Math.round((ERA_BAR_HEIGHT - SEGMENT_BAR_HEIGHT) / 2);
 const MIN_BAR_WIDTH = 24;
 const MINIMAP_WIDTH = 220;
 const MINIMAP_HEIGHT = 140;
@@ -1448,6 +1448,20 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
               +
             </button>
           </div>
+          <div className="timeline-structure-mini-legend" aria-hidden="true">
+            <span className="timeline-structure-mini-legend__item timeline-structure-mini-legend__item--axis">
+              Axis
+            </span>
+            <span className="timeline-structure-mini-legend__item timeline-structure-mini-legend__item--era">
+              Era
+            </span>
+            <span className="timeline-structure-mini-legend__item timeline-structure-mini-legend__item--segment">
+              Segment
+            </span>
+            <span className="timeline-structure-mini-legend__item timeline-structure-mini-legend__item--marker">
+              Marker
+            </span>
+          </div>
         </div>
         <BoardViewportControls
           zoom={scale}
@@ -1846,7 +1860,12 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                           showMarkers ? (
                             <span
                               key={marker.id}
-                              className="timeline-structure-segment-marker"
+                              className={`timeline-structure-segment-marker${
+                                selectedNode?.kind === "segment" &&
+                                selectedNode.id === segmentNode.segment.id
+                                  ? " timeline-structure-segment-marker--active"
+                                  : ""
+                              }`}
                               style={{ left: `${marker.offset}px` }}
                               title={`${marker.label} (${marker.tick})`}
                               aria-label={`${marker.label} (${marker.tick})`}
