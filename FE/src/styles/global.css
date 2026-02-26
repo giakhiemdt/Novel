@@ -1585,22 +1585,30 @@ h3 {
 
 .timeline-board-expand {
   position: absolute;
-  left: 12px;
+  right: 12px;
   bottom: 14px;
   z-index: 8;
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
-  min-width: 92px;
-  height: 32px;
-  padding: 0 12px;
+  width: 38px;
+  height: 38px;
+  padding: 0;
   background: color-mix(in srgb, var(--surface-popover) 92%, transparent);
   color: var(--color-ink);
-  font-weight: 700;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .timeline-board-expand:hover {
   border-color: var(--border-strong);
+}
+
+.timeline-board-expand__icon {
+  width: 18px;
+  height: 18px;
+  display: block;
 }
 
 .timeline-structure-axis-label {

@@ -11,6 +11,8 @@ import { BoardViewportControls } from "../../components/common/BoardViewportCont
 import { useToast } from "../../components/common/Toast";
 import { useBoardViewport } from "../../hooks/useBoardViewport";
 import { useI18n } from "../../i18n/I18nProvider";
+import fullscreenIcon from "../../assets/icons/fullscreen.svg";
+import fullscreenExitIcon from "../../assets/icons/fullscreen_exit.svg";
 import {
   getTimelineAxesPage,
   getTimelineErasPage,
@@ -1460,7 +1462,12 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
           title={isExpanded ? t("Exit board mode") : t("Expand board")}
           aria-label={isExpanded ? t("Exit board mode") : t("Expand board")}
         >
-          {isExpanded ? t("Exit board") : t("Expand board")}
+          <img
+            src={isExpanded ? fullscreenExitIcon : fullscreenIcon}
+            alt=""
+            className="timeline-board-expand__icon"
+            aria-hidden="true"
+          />
         </button>
 
         <div
