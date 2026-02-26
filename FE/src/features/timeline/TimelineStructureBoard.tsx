@@ -14,11 +14,17 @@ import { useI18n } from "../../i18n/I18nProvider";
 import {
   getTimelineAxesPage,
   getTimelineErasPage,
+  getTimelineMarkersPage,
   getTimelineSegmentsPage,
   updateTimelineEra,
   updateTimelineSegment,
 } from "./timeline-structure.api";
-import type { TimelineAxis, TimelineEra, TimelineSegment } from "./timeline-structure.types";
+import type {
+  TimelineAxis,
+  TimelineEra,
+  TimelineMarker,
+  TimelineSegment,
+} from "./timeline-structure.types";
 
 type TimelineStructureBoardProps = {
   refreshKey?: number;
@@ -178,6 +184,12 @@ const sortSegments = (a: TimelineSegment, b: TimelineSegment) => {
     numeric: true,
   });
 };
+
+const sortMarkers = (a: TimelineMarker, b: TimelineMarker) =>
+  a.tick - b.tick || (a.label ?? "").localeCompare(b.label ?? "", undefined, {
+    sensitivity: "base",
+    numeric: true,
+  });
 
 const hasValidRange = (start: unknown, end: unknown) =>
   isFiniteNumber(start) && isFiniteNumber(end) && end > start;
@@ -457,6 +469,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
   const [axes, setAxes] = useState<TimelineAxis[]>([]);
   const [eras, setEras] = useState<TimelineEra[]>([]);
   const [segments, setSegments] = useState<TimelineSegment[]>([]);
+  const [markers, setMarkers] = useState<TimelineMarker[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedNode, setSelectedNode] = useState<SelectedBoardNode | null>(null);
   const [dragNode, setDragNode] = useState<DragBoardNode | null>(null);
@@ -521,14 +534,16 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
 
     setLoading(true);
     try {
-      const [axisRes, eraRes, segmentRes] = await Promise.all([
+      const [axisRes, eraRes, segmentRes, markerRes] = await Promise.all([
         loadAll((query) => getTimelineAxesPage(query)),
         loadAll((query) => getTimelineErasPage(query)),
         loadAll((query) => getTimelineSegmentsPage(query)),
+        loadAll((query) => getTimelineMarkersPage(query)),
       ]);
       setAxes(axisRes);
       setEras(eraRes);
       setSegments(segmentRes);
+      setMarkers(markerRes);
     } catch (error) {
       notify((error as Error).message, "error");
     } finally {
@@ -663,6 +678,50 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
       ];
     });
   }, [axisLayout]);
+
+  const markerOffsetsBySegment = useMemo(() => {
+    const segmentLayoutById = new Map<
+      string,
+      { start: number; end: number; width: number }
+    >();
+    axisLayout.forEach((axisNode) => {
+      axisNode.eras.forEach((eraNode) => {
+        eraNode.segments.forEach((segmentNode) => {
+          segmentLayoutById.set(segmentNode.segment.id, {
+            start: segmentNode.start,
+            end: segmentNode.end,
+            width: segmentNode.width,
+          });
+        });
+      });
+    });
+
+    const map = new Map<
+      string,
+      Array<{ id: string; label: string; tick: number; offset: number }>
+    >();
+    [...markers].sort(sortMarkers).forEach((marker) => {
+      const segmentLayout = segmentLayoutById.get(marker.segmentId);
+      if (!segmentLayout) {
+        return;
+      }
+      const ratio = clamp(
+        (marker.tick - segmentLayout.start) /
+          Math.max(segmentLayout.end - segmentLayout.start, 1),
+        0,
+        1
+      );
+      const list = map.get(marker.segmentId) ?? [];
+      list.push({
+        id: marker.id,
+        label: marker.label,
+        tick: marker.tick,
+        offset: ratio * segmentLayout.width,
+      });
+      map.set(marker.segmentId, list);
+    });
+    return map;
+  }, [axisLayout, markers]);
 
   const selectionSummary = useMemo<SelectionSummary | null>(() => {
     if (!selectedNode) {
@@ -1567,6 +1626,17 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                       <span className="timeline-structure-node__title">
                         {segmentNode.segment.name}
                       </span>
+                      {(markerOffsetsBySegment.get(segmentNode.segment.id) ?? []).map(
+                        (marker) => (
+                          <span
+                            key={marker.id}
+                            className="timeline-structure-segment-marker"
+                            style={{ left: `${marker.offset}px` }}
+                            title={`${marker.label} (${marker.tick})`}
+                            aria-label={`${marker.label} (${marker.tick})`}
+                          />
+                        )
+                      )}
                     </div>
                   ))}
                 </div>

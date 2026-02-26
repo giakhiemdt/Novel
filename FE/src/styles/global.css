@@ -1831,6 +1831,7 @@ h3 {
   color: var(--color-ink);
   background: color-mix(in srgb, var(--timeline-board-bg) 82%, transparent);
   border-radius: 6px;
+  z-index: 2;
 }
 
 .timeline-structure-node--era .timeline-structure-node__range {
@@ -1841,6 +1842,20 @@ h3 {
   padding: 0 4px;
   background: color-mix(in srgb, var(--timeline-board-bg) 82%, transparent);
   border-radius: 6px;
+  z-index: 2;
+}
+
+.timeline-structure-segment-marker {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  background: color-mix(in srgb, var(--color-ink) 78%, var(--color-accent-2));
+  border: 1px solid color-mix(in srgb, var(--color-accent-2) 72%, var(--timeline-board-bg));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--timeline-board-bg) 74%, transparent);
+  pointer-events: none;
 }
 
 .timeline-structure-node--selected {
