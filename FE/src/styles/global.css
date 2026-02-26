@@ -1914,7 +1914,7 @@ h3 {
 }
 
 .timeline-structure-node--axis.timeline-structure-node--selected .timeline-structure-axis-line {
-  height: 3px;
+  height: 2px;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
