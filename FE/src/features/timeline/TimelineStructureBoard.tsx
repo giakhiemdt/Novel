@@ -790,11 +790,6 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     return map;
   }, [axisLayout, markers]);
 
-  const mainAxisId = useMemo(() => {
-    const mainAxis = axisLayout.find((node) => node.axis.axisType === "main");
-    return mainAxis?.axis.id ?? axisLayout[0]?.axis.id ?? "";
-  }, [axisLayout]);
-
   const segmentParentEraById = useMemo(() => {
     const map = new Map<string, string>();
     axisLayout.forEach((axisNode) => {
@@ -821,13 +816,8 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
   }, [segmentParentEraById, selectedNode]);
 
   const shouldShowAxis = (axisId: string) => {
-    if (!selectedNode) {
-      return axisId === mainAxisId;
-    }
-    if (selectedNode.kind === "axis") {
-      return selectedNode.id === axisId;
-    }
-    return false;
+    void axisId;
+    return true;
   };
 
   const shouldShowEra = (eraId: string, axisId: string) => {
