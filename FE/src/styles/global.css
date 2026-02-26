@@ -1534,21 +1534,21 @@ h3 {
 .timeline-structure-filter {
   border: 1px solid var(--border-subtle);
   border-radius: 999px;
-  background: var(--surface-soft);
-  color: var(--text-muted);
+  background: var(--color-ink);
+  color: var(--color-paper);
   padding: 5px 10px;
   font-size: var(--text-body-xs);
   cursor: pointer;
 }
 
 .timeline-structure-filter--active {
-  border-color: var(--border-strong);
-  background: var(--surface-card);
+  border-color: var(--color-ink);
+  background: var(--color-paper);
   color: var(--color-ink);
 }
 
 .timeline-structure-filter--ghost {
-  color: var(--color-ink);
+  color: var(--color-paper);
 }
 
 .timeline-structure-board {
@@ -1593,8 +1593,8 @@ h3 {
   width: 38px;
   height: 38px;
   padding: 0;
-  background: color-mix(in srgb, var(--surface-popover) 92%, transparent);
-  color: var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-paper);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -1994,8 +1994,8 @@ h3 {
   min-width: 30px;
   height: 30px;
   padding: 0 8px;
-  background: var(--surface-soft);
-  color: var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-paper);
   font-weight: 700;
   cursor: pointer;
 }
