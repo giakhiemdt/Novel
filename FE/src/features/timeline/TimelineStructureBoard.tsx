@@ -480,6 +480,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
   ]);
   const [showMarkers, setShowMarkers] = useState(true);
   const [focusSelectedAxis, setFocusSelectedAxis] = useState(false);
+  const [lockedFocusAxisId, setLockedFocusAxisId] = useState("");
   const {
     scale,
     pan,
@@ -567,6 +568,16 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
 
   const normalizedAxes = useMemo(() => normalizeAxesForHierarchy(axes), [axes]);
 
+  useEffect(() => {
+    if (!focusSelectedAxis || !lockedFocusAxisId) {
+      return;
+    }
+    if (!normalizedAxes.some((axis) => axis.id === lockedFocusAxisId)) {
+      setFocusSelectedAxis(false);
+      setLockedFocusAxisId("");
+    }
+  }, [focusSelectedAxis, lockedFocusAxisId, normalizedAxes]);
+
   const eraById = useMemo(() => {
     const map = new Map<string, TimelineEra>();
     eras.forEach((era) => {
@@ -605,7 +616,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
   }, [eras, segments, selectedNode]);
 
   const focusedAxisIds = useMemo(() => {
-    if (!focusSelectedAxis || !selectedAxisIdForFocus) {
+    if (!focusSelectedAxis || !lockedFocusAxisId) {
       return null;
     }
     const childrenByParentId = new Map<string, string[]>();
@@ -619,7 +630,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     });
 
     const visibleIds = new Set<string>();
-    const stack: string[] = [selectedAxisIdForFocus];
+    const stack: string[] = [lockedFocusAxisId];
     while (stack.length) {
       const current = stack.pop()!;
       if (visibleIds.has(current)) {
@@ -634,7 +645,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
       });
     }
     return visibleIds;
-  }, [focusSelectedAxis, normalizedAxes, selectedAxisIdForFocus]);
+  }, [focusSelectedAxis, lockedFocusAxisId, normalizedAxes]);
 
   const axesForLayout = useMemo(() => {
     if (!focusedAxisIds) {
@@ -1278,10 +1289,21 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                 className={`timeline-structure-filter${
                   focusSelectedAxis ? " timeline-structure-filter--active" : ""
                 }`}
-                disabled={!selectedAxisIdForFocus}
-                onClick={() => setFocusSelectedAxis((prev) => !prev)}
+                disabled={!focusSelectedAxis && !selectedAxisIdForFocus}
+                onClick={() => {
+                  if (focusSelectedAxis) {
+                    setFocusSelectedAxis(false);
+                    setLockedFocusAxisId("");
+                    return;
+                  }
+                  if (!selectedAxisIdForFocus) {
+                    return;
+                  }
+                  setLockedFocusAxisId(selectedAxisIdForFocus);
+                  setFocusSelectedAxis(true);
+                }}
                 title={
-                  selectedAxisIdForFocus
+                  focusSelectedAxis || selectedAxisIdForFocus
                     ? t("Focus current axis and descendants")
                     : t("Select an axis, era, or segment first")
                 }
