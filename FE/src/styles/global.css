@@ -1609,11 +1609,11 @@ h3 {
   width: 18px;
   height: 18px;
   display: block;
-  filter: brightness(0) invert(1);
+  filter: none;
 }
 
 :root[data-theme="light"] .timeline-board-expand__icon {
-  filter: none;
+  filter: brightness(0) saturate(100%) opacity(0.72);
 }
 
 .timeline-structure-axis-label {
