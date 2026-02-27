@@ -90,6 +90,7 @@ type AxisConnector = {
   path: string;
   fromX: number;
   fromY: number;
+  projectionFromY: number;
   toX: number;
   toY: number;
   originMarkerId?: string;
@@ -735,6 +736,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
 
       let fromX = parent.axisX + parent.axisWidth;
       let fromY = parent.y + AXIS_BAR_HEIGHT / 2;
+      const projectionFromY = parent.y + AXIS_BAR_HEIGHT / 2;
       let originMarkerId: string | undefined;
       let originLabel: string | undefined;
       let originTick: number | undefined;
@@ -787,6 +789,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
           parentName: parent.axis.name,
           fromX,
           fromY,
+          projectionFromY,
           toX: finalToX,
           toY,
           originMarkerId,
@@ -1671,9 +1674,9 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                 {connector.axisType === "branch" ? (
                   <line
                     x1={connector.toX}
-                    y1={Math.min(connector.toY - 6, connector.fromY)}
+                    y1={Math.min(connector.toY - 6, connector.projectionFromY)}
                     x2={connector.toX}
-                    y2={Math.max(connector.toY - 6, connector.fromY)}
+                    y2={Math.max(connector.toY - 6, connector.projectionFromY)}
                     className={[
                       "timeline-structure-branch-guide",
                       selectedNode?.kind === "axis" && selectedNode.id === connector.axisId
@@ -1682,6 +1685,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                     ]
                       .filter(Boolean)
                       .join(" ")}
+                    style={{ stroke: "#8f3a3a", strokeWidth: 2.2, strokeDasharray: "6 4" }}
                   />
                 ) : null}
                 {connector.axisType === "loop" ? (
