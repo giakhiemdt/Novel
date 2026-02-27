@@ -138,6 +138,7 @@ const SHOW_MINIMAP = false;
 const YEAR_PX_MIN = 0.25;
 const YEAR_PX_MAX = 8;
 const YEAR_PX_STEP = 0.25;
+const CLEAR_SELECTION_DRAG_THRESHOLD = 4;
 
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
@@ -490,6 +491,8 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
   const [lockedFocusAxisId, setLockedFocusAxisId] = useState("");
   const [yearPx, setYearPx] = useState(1);
   const [yearPxInput, setYearPxInput] = useState("1");
+  const panStartRef = useRef<{ x: number; y: number } | null>(null);
+  const clearSelectionOnPointerUpRef = useRef(false);
   const {
     scale,
     pan,
@@ -1285,12 +1288,20 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
       return;
     }
     startPan(event.clientX, event.clientY);
-    setSelectedNode(null);
+    panStartRef.current = { x: event.clientX, y: event.clientY };
+    clearSelectionOnPointerUpRef.current = true;
   };
 
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
     if (!isPanning) {
       return;
+    }
+    const panStart = panStartRef.current;
+    if (panStart && clearSelectionOnPointerUpRef.current) {
+      const distance = Math.hypot(event.clientX - panStart.x, event.clientY - panStart.y);
+      if (distance > CLEAR_SELECTION_DRAG_THRESHOLD) {
+        clearSelectionOnPointerUpRef.current = false;
+      }
     }
     movePan(event.clientX, event.clientY);
   };
@@ -1299,6 +1310,11 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     if (!isPanning) {
       return;
     }
+    if (clearSelectionOnPointerUpRef.current) {
+      setSelectedNode(null);
+    }
+    panStartRef.current = null;
+    clearSelectionOnPointerUpRef.current = false;
     stopPan();
   };
 
