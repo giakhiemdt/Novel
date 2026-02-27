@@ -1670,10 +1670,10 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
               <g key={connector.id}>
                 {connector.axisType === "branch" ? (
                   <line
-                    x1={connector.fromX}
-                    y1={connector.fromY}
+                    x1={connector.toX}
+                    y1={Math.min(connector.toY - 6, connector.fromY)}
                     x2={connector.toX}
-                    y2={connector.toY}
+                    y2={Math.max(connector.toY - 6, connector.fromY)}
                     className={[
                       "timeline-structure-branch-guide",
                       selectedNode?.kind === "axis" && selectedNode.id === connector.axisId
@@ -1684,18 +1684,20 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                       .join(" ")}
                   />
                 ) : null}
-                <path
-                  d={connector.path}
-                  className={[
-                    "timeline-structure-link",
-                    `timeline-structure-link--${connector.axisType}`,
-                    selectedNode?.kind === "axis" && selectedNode.id === connector.axisId
-                      ? "timeline-structure-link--selected"
-                      : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                />
+                {connector.axisType === "loop" ? (
+                  <path
+                    d={connector.path}
+                    className={[
+                      "timeline-structure-link",
+                      `timeline-structure-link--${connector.axisType}`,
+                      selectedNode?.kind === "axis" && selectedNode.id === connector.axisId
+                        ? "timeline-structure-link--selected"
+                        : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                  />
+                ) : null}
               </g>
             ))}
           </svg>
