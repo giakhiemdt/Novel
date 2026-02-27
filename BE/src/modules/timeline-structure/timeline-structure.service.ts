@@ -17,6 +17,7 @@ import {
   getTimelineEraCount,
   getTimelineEras,
   getTimelineMarkerCount,
+  getTimelineMarkerById,
   getTimelineMarkers,
   getTimelineSegmentById,
   getTimelineSegmentCount,
@@ -228,6 +229,11 @@ const validateAxisPayload = (payload: unknown): TimelineAxisInput => {
     result,
     "parentAxisId",
     assertOptionalString(data.parentAxisId, "parentAxisId")
+  );
+  addIfDefined(
+    result,
+    "originMarkerId",
+    assertOptionalString(data.originMarkerId, "originMarkerId")
   );
   addIfDefined(
     result,
@@ -585,6 +591,7 @@ export const timelineStructureService = {
     const requiresParentAxis = axisType === "branch" || axisType === "loop";
     const requiresOriginSegment = axisType === "branch";
     const parentAxisId = validated.parentAxisId;
+    const originMarkerId = validated.originMarkerId;
     const originSegmentId = validated.originSegmentId;
 
     if (axisType === "main") {
@@ -600,11 +607,14 @@ export const timelineStructureService = {
     if (!requiresParentAxis && parentAxisId) {
       throw new AppError("only branch and loop axes can have parent axis", 400);
     }
-    if (requiresOriginSegment && !originSegmentId) {
-      throw new AppError("origin segment is required for branch axis", 400);
+    if (requiresOriginSegment && !originMarkerId) {
+      throw new AppError("origin marker is required for branch axis", 400);
     }
-    if (!requiresOriginSegment && (originSegmentId || validated.originOffsetYears !== undefined)) {
-      throw new AppError("only branch axis can set origin segment", 400);
+    if (
+      !requiresOriginSegment &&
+      (originMarkerId || originSegmentId || validated.originOffsetYears !== undefined)
+    ) {
+      throw new AppError("only branch axis can set origin", 400);
     }
 
     const nodeId = validated.id ?? generateId();
@@ -617,13 +627,13 @@ export const timelineStructureService = {
         throw new AppError("parent axis not found", 404);
       }
     }
-    if (originSegmentId) {
-      const segment = await getTimelineSegmentById(database, originSegmentId);
-      if (!segment) {
-        throw new AppError("origin segment not found", 404);
+    if (originMarkerId) {
+      const marker = await getTimelineMarkerById(database, originMarkerId);
+      if (!marker) {
+        throw new AppError("origin marker not found", 404);
       }
-      if (!parentAxisId || segment.axisId !== parentAxisId) {
-        throw new AppError("origin segment must belong to parent axis", 400);
+      if (!parentAxisId || marker.axisId !== parentAxisId) {
+        throw new AppError("origin marker must belong to parent axis", 400);
       }
     }
 
@@ -651,6 +661,7 @@ export const timelineStructureService = {
     const requiresParentAxis = axisType === "branch" || axisType === "loop";
     const requiresOriginSegment = axisType === "branch";
     const parentAxisId = validated.parentAxisId;
+    const originMarkerId = validated.originMarkerId;
     const originSegmentId = validated.originSegmentId;
 
     if (axisType === "main") {
@@ -666,11 +677,14 @@ export const timelineStructureService = {
     if (!requiresParentAxis && parentAxisId) {
       throw new AppError("only branch and loop axes can have parent axis", 400);
     }
-    if (requiresOriginSegment && !originSegmentId) {
-      throw new AppError("origin segment is required for branch axis", 400);
+    if (requiresOriginSegment && !originMarkerId) {
+      throw new AppError("origin marker is required for branch axis", 400);
     }
-    if (!requiresOriginSegment && (originSegmentId || validated.originOffsetYears !== undefined)) {
-      throw new AppError("only branch axis can set origin segment", 400);
+    if (
+      !requiresOriginSegment &&
+      (originMarkerId || originSegmentId || validated.originOffsetYears !== undefined)
+    ) {
+      throw new AppError("only branch axis can set origin", 400);
     }
 
     if (parentAxisId) {
@@ -682,13 +696,13 @@ export const timelineStructureService = {
         throw new AppError("parent axis not found", 404);
       }
     }
-    if (originSegmentId) {
-      const segment = await getTimelineSegmentById(database, originSegmentId);
-      if (!segment) {
-        throw new AppError("origin segment not found", 404);
+    if (originMarkerId) {
+      const marker = await getTimelineMarkerById(database, originMarkerId);
+      if (!marker) {
+        throw new AppError("origin marker not found", 404);
       }
-      if (!parentAxisId || segment.axisId !== parentAxisId) {
-        throw new AppError("origin segment must belong to parent axis", 400);
+      if (!parentAxisId || marker.axisId !== parentAxisId) {
+        throw new AppError("origin marker must belong to parent axis", 400);
       }
     }
 

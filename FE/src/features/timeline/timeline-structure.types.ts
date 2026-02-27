@@ -8,6 +8,7 @@ export type TimelineAxis = {
   axisType: TimelineAxisType;
   description?: string;
   parentAxisId?: string;
+  originMarkerId?: string;
   originSegmentId?: string;
   originOffsetYears?: number;
   policy?: string;

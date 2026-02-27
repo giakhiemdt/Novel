@@ -11,6 +11,7 @@ export type TimelineAxisInput = {
   axisType?: TimelineAxisType;
   description?: string;
   parentAxisId?: string;
+  originMarkerId?: string;
   originSegmentId?: string;
   originOffsetYears?: number;
   policy?: string;

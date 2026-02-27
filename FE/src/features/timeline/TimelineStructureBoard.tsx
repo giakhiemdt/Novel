@@ -607,6 +607,14 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     return map;
   }, [segments]);
 
+  const markerById = useMemo(() => {
+    const map = new Map<string, TimelineMarker>();
+    markers.forEach((marker) => {
+      map.set(marker.id, marker);
+    });
+    return map;
+  }, [markers]);
+
   const selectedAxisIdForFocus = useMemo(() => {
     if (!selectedNode) {
       return "";
@@ -719,7 +727,22 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
 
       let fromX = parent.axisX + parent.axisWidth;
       let fromY = parent.y + AXIS_BAR_HEIGHT / 2;
-      if (axisType === "branch" && item.axis.originSegmentId) {
+      if (axisType === "branch" && item.axis.originMarkerId) {
+        const originMarker = markerById.get(item.axis.originMarkerId);
+        const originSegment = originMarker
+          ? segmentLayoutById.get(originMarker.segmentId)
+          : undefined;
+        if (originMarker && originSegment) {
+          const ratio = clamp(
+            (originMarker.tick - originSegment.start) /
+              Math.max(originSegment.end - originSegment.start, 1),
+            0,
+            1
+          );
+          fromX = originSegment.x + ratio * originSegment.width;
+          fromY = originSegment.y + SEGMENT_BAR_HEIGHT / 2;
+        }
+      } else if (axisType === "branch" && item.axis.originSegmentId) {
         const originSegment = segmentLayoutById.get(item.axis.originSegmentId);
         if (originSegment) {
           const offsetYears = isFiniteNumber(item.axis.originOffsetYears)
@@ -747,7 +770,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
         },
       ];
     });
-  }, [axisLayout]);
+  }, [axisLayout, markerById]);
 
   const markerOffsetsBySegment = useMemo(() => {
     const segmentLayoutById = new Map<
@@ -883,10 +906,10 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
             value: axis.policy?.trim() || t(AXIS_TYPE_POLICIES[axisType] ?? "-"),
           },
           {
-            label: t("Origin segment"),
+            label: t("Origin marker"),
             value:
-              axisType === "branch" && axis.originSegmentId
-                ? segmentNameById.get(axis.originSegmentId) ?? axis.originSegmentId
+              axisType === "branch" && axis.originMarkerId
+                ? markerById.get(axis.originMarkerId)?.label ?? axis.originMarkerId
                 : "-",
           },
           {
@@ -966,6 +989,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     eraDurationById,
     eras,
     normalizedAxes,
+    markerById,
     segmentNameById,
     segmentDurationById,
     segments,

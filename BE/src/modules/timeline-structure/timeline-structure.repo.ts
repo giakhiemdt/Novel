@@ -23,6 +23,7 @@ CREATE (a:${nodeLabels.timelineAxis} {
   axisType: $axisType,
   description: $description,
   parentAxisId: $parentAxisId,
+  originMarkerId: $originMarkerId,
   originSegmentId: $originSegmentId,
   originOffsetYears: $originOffsetYears,
   policy: $policy,
@@ -46,6 +47,7 @@ SET
   a.axisType = $axisType,
   a.description = $description,
   a.parentAxisId = $parentAxisId,
+  a.originMarkerId = $originMarkerId,
   a.originSegmentId = $originSegmentId,
   a.originOffsetYears = $originOffsetYears,
   a.policy = $policy,
@@ -119,6 +121,7 @@ CALL {
   MATCH (child:${nodeLabels.timelineAxis})
   WHERE child.parentAxisId = axisId
   SET child.parentAxisId = NULL,
+      child.originMarkerId = NULL,
       child.originSegmentId = NULL,
       child.originOffsetYears = NULL
   RETURN count(child) AS updatedChildren
@@ -394,6 +397,11 @@ MATCH (s:${nodeLabels.timelineSegment} {id: $id})
 RETURN s
 `;
 
+const GET_TIMELINE_MARKER_BY_ID = `
+MATCH (m:${nodeLabels.timelineMarker} {id: $id})
+RETURN m
+`;
+
 const DELETE_TIMELINE_SEGMENT = `
 MATCH (s:${nodeLabels.timelineSegment} {id: $id})
 WITH s, s.id AS segmentId
@@ -543,6 +551,7 @@ const AXIS_PARAMS = [
   "axisType",
   "description",
   "parentAxisId",
+  "originMarkerId",
   "originSegmentId",
   "originOffsetYears",
   "policy",
@@ -677,6 +686,24 @@ export const getTimelineSegmentById = async (
     }
     const node = record.get("s");
     return mapNode(node?.properties ?? {}) as TimelineSegmentNode;
+  } finally {
+    await session.close();
+  }
+};
+
+export const getTimelineMarkerById = async (
+  database: string,
+  markerId: string
+): Promise<TimelineMarkerNode | null> => {
+  const session = getSessionForDatabase(database, neo4j.session.READ);
+  try {
+    const result = await session.run(GET_TIMELINE_MARKER_BY_ID, { id: markerId });
+    const record = result.records[0];
+    if (!record) {
+      return null;
+    }
+    const node = record.get("m");
+    return mapNode(node?.properties ?? {}) as TimelineMarkerNode;
   } finally {
     await session.close();
   }

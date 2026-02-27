@@ -108,6 +108,7 @@ type AxisEditState = {
   code: string;
   axisType: (typeof AXIS_TYPES)[number];
   parentAxisId: string;
+  originMarkerId: string;
   originSegmentId: string;
   originOffsetYears: string;
   description: string;
@@ -268,7 +269,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
   const [axisCode, setAxisCode] = useState("");
   const [axisType, setAxisType] = useState<(typeof AXIS_TYPES)[number]>("main");
   const [axisParentId, setAxisParentId] = useState("");
-  const [axisOriginSegmentId, setAxisOriginSegmentId] = useState("");
+  const [axisOriginMarkerId, setAxisOriginMarkerId] = useState("");
   const [axisOriginOffsetYears, setAxisOriginOffsetYears] = useState("");
 
   const [eraName, setEraName] = useState("");
@@ -343,16 +344,16 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
     [axes]
   );
 
-  const branchOriginSegmentOptions = useMemo(
+  const branchOriginMarkerOptions = useMemo(
     () =>
-      [...segments]
-        .filter((segment) => segment.axisId === axisParentId)
-        .sort(sortSegments)
-        .map((segment) => ({
-          value: segment.id,
-          label: segment.name,
+      [...markers]
+        .filter((marker) => marker.axisId === axisParentId)
+        .sort(sortMarkers)
+        .map((marker) => ({
+          value: marker.id,
+          label: `${marker.label} (${marker.tick})`,
         })),
-    [axisParentId, segments]
+    [axisParentId, markers]
   );
 
   const eraNameById = useMemo(() => {
@@ -503,8 +504,8 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       if (axisParentId) {
         setAxisParentId("");
       }
-      if (axisOriginSegmentId) {
-        setAxisOriginSegmentId("");
+      if (axisOriginMarkerId) {
+        setAxisOriginMarkerId("");
       }
       if (axisOriginOffsetYears) {
         setAxisOriginOffsetYears("");
@@ -524,7 +525,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
     }
   }, [
     axisOriginOffsetYears,
-    axisOriginSegmentId,
+    axisOriginMarkerId,
     axisParentId,
     axisParentOptions,
     axisType,
@@ -538,16 +539,16 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       return;
     }
     const hasCurrentOrigin =
-      axisOriginSegmentId &&
-      branchOriginSegmentOptions.some((option) => option.value === axisOriginSegmentId);
+      axisOriginMarkerId &&
+      branchOriginMarkerOptions.some((option) => option.value === axisOriginMarkerId);
     if (hasCurrentOrigin) {
       return;
     }
-    const fallbackOriginSegmentId = branchOriginSegmentOptions[0]?.value ?? "";
-    if (fallbackOriginSegmentId !== axisOriginSegmentId) {
-      setAxisOriginSegmentId(fallbackOriginSegmentId);
+    const fallbackOriginMarkerId = branchOriginMarkerOptions[0]?.value ?? "";
+    if (fallbackOriginMarkerId !== axisOriginMarkerId) {
+      setAxisOriginMarkerId(fallbackOriginMarkerId);
     }
-  }, [axisOriginSegmentId, axisType, branchOriginSegmentOptions, createMode]);
+  }, [axisOriginMarkerId, axisType, branchOriginMarkerOptions, createMode]);
 
   const timelineTree = useMemo<TimelineTreeAxisNode[]>(() => {
     const markersBySegment = new Map<string, TimelineTreeMarkerNode[]>();
@@ -659,8 +660,8 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       return;
     }
     const requiresOrigin = axisType === "branch";
-    if (requiresOrigin && !axisOriginSegmentId) {
-      notify(t("Select a segment first"), "error");
+    if (requiresOrigin && !axisOriginMarkerId) {
+      notify(t("Select a marker first"), "error");
       return;
     }
     const normalizedOriginOffset = axisOriginOffsetYears.trim();
@@ -680,7 +681,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
         code: axisCode.trim() || undefined,
         axisType,
         parentAxisId: requiresParent ? axisParentId : undefined,
-        originSegmentId: requiresOrigin ? axisOriginSegmentId : undefined,
+        originMarkerId: requiresOrigin ? axisOriginMarkerId : undefined,
         originOffsetYears: requiresOrigin ? parsedOriginOffsetYears : undefined,
       });
       notify(t("Axis created"), "success");
@@ -692,7 +693,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       setAxisName("");
       setAxisCode("");
       setAxisParentId("");
-      setAxisOriginSegmentId("");
+      setAxisOriginMarkerId("");
       setAxisOriginOffsetYears("");
     } catch (error) {
       notify((error as Error).message, "error");
@@ -955,6 +956,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       code: axis.code ?? "",
       axisType: axis.axisType,
       parentAxisId: axis.parentAxisId ?? effectiveAxisParentById.get(axis.id) ?? "",
+      originMarkerId: axis.originMarkerId ?? "",
       originSegmentId: axis.originSegmentId ?? "",
       originOffsetYears: toInputValue(axis.originOffsetYears),
       description: axis.description ?? "",
@@ -1077,8 +1079,8 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
           setSavingEdit(false);
           return;
         }
-        if (requiresOrigin && !editNode.originSegmentId.trim()) {
-          notify(t("Select a segment first"), "error");
+        if (requiresOrigin && !editNode.originMarkerId.trim()) {
+          notify(t("Select a marker first"), "error");
           setSavingEdit(false);
           return;
         }
@@ -1103,7 +1105,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
           code: editNode.code.trim() || undefined,
           axisType: editNode.axisType,
           parentAxisId: requiresParent ? editNode.parentAxisId.trim() : undefined,
-          originSegmentId: requiresOrigin ? editNode.originSegmentId.trim() : undefined,
+          originMarkerId: requiresOrigin ? editNode.originMarkerId.trim() : undefined,
           originOffsetYears: requiresOrigin ? originOffsetYears : undefined,
           description: editNode.description.trim() || undefined,
           sortOrder,
@@ -1891,11 +1893,11 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
             {axisType === "branch" ? (
               <>
                 <Select
-                  label="Origin segment"
-                  value={axisOriginSegmentId}
-                  onChange={(value) => setAxisOriginSegmentId(value)}
-                  options={branchOriginSegmentOptions}
-                  placeholder="Select segment"
+                  label="Origin marker"
+                  value={axisOriginMarkerId}
+                  onChange={(value) => setAxisOriginMarkerId(value)}
+                  options={branchOriginMarkerOptions}
+                  placeholder="Select marker"
                 />
                 <TextInput
                   label="Origin offset years"
@@ -2273,6 +2275,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
                           ...prev,
                           axisType: nextAxisType,
                           parentAxisId: requiresParent ? prev.parentAxisId : "",
+                          originMarkerId: requiresOrigin ? prev.originMarkerId : "",
                           originSegmentId: requiresOrigin ? prev.originSegmentId : "",
                           originOffsetYears: requiresOrigin ? prev.originOffsetYears : "",
                         };
@@ -2315,6 +2318,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
                           ? {
                               ...prev,
                               parentAxisId: value,
+                              originMarkerId: prev.axisType === "branch" ? "" : prev.originMarkerId,
                               originSegmentId:
                                 prev.axisType === "branch" ? "" : prev.originSegmentId,
                             }
@@ -2334,23 +2338,23 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
                 {editNode.nodeType === "axis" && editNode.axisType === "branch" ? (
                   <>
                     <Select
-                      label="Origin segment"
-                      value={editNode.originSegmentId}
+                      label="Origin marker"
+                      value={editNode.originMarkerId}
                       onChange={(value) =>
                         setEditNode((prev) =>
                           prev && prev.nodeType === "axis"
-                            ? { ...prev, originSegmentId: value }
+                            ? { ...prev, originMarkerId: value }
                             : prev
                         )
                       }
-                      options={[...segments]
-                        .filter((segment) => segment.axisId === editNode.parentAxisId)
-                        .sort(sortSegments)
-                        .map((segment) => ({
-                          value: segment.id,
-                          label: segment.name,
+                      options={[...markers]
+                        .filter((marker) => marker.axisId === editNode.parentAxisId)
+                        .sort(sortMarkers)
+                        .map((marker) => ({
+                          value: marker.id,
+                          label: `${marker.label} (${marker.tick})`,
                         }))}
-                      placeholder="Select segment"
+                      placeholder="Select marker"
                     />
                     <TextInput
                       label="Origin offset years"
