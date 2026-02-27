@@ -822,6 +822,24 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     return connector?.axisType === "branch" ? connector.originMarkerId ?? "" : "";
   }, [connectorByAxisId, selectedNode]);
 
+  const axisVisualById = useMemo(() => {
+    const map = new Map<string, { startOffset: number; childScale: number }>();
+    axisLayout.forEach((axisNode) => {
+      const connector = connectorByAxisId.get(axisNode.axis.id);
+      const startOffset =
+        axisNode.axis.axisType === "branch" && connector
+          ? clamp(connector.toX - axisNode.axisX, 0, axisNode.axisWidth - 14)
+          : 0;
+      const availableWidth = Math.max(axisNode.axisWidth - startOffset, MIN_BAR_WIDTH);
+      const childScale =
+        axisNode.axis.axisType === "branch" && startOffset > 0
+          ? clamp(availableWidth / Math.max(axisNode.axisWidth, 1), 0.05, 1)
+          : 1;
+      map.set(axisNode.axis.id, { startOffset, childScale });
+    });
+    return map;
+  }, [axisLayout, connectorByAxisId]);
+
   const markerOffsetsBySegment = useMemo(() => {
     const segmentLayoutById = new Map<
       string,
@@ -1721,10 +1739,11 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                 <>
                   {(() => {
                     const axisConnector = connectorByAxisId.get(axisNode.axis.id);
-                    const axisLineStartOffset =
-                      axisNode.axis.axisType === "branch" && axisConnector
-                        ? clamp(axisConnector.toX - axisNode.axisX, 0, axisNode.axisWidth - 14)
-                        : 0;
+                    const axisVisual = axisVisualById.get(axisNode.axis.id) ?? {
+                      startOffset: 0,
+                      childScale: 1,
+                    };
+                    const axisLineStartOffset = axisVisual.startOffset;
 
                     return (
                       <>
@@ -1830,6 +1849,17 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
               {axisNode.eras.map((eraNode) => (
                 <div key={eraNode.era.id}>
                   {shouldShowEra(eraNode.era.id, axisNode.axis.id) ? (
+                  (() => {
+                    const axisVisual = axisVisualById.get(axisNode.axis.id) ?? {
+                      startOffset: 0,
+                      childScale: 1,
+                    };
+                    const eraX =
+                      axisNode.axisX +
+                      axisVisual.startOffset +
+                      (eraNode.x - axisNode.axisX) * axisVisual.childScale;
+                    const eraWidth = Math.max(MIN_BAR_WIDTH, eraNode.width * axisVisual.childScale);
+                    return (
                   <div
                     className={[
                       "timeline-structure-node",
@@ -1846,8 +1876,8 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                       .filter(Boolean)
                       .join(" ")}
                     style={{
-                      width: eraNode.width,
-                      transform: `translate(${eraNode.x}px, ${eraNode.y}px)`,
+                      width: eraWidth,
+                      transform: `translate(${eraX}px, ${eraNode.y}px)`,
                     }}
                     draggable={!savingOrder}
                     onDragStart={(event) => {
@@ -1909,10 +1939,25 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                       0 - {Math.round(eraNode.duration)}
                     </span>
                   </div>
+                    );
+                  })()
                   ) : null}
 
                   {shouldShowSegment(eraNode.era.id)
-                    ? eraNode.segments.map((segmentNode) => (
+                    ? eraNode.segments.map((segmentNode) => {
+                      const axisVisual = axisVisualById.get(axisNode.axis.id) ?? {
+                        startOffset: 0,
+                        childScale: 1,
+                      };
+                      const segmentX =
+                        axisNode.axisX +
+                        axisVisual.startOffset +
+                        (segmentNode.x - axisNode.axisX) * axisVisual.childScale;
+                      const segmentWidth = Math.max(
+                        MIN_BAR_WIDTH,
+                        segmentNode.width * axisVisual.childScale
+                      );
+                      return (
                     <div
                       key={segmentNode.segment.id}
                       className={[
@@ -1932,8 +1977,8 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                         .filter(Boolean)
                         .join(" ")}
                       style={{
-                        width: segmentNode.width,
-                        transform: `translate(${segmentNode.x}px, ${segmentNode.y}px)`,
+                        width: segmentWidth,
+                        transform: `translate(${segmentX}px, ${segmentNode.y}px)`,
                       }}
                       draggable={!savingOrder}
                       onDragStart={(event) => {
@@ -2011,14 +2056,15 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                                   ? " timeline-structure-segment-marker--branch-origin"
                                   : ""
                               }`}
-                              style={{ left: `${marker.offset}px` }}
+                              style={{ left: `${marker.offset * axisVisual.childScale}px` }}
                               title={`${marker.label} (${marker.tick})`}
                               aria-label={`${marker.label} (${marker.tick})`}
                             />
                           ) : null
                       )}
                     </div>
-                    ))
+                      );
+                    })
                     : null}
                 </div>
               ))}
