@@ -1765,6 +1765,19 @@ h3 {
   color: var(--text-faint);
 }
 
+.timeline-structure-axis-label__warning {
+  margin-top: 2px;
+  display: inline-flex;
+  width: fit-content;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 16px;
+  color: color-mix(in srgb, var(--color-danger) 72%, var(--text-muted));
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 28%, transparent);
+}
+
 .timeline-structure-links {
   position: absolute;
   inset: 0;
@@ -1811,6 +1824,42 @@ h3 {
 
 .timeline-structure-link-label--loop {
   fill: color-mix(in srgb, var(--color-success) 60%, var(--text-muted));
+}
+
+.timeline-structure-branch-guide {
+  stroke: color-mix(in srgb, var(--color-danger) 34%, var(--text-muted));
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+  opacity: 0.6;
+}
+
+.timeline-structure-branch-guide--selected {
+  stroke: color-mix(in srgb, var(--color-danger) 62%, var(--text-muted));
+  opacity: 0.95;
+}
+
+.timeline-structure-link-anchor {
+  stroke-width: 1.2;
+  opacity: 0.9;
+}
+
+.timeline-structure-link-anchor--branch {
+  fill: color-mix(in srgb, var(--color-danger) 68%, var(--timeline-board-bg));
+  stroke: color-mix(in srgb, var(--color-danger) 82%, var(--timeline-board-bg));
+}
+
+.timeline-structure-link-anchor--loop {
+  fill: color-mix(in srgb, var(--color-success) 62%, var(--timeline-board-bg));
+  stroke: color-mix(in srgb, var(--color-success) 78%, var(--timeline-board-bg));
+}
+
+.timeline-structure-link-anchor--target {
+  fill: color-mix(in srgb, var(--timeline-board-bg) 72%, var(--color-danger));
+}
+
+.timeline-structure-link-anchor--selected {
+  stroke-width: 1.8;
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--color-primary) 34%, transparent));
 }
 
 .timeline-structure-node {
@@ -1932,6 +1981,40 @@ h3 {
   filter: drop-shadow(0 0 2px color-mix(in srgb, var(--color-accent) 38%, transparent));
 }
 
+.timeline-structure-axis-origin {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.timeline-structure-axis-origin__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: block;
+  background: color-mix(in srgb, var(--color-danger) 64%, var(--timeline-board-bg));
+  border: 1px solid color-mix(in srgb, var(--color-danger) 84%, var(--timeline-board-bg));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--timeline-board-bg) 72%, transparent);
+}
+
+.timeline-structure-axis-origin__label {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translate(-50%, -2px);
+  font-size: 10px;
+  line-height: 1;
+  color: color-mix(in srgb, var(--color-danger) 72%, var(--text-muted));
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+.timeline-structure-node--axis:hover .timeline-structure-axis-origin__label,
+.timeline-structure-axis-origin--selected .timeline-structure-axis-origin__label {
+  opacity: 1;
+}
+
 .timeline-structure-node--era {
   height: 20px;
   border: none;
@@ -2050,6 +2133,15 @@ h3 {
 
 .timeline-structure-node--segment:hover .timeline-structure-segment-marker,
 .timeline-structure-segment-marker--active {
+  opacity: 1;
+}
+
+.timeline-structure-segment-marker--branch-origin {
+  width: 9px;
+  height: 9px;
+  background: color-mix(in srgb, var(--color-danger) 58%, var(--color-ink));
+  border-color: color-mix(in srgb, var(--color-danger) 72%, var(--timeline-board-bg));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--timeline-board-bg) 82%, transparent);
   opacity: 1;
 }
 

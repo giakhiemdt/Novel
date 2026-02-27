@@ -87,6 +87,13 @@ type AxisConnector = {
   axisType: "branch" | "loop";
   parentName: string;
   path: string;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  originMarkerId?: string;
+  originLabel?: string;
+  originTick?: number;
   badgeX: number;
   badgeY: number;
 };
@@ -727,12 +734,18 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
 
       let fromX = parent.axisX + parent.axisWidth;
       let fromY = parent.y + AXIS_BAR_HEIGHT / 2;
+      let originMarkerId: string | undefined;
+      let originLabel: string | undefined;
+      let originTick: number | undefined;
       if (axisType === "branch" && item.axis.originMarkerId) {
         const originMarker = markerById.get(item.axis.originMarkerId);
         const originSegment = originMarker
           ? segmentLayoutById.get(originMarker.segmentId)
           : undefined;
         if (originMarker && originSegment) {
+          originMarkerId = originMarker.id;
+          originLabel = originMarker.label;
+          originTick = originMarker.tick;
           const ratio = clamp(
             (originMarker.tick - originSegment.start) /
               Math.max(originSegment.end - originSegment.start, 1),
@@ -755,8 +768,15 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
       }
       const toX = item.axisX;
       const toY = item.y + AXIS_BAR_HEIGHT / 2;
-      const controlX = (fromX + toX) / 2;
-      const path = `M ${fromX} ${fromY} C ${controlX} ${fromY}, ${controlX} ${toY}, ${toX} ${toY}`;
+      const minAxisX = item.axisX + 8;
+      const maxAxisX = item.axisX + item.axisWidth - 12;
+      const finalToX =
+        axisType === "branch" ? clamp(fromX, minAxisX, maxAxisX) : toX;
+      const controlX = (fromX + finalToX) / 2;
+      const path =
+        axisType === "branch"
+          ? `M ${fromX} ${fromY} C ${controlX} ${fromY}, ${controlX} ${toY}, ${finalToX} ${toY}`
+          : `M ${fromX} ${fromY} C ${controlX} ${fromY}, ${controlX} ${toY}, ${toX} ${toY}`;
 
       return [
         {
@@ -764,6 +784,13 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
           axisId: item.axis.id,
           axisType,
           parentName: parent.axis.name,
+          fromX,
+          fromY,
+          toX: finalToX,
+          toY,
+          originMarkerId,
+          originLabel,
+          originTick,
           path,
           badgeX: controlX + 2,
           badgeY: (fromY + toY) / 2,
@@ -771,6 +798,22 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
       ];
     });
   }, [axisLayout, markerById]);
+
+  const connectorByAxisId = useMemo(() => {
+    const map = new Map<string, AxisConnector>();
+    axisConnectors.forEach((connector) => {
+      map.set(connector.axisId, connector);
+    });
+    return map;
+  }, [axisConnectors]);
+
+  const selectedBranchOriginMarkerId = useMemo(() => {
+    if (!selectedNode || selectedNode.kind !== "axis") {
+      return "";
+    }
+    const connector = connectorByAxisId.get(selectedNode.id);
+    return connector?.axisType === "branch" ? connector.originMarkerId ?? "" : "";
+  }, [connectorByAxisId, selectedNode]);
 
   const markerOffsetsBySegment = useMemo(() => {
     const segmentLayoutById = new Map<
@@ -1647,11 +1690,24 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
               </marker>
             </defs>
 
-            {((!selectedNode || selectedNode.kind === "axis")
-              ? axisConnectors
-              : []
-            ).map((connector) => (
+            {axisConnectors.map((connector) => (
               <g key={connector.id}>
+                {connector.axisType === "branch" ? (
+                  <line
+                    x1={connector.fromX}
+                    y1={connector.fromY}
+                    x2={connector.toX}
+                    y2={connector.toY}
+                    className={[
+                      "timeline-structure-branch-guide",
+                      selectedNode?.kind === "axis" && selectedNode.id === connector.axisId
+                        ? "timeline-structure-branch-guide--selected"
+                        : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                  />
+                ) : null}
                 <path
                   d={connector.path}
                   className={[
@@ -1665,6 +1721,37 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                     .join(" ")}
                   markerEnd={`url(#timeline-link-arrow-${connector.axisType})`}
                 />
+                <circle
+                  cx={connector.fromX}
+                  cy={connector.fromY}
+                  r={connector.axisType === "branch" ? 4.2 : 3.4}
+                  className={[
+                    "timeline-structure-link-anchor",
+                    `timeline-structure-link-anchor--${connector.axisType}`,
+                    selectedNode?.kind === "axis" && selectedNode.id === connector.axisId
+                      ? "timeline-structure-link-anchor--selected"
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                />
+                {connector.axisType === "branch" ? (
+                  <circle
+                    cx={connector.toX}
+                    cy={connector.toY}
+                    r={4}
+                    className={[
+                      "timeline-structure-link-anchor",
+                      "timeline-structure-link-anchor--branch",
+                      "timeline-structure-link-anchor--target",
+                      selectedNode?.kind === "axis" && selectedNode.id === connector.axisId
+                        ? "timeline-structure-link-anchor--selected"
+                        : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                  />
+                ) : null}
                 <text
                   x={connector.badgeX}
                   y={connector.badgeY - 4}
@@ -1711,6 +1798,13 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                           axisNode.axis.parentAxisId}
                       </span>
                     ) : null}
+                    {axisNode.axis.axisType === "branch" &&
+                    axisNode.axis.originMarkerId &&
+                    !connectorByAxisId.get(axisNode.axis.id)?.originMarkerId ? (
+                      <span className="timeline-structure-axis-label__warning">
+                        {t("Missing origin marker")}
+                      </span>
+                    ) : null}
                   </div>
 
                   <div
@@ -1745,6 +1839,39 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                     <span className="timeline-structure-axis-line" aria-hidden="true" />
                     <span className="timeline-structure-axis-start-tick" aria-hidden="true" />
                     <span className="timeline-structure-axis-arrow" aria-hidden="true" />
+                    {axisNode.axis.axisType === "branch" &&
+                    connectorByAxisId.get(axisNode.axis.id) ? (
+                      <span
+                        className={[
+                          "timeline-structure-axis-origin",
+                          selectedNode?.kind === "axis" && selectedNode.id === axisNode.axis.id
+                            ? "timeline-structure-axis-origin--selected"
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                        style={{
+                          left: `${
+                            (connectorByAxisId.get(axisNode.axis.id)!.toX - axisNode.axisX).toFixed(
+                              2
+                            )
+                          }px`,
+                        }}
+                        title={
+                          connectorByAxisId.get(axisNode.axis.id)!.originLabel &&
+                          isFiniteNumber(connectorByAxisId.get(axisNode.axis.id)!.originTick)
+                            ? `${connectorByAxisId.get(axisNode.axis.id)!.originLabel} (${Math.round(
+                                connectorByAxisId.get(axisNode.axis.id)!.originTick as number
+                              )})`
+                            : t("Branch start")
+                        }
+                      >
+                        <span className="timeline-structure-axis-origin__dot" aria-hidden="true" />
+                        <span className="timeline-structure-axis-origin__label">
+                          {t("Start")}
+                        </span>
+                      </span>
+                    ) : null}
                   </div>
                 </>
               ) : null}
@@ -1927,6 +2054,10 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                                 selectedNode?.kind === "segment" &&
                                 selectedNode.id === segmentNode.segment.id
                                   ? " timeline-structure-segment-marker--active"
+                                  : ""
+                              }${
+                                marker.id === selectedBranchOriginMarkerId
+                                  ? " timeline-structure-segment-marker--branch-origin"
                                   : ""
                               }`}
                               style={{ left: `${marker.offset}px` }}
