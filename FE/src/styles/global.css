@@ -1806,15 +1806,17 @@ h3 {
 }
 
 .timeline-structure-branch-guide {
-  stroke: color-mix(in srgb, var(--color-danger) 34%, var(--text-muted));
-  stroke-width: 1;
-  stroke-dasharray: 3 4;
-  opacity: 0.6;
+  stroke: color-mix(in srgb, var(--color-danger) 72%, var(--color-ink));
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  stroke-linecap: round;
+  opacity: 0.9;
 }
 
 .timeline-structure-branch-guide--selected {
-  stroke: color-mix(in srgb, var(--color-danger) 62%, var(--text-muted));
-  opacity: 0.95;
+  stroke: color-mix(in srgb, var(--color-danger) 88%, var(--color-ink));
+  stroke-width: 2.4;
+  opacity: 1;
 }
 
 .timeline-structure-node {
