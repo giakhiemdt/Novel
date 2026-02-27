@@ -1838,30 +1838,6 @@ h3 {
   opacity: 0.95;
 }
 
-.timeline-structure-link-anchor {
-  stroke-width: 1.2;
-  opacity: 0.9;
-}
-
-.timeline-structure-link-anchor--branch {
-  fill: color-mix(in srgb, var(--color-danger) 68%, var(--timeline-board-bg));
-  stroke: color-mix(in srgb, var(--color-danger) 82%, var(--timeline-board-bg));
-}
-
-.timeline-structure-link-anchor--loop {
-  fill: color-mix(in srgb, var(--color-success) 62%, var(--timeline-board-bg));
-  stroke: color-mix(in srgb, var(--color-success) 78%, var(--timeline-board-bg));
-}
-
-.timeline-structure-link-anchor--target {
-  fill: color-mix(in srgb, var(--timeline-board-bg) 72%, var(--color-danger));
-}
-
-.timeline-structure-link-anchor--selected {
-  stroke-width: 1.8;
-  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--color-primary) 34%, transparent));
-}
-
 .timeline-structure-node {
   position: absolute;
   border: 1px solid transparent;
@@ -1986,16 +1962,6 @@ h3 {
   top: 50%;
   transform: translate(-50%, -50%);
   pointer-events: none;
-}
-
-.timeline-structure-axis-origin__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  display: block;
-  background: color-mix(in srgb, var(--color-danger) 64%, var(--timeline-board-bg));
-  border: 1px solid color-mix(in srgb, var(--color-danger) 84%, var(--timeline-board-bg));
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--timeline-board-bg) 72%, transparent);
 }
 
 .timeline-structure-axis-origin__label {

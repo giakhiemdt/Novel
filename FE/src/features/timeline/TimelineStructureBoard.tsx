@@ -1722,37 +1722,6 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                     .join(" ")}
                   markerEnd={`url(#timeline-link-arrow-${connector.axisType})`}
                 />
-                <circle
-                  cx={connector.fromX}
-                  cy={connector.fromY}
-                  r={connector.axisType === "branch" ? 4.2 : 3.4}
-                  className={[
-                    "timeline-structure-link-anchor",
-                    `timeline-structure-link-anchor--${connector.axisType}`,
-                    selectedNode?.kind === "axis" && selectedNode.id === connector.axisId
-                      ? "timeline-structure-link-anchor--selected"
-                      : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                />
-                {connector.axisType === "branch" ? (
-                  <circle
-                    cx={connector.toX}
-                    cy={connector.toY}
-                    r={4}
-                    className={[
-                      "timeline-structure-link-anchor",
-                      "timeline-structure-link-anchor--branch",
-                      "timeline-structure-link-anchor--target",
-                      selectedNode?.kind === "axis" && selectedNode.id === connector.axisId
-                        ? "timeline-structure-link-anchor--selected"
-                        : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                  />
-                ) : null}
                 <text
                   x={connector.badgeX}
                   y={connector.badgeY - 4}
@@ -1872,7 +1841,6 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                             : t("Branch start")
                         }
                       >
-                        <span className="timeline-structure-axis-origin__dot" aria-hidden="true" />
                         <span className="timeline-structure-axis-origin__label">
                           {t("Start")}
                         </span>
