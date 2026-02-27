@@ -1360,6 +1360,11 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
     return event.clientX < rect.left + rect.width / 2 ? "before" : "after";
   };
 
+  const getDraggingSegmentId = (event: DragEvent<HTMLElement>) =>
+    event.dataTransfer?.getData("application/x-timeline-segment-id") ||
+    event.dataTransfer?.getData("text/plain") ||
+    "";
+
   const clearDragState = () => {
     setDragNode(null);
     setDropHint(null);
@@ -1985,6 +1990,10 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                       draggable={!savingOrder}
                       onDragStart={(event) => {
                         event.stopPropagation();
+                        event.dataTransfer.setData(
+                          "application/x-timeline-segment-id",
+                          segmentNode.segment.id
+                        );
                         event.dataTransfer.setData("text/plain", segmentNode.segment.id);
                         event.dataTransfer.effectAllowed = "move";
                         setAlignedDragImage(event);
@@ -1992,11 +2001,14 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                         setDropHint(null);
                       }}
                     onDragOver={(event) => {
+                      const draggingSegmentId =
+                        dragNode?.kind === "segment"
+                          ? dragNode.id
+                          : getDraggingSegmentId(event);
                       if (
                         savingOrder ||
-                        !dragNode ||
-                        dragNode.kind !== "segment" ||
-                        !canDropSegmentOnSegment(dragNode.id, segmentNode.segment.id)
+                        !draggingSegmentId ||
+                        !canDropSegmentOnSegment(draggingSegmentId, segmentNode.segment.id)
                       ) {
                         return;
                       }
@@ -2017,11 +2029,14 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                         }
                       }}
                       onDrop={(event) => {
+                        const draggingSegmentId =
+                          dragNode?.kind === "segment"
+                            ? dragNode.id
+                            : getDraggingSegmentId(event);
                         if (
-                          !dragNode ||
-                          dragNode.kind !== "segment" ||
                           savingOrder ||
-                          !canDropSegmentOnSegment(dragNode.id, segmentNode.segment.id)
+                          !draggingSegmentId ||
+                          !canDropSegmentOnSegment(draggingSegmentId, segmentNode.segment.id)
                         ) {
                           clearDragState();
                           return;
@@ -2029,7 +2044,11 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                         event.preventDefault();
                         event.stopPropagation();
                         const position = resolveDropPosition(event);
-                        void reorderSegments(dragNode.id, segmentNode.segment.id, position);
+                        void reorderSegments(
+                          draggingSegmentId,
+                          segmentNode.segment.id,
+                          position
+                        );
                         clearDragState();
                       }}
                       onDragEnd={clearDragState}
