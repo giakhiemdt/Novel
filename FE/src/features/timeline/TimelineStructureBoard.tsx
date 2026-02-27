@@ -1,4 +1,5 @@
 import {
+  type CSSProperties,
   type DragEvent,
   type PointerEvent,
   useCallback,
@@ -1775,6 +1776,15 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
             <div key={axisNode.axis.id}>
               {shouldShowAxis(axisNode.axis.id) ? (
                 <>
+                  {(() => {
+                    const axisConnector = connectorByAxisId.get(axisNode.axis.id);
+                    const axisLineStartOffset =
+                      axisNode.axis.axisType === "branch" && axisConnector
+                        ? clamp(axisConnector.toX - axisNode.axisX, 0, axisNode.axisWidth - 14)
+                        : 0;
+
+                    return (
+                      <>
                   <div
                     className="timeline-structure-axis-label"
                     style={{
@@ -1800,7 +1810,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                     ) : null}
                     {axisNode.axis.axisType === "branch" &&
                     axisNode.axis.originMarkerId &&
-                    !connectorByAxisId.get(axisNode.axis.id)?.originMarkerId ? (
+                    !axisConnector?.originMarkerId ? (
                       <span className="timeline-structure-axis-label__warning">
                         {t("Missing origin marker")}
                       </span>
@@ -1821,7 +1831,8 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                     style={{
                       width: axisNode.axisWidth,
                       transform: `translate(${axisNode.axisX}px, ${axisNode.y}px)`,
-                    }}
+                      ["--axis-start-offset" as string]: `${axisLineStartOffset}px`,
+                    } as CSSProperties}
                     aria-label={`${axisNode.axis.name}: ${Math.round(axisNode.start)} - ${Math.round(
                       axisNode.end
                     )}`}
@@ -1840,7 +1851,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                     <span className="timeline-structure-axis-start-tick" aria-hidden="true" />
                     <span className="timeline-structure-axis-arrow" aria-hidden="true" />
                     {axisNode.axis.axisType === "branch" &&
-                    connectorByAxisId.get(axisNode.axis.id) ? (
+                    axisConnector ? (
                       <span
                         className={[
                           "timeline-structure-axis-origin",
@@ -1851,17 +1862,12 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                           .filter(Boolean)
                           .join(" ")}
                         style={{
-                          left: `${
-                            (connectorByAxisId.get(axisNode.axis.id)!.toX - axisNode.axisX).toFixed(
-                              2
-                            )
-                          }px`,
+                          left: `${axisLineStartOffset.toFixed(2)}px`,
                         }}
                         title={
-                          connectorByAxisId.get(axisNode.axis.id)!.originLabel &&
-                          isFiniteNumber(connectorByAxisId.get(axisNode.axis.id)!.originTick)
-                            ? `${connectorByAxisId.get(axisNode.axis.id)!.originLabel} (${Math.round(
-                                connectorByAxisId.get(axisNode.axis.id)!.originTick as number
+                          axisConnector.originLabel && isFiniteNumber(axisConnector.originTick)
+                            ? `${axisConnector.originLabel} (${Math.round(
+                                axisConnector.originTick as number
                               )})`
                             : t("Branch start")
                         }
@@ -1873,6 +1879,9 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                       </span>
                     ) : null}
                   </div>
+                      </>
+                    );
+                  })()}
                 </>
               ) : null}
 

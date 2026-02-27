@@ -1921,7 +1921,7 @@ h3 {
 
 .timeline-structure-axis-line {
   position: absolute;
-  left: 0;
+  left: var(--axis-start-offset, 0px);
   right: 12px;
   top: 50%;
   height: 2px;
@@ -1943,7 +1943,7 @@ h3 {
 
 .timeline-structure-axis-start-tick {
   position: absolute;
-  left: 0;
+  left: var(--axis-start-offset, 0px);
   top: 50%;
   width: 2px;
   height: 12px;
@@ -1961,7 +1961,7 @@ h3 {
 }
 
 .timeline-structure-axis-year--start {
-  left: 0;
+  left: var(--axis-start-offset, 0px);
   transform: translateX(-6%);
 }
 
