@@ -1666,31 +1666,6 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
             height={canvasSize.height}
             aria-hidden="true"
           >
-            <defs>
-              <marker
-                id="timeline-link-arrow-branch"
-                viewBox="0 0 10 10"
-                refX="7"
-                refY="5"
-                markerWidth="5"
-                markerHeight="5"
-                orient="auto-start-reverse"
-              >
-                <path d="M 0 0 L 10 5 L 0 10 z" className="timeline-structure-link-arrow timeline-structure-link-arrow--branch" />
-              </marker>
-              <marker
-                id="timeline-link-arrow-loop"
-                viewBox="0 0 10 10"
-                refX="7"
-                refY="5"
-                markerWidth="5"
-                markerHeight="5"
-                orient="auto-start-reverse"
-              >
-                <path d="M 0 0 L 10 5 L 0 10 z" className="timeline-structure-link-arrow timeline-structure-link-arrow--loop" />
-              </marker>
-            </defs>
-
             {axisConnectors.map((connector) => (
               <g key={connector.id}>
                 {connector.axisType === "branch" ? (
@@ -1720,17 +1695,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                   ]
                     .filter(Boolean)
                     .join(" ")}
-                  markerEnd={`url(#timeline-link-arrow-${connector.axisType})`}
                 />
-                <text
-                  x={connector.badgeX}
-                  y={connector.badgeY - 4}
-                  className={`timeline-structure-link-label timeline-structure-link-label--${connector.axisType}`}
-                >
-                  {connector.axisType === "loop"
-                    ? `${t("Loop")} ↺ ${connector.parentName}`
-                    : `${t("Branch")} ← ${connector.parentName}`}
-                </text>
               </g>
             ))}
           </svg>

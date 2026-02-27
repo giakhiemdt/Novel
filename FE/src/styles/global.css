@@ -1805,27 +1805,6 @@ h3 {
   opacity: 1;
 }
 
-.timeline-structure-link-arrow--branch {
-  fill: color-mix(in srgb, var(--color-danger) 62%, var(--text-muted));
-}
-
-.timeline-structure-link-arrow--loop {
-  fill: color-mix(in srgb, var(--color-success) 62%, var(--text-muted));
-}
-
-.timeline-structure-link-label {
-  font-size: 10px;
-  letter-spacing: 0.02em;
-}
-
-.timeline-structure-link-label--branch {
-  fill: color-mix(in srgb, var(--color-danger) 60%, var(--text-muted));
-}
-
-.timeline-structure-link-label--loop {
-  fill: color-mix(in srgb, var(--color-success) 60%, var(--text-muted));
-}
-
 .timeline-structure-branch-guide {
   stroke: color-mix(in srgb, var(--color-danger) 34%, var(--text-muted));
   stroke-width: 1;
