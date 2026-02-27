@@ -92,6 +92,7 @@ type AxisConnector = {
   fromY: number;
   projectionFromY: number;
   toX: number;
+  toStartTickX: number;
   toY: number;
   originMarkerId?: string;
   originLabel?: string;
@@ -775,6 +776,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
       const maxAxisX = item.axisX + item.axisWidth - 12;
       const finalToX =
         axisType === "branch" ? clamp(fromX, minAxisX, maxAxisX) : toX;
+      const finalToStartTickX = axisType === "branch" ? finalToX + 1 : finalToX;
       const controlX = (fromX + finalToX) / 2;
       const path =
         axisType === "branch"
@@ -791,6 +793,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
           fromY,
           projectionFromY,
           toX: finalToX,
+          toStartTickX: finalToStartTickX,
           toY,
           originMarkerId,
           originLabel,
@@ -1673,9 +1676,9 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
               <g key={connector.id}>
                 {connector.axisType === "branch" ? (
                   <line
-                    x1={connector.toX}
+                    x1={connector.toStartTickX}
                     y1={Math.min(connector.toY - 6, connector.projectionFromY)}
-                    x2={connector.toX}
+                    x2={connector.toStartTickX}
                     y2={Math.max(connector.toY - 6, connector.projectionFromY)}
                     className={[
                       "timeline-structure-branch-guide",
@@ -1685,7 +1688,7 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
                     ]
                       .filter(Boolean)
                       .join(" ")}
-                    style={{ stroke: "#8f3a3a", strokeWidth: 2.2, strokeDasharray: "6 4" }}
+                    style={{ stroke: "#b77878", strokeWidth: 1.1, strokeDasharray: "5 4" }}
                   />
                 ) : null}
                 {connector.axisType === "loop" ? (
