@@ -1692,7 +1692,9 @@ export const TimelineStructureBoard = ({ refreshKey = 0 }: TimelineStructureBoar
           >
             {axisConnectors.map((connector) => (
               <g key={connector.id}>
-                {connector.axisType === "branch" ? (
+                {connector.axisType === "branch" &&
+                selectedNode?.kind === "axis" &&
+                selectedNode.id === connector.axisId ? (
                   <line
                     x1={connector.toStartTickX}
                     y1={Math.min(connector.toY - 6, connector.projectionFromY)}
