@@ -302,12 +302,41 @@ export const EventCreate = () => {
 
   const loadTimelineStructure = useCallback(async () => {
     try {
-      const [segmentResponse, markerResponse] = await Promise.all([
-        getTimelineSegmentsPage({ limit: 500, offset: 0 }),
-        getTimelineMarkersPage({ limit: 1000, offset: 0 }),
+      const loadAll = async <T,>(
+        loader: (query: { limit: number; offset: number }) => Promise<{
+          data: T[];
+          meta?: { total?: number };
+        }>
+      ): Promise<T[]> => {
+        const limit = 200;
+        let offset = 0;
+        let done = false;
+        const items: T[] = [];
+
+        while (!done) {
+          const response = await loader({ limit, offset });
+          const batch = response?.data ?? [];
+          items.push(...batch);
+
+          const total =
+            typeof response?.meta?.total === "number" ? response.meta.total : undefined;
+          offset += batch.length;
+          if (total !== undefined) {
+            done = offset >= total || batch.length === 0;
+          } else {
+            done = batch.length < limit;
+          }
+        }
+
+        return items;
+      };
+
+      const [loadedSegments, loadedMarkers] = await Promise.all([
+        loadAll((query) => getTimelineSegmentsPage(query)),
+        loadAll((query) => getTimelineMarkersPage(query)),
       ]);
-      setSegments(segmentResponse?.data ?? []);
-      setMarkers(markerResponse?.data ?? []);
+      setSegments(loadedSegments);
+      setMarkers(loadedMarkers);
     } catch (err) {
       notify((err as Error).message, "error");
     }

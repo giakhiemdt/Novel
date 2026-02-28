@@ -185,8 +185,27 @@ export const WorldRuleCreate = () => {
 
   const loadSegments = useCallback(async () => {
     try {
-      const response = await getTimelineSegmentsPage({ limit: 500, offset: 0 });
-      setSegments(response?.data ?? []);
+      const limit = 200;
+      let offset = 0;
+      let done = false;
+      const allSegments: TimelineSegment[] = [];
+
+      while (!done) {
+        const response = await getTimelineSegmentsPage({ limit, offset });
+        const batch = response?.data ?? [];
+        allSegments.push(...batch);
+
+        const total =
+          typeof response?.meta?.total === "number" ? response.meta.total : undefined;
+        offset += batch.length;
+        if (total !== undefined) {
+          done = offset >= total || batch.length === 0;
+        } else {
+          done = batch.length < limit;
+        }
+      }
+
+      setSegments(allSegments);
     } catch (err) {
       notify((err as Error).message, "error");
     }
