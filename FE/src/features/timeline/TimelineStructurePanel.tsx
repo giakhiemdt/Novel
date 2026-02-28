@@ -181,6 +181,9 @@ const formatJson = (value: unknown): string => JSON.stringify(value, null, 2);
 const compareText = (left?: string, right?: string): number =>
   (left ?? "").localeCompare(right ?? "");
 
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
+
 const sortAxes = (left: TimelineAxis, right: TimelineAxis): number =>
   (left.sortOrder ?? 0) - (right.sortOrder ?? 0) || compareText(left.name, right.name);
 
@@ -279,6 +282,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
   const [segmentCode, setSegmentCode] = useState("");
   const [segmentDurationYears, setSegmentDurationYears] = useState("");
 
+  const [markerSegmentId, setMarkerSegmentId] = useState("");
   const [markerLabel, setMarkerLabel] = useState("");
   const [markerType, setMarkerType] = useState("");
   const [markerTick, setMarkerTick] = useState("");
@@ -303,6 +307,10 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
   const selectedSegment = useMemo(
     () => segments.find((segment) => segment.id === selectedSegmentId),
     [segments, selectedSegmentId]
+  );
+  const selectedMarkerSegment = useMemo(
+    () => segments.find((segment) => segment.id === markerSegmentId),
+    [markerSegmentId, segments]
   );
   const mainAxis = useMemo(
     () => axes.find((axis) => axis.axisType === "main"),
@@ -371,6 +379,19 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
     });
     return map;
   }, [segments]);
+
+  const markerSegmentOptions = useMemo(
+    () =>
+      [...segments]
+        .sort(sortSegments)
+        .map((segment) => ({
+          value: segment.id,
+          label: `${segment.name}${
+            eraNameById.get(segment.eraId) ? ` • ${eraNameById.get(segment.eraId)}` : ""
+          }`,
+        })),
+    [eraNameById, segments]
+  );
 
   const markerCountByAxis = useMemo(() => {
     const map = new Map<string, number>();
@@ -549,6 +570,24 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       setAxisOriginMarkerId(fallbackOriginMarkerId);
     }
   }, [axisOriginMarkerId, axisType, branchOriginMarkerOptions, createMode]);
+
+  useEffect(() => {
+    if (createMode !== "marker") {
+      return;
+    }
+    const hasCurrentSegment =
+      markerSegmentId && segments.some((segment) => segment.id === markerSegmentId);
+    if (hasCurrentSegment) {
+      return;
+    }
+    const fallbackSegmentId =
+      (selectedSegmentId && segments.some((segment) => segment.id === selectedSegmentId)
+        ? selectedSegmentId
+        : [...segments].sort(sortSegments)[0]?.id) ?? "";
+    if (fallbackSegmentId !== markerSegmentId) {
+      setMarkerSegmentId(fallbackSegmentId);
+    }
+  }, [createMode, markerSegmentId, segments, selectedSegmentId]);
 
   const timelineTree = useMemo<TimelineTreeAxisNode[]>(() => {
     const markersBySegment = new Map<string, TimelineTreeMarkerNode[]>();
@@ -772,22 +811,35 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
   };
 
   const handleCreateMarker = async () => {
-    const targetSegmentId =
-      (selectedSegmentId &&
-      segments.some((segment) => segment.id === selectedSegmentId)
-        ? selectedSegmentId
-        : [...segments].sort(sortSegments)[0]?.id) ?? "";
+    const targetSegmentId = markerSegmentId.trim();
     if (!targetSegmentId) {
       notify(t("Select a segment first"), "error");
+      return;
+    }
+    const targetSegment = segments.find((segment) => segment.id === targetSegmentId);
+    if (!targetSegment) {
+      notify(t("Select a valid segment"), "error");
       return;
     }
     if (!markerLabel.trim()) {
       notify(t("Marker label is required"), "error");
       return;
     }
+    if (!markerTick.trim()) {
+      notify(t("Tick is required"), "error");
+      return;
+    }
     const parsedTick = Number(markerTick);
     if (!Number.isFinite(parsedTick)) {
       notify(t("Tick must be a number"), "error");
+      return;
+    }
+    const tickMin = isFiniteNumber(targetSegment.startTick) ? targetSegment.startTick : 0;
+    const tickMax = isFiniteNumber(targetSegment.endTick)
+      ? targetSegment.endTick
+      : tickMin + Math.max(targetSegment.durationYears, 0);
+    if (parsedTick < tickMin || parsedTick > tickMax) {
+      notify(t(`Tick must be between ${tickMin} and ${tickMax}`), "error");
       return;
     }
     try {
@@ -803,6 +855,7 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
       setSelectedEraId(created.eraId);
       setSelectedSegmentId(created.segmentId);
       setSelectedNodeKey(getNodeKey("marker", created.id));
+      setMarkerSegmentId(created.segmentId);
       setMarkerLabel("");
       setMarkerType("");
       setMarkerTick("");
@@ -1938,6 +1991,13 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
 
         {createMode === "marker" ? (
           <>
+            <Select
+              label="Segment"
+              value={markerSegmentId}
+              onChange={setMarkerSegmentId}
+              options={markerSegmentOptions}
+              placeholder="Select segment"
+            />
             <TextInput
               label="Marker label"
               value={markerLabel}
@@ -1952,6 +2012,17 @@ export const TimelineStructurePanel = ({ open }: TimelineStructurePanelProps) =>
               onChange={setMarkerTick}
               required
             />
+            <div className="form-field">
+              <label>{t("Tick range")}</label>
+              <p className="header__subtitle">
+                {selectedMarkerSegment
+                  ? isFiniteNumber(selectedMarkerSegment.startTick) &&
+                    isFiniteNumber(selectedMarkerSegment.endTick)
+                    ? `${selectedMarkerSegment.startTick} - ${selectedMarkerSegment.endTick}`
+                    : `0 - ${Math.max(selectedMarkerSegment.durationYears, 0)}`
+                  : "-"}
+              </p>
+            </div>
           </>
         ) : null}
 
